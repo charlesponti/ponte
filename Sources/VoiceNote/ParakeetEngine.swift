@@ -283,17 +283,46 @@ final class ParakeetEngine {
 
     private static func handler(_ progress: ((String) -> Void)?) -> ProgressHandler? {
         guard let progress else { return nil }
+        // FluidAudio emits progress from several threads and repeats states; without
+        // dedupe the HUD flickers through identical lines during a download.
+        let dedupe = ProgressDedupe(progress)
         return { update in
             let pct = Int((update.fractionCompleted * 100).rounded())
             switch update.phase {
             case .listing:
-                progress("Listing Parakeet model files…")
+                dedupe.emit("Listing Parakeet model files…")
             case .downloading(let done, let total):
-                progress("Downloading Parakeet models… \(pct)% (\(done)/\(total) files)")
+                dedupe.emit("Downloading Parakeet models… \(pct)% (\(done)/\(total) files)")
             case .compiling(let name):
-                progress("Compiling \(name) for the Neural Engine…")
+                let label = name.isEmpty ? "model" : name
+                dedupe.emit("Compiling \(label) for the Neural Engine…")
             }
         }
+    }
+}
+
+/// Forwards only changes in the progress text, at most a few times a second.
+private final class ProgressDedupe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last: String?
+    private var lastEmit = Date.distantPast
+    private let sink: (String) -> Void
+
+    init(_ sink: @escaping (String) -> Void) {
+        self.sink = sink
+    }
+
+    func emit(_ message: String) {
+        lock.lock()
+        let now = Date()
+        if message == last, now.timeIntervalSince(lastEmit) < 1.0 {
+            lock.unlock()
+            return
+        }
+        last = message
+        lastEmit = now
+        lock.unlock()
+        sink(message)
     }
 }
 
