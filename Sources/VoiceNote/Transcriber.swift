@@ -5,6 +5,8 @@ enum Transcriber {
     struct Result {
         let text: String
         let seconds: Double
+        var engine: String = "whisper.cpp"
+        var confidence: Float? = nil
     }
 
     static func transcribe(wav: URL,
@@ -55,7 +57,8 @@ enum Transcriber {
             throw VoiceNoteError.transcriptionFailed(err.isEmpty ? "exit \(status)" : err)
         }
 
-        return Result(text: text, seconds: Date().timeIntervalSince(started))
+        return Result(text: text, seconds: Date().timeIntervalSince(started),
+                      engine: "whisper.cpp \(modelName)")
     }
 
     /// whisper.cpp prints `[00:00:00.000 --> 00:00:05.000]` lines; strip them.
@@ -83,7 +86,8 @@ enum Transcriber {
     // MARK: - Saving
 
     @discardableResult
-    static func save(transcript: String, audio: URL?, elapsed: TimeInterval, took: Double) -> URL? {
+    static func save(transcript: String, audio: URL?, elapsed: TimeInterval, took: Double,
+                     engine: String = "whisper.cpp") -> URL? {
         guard !transcript.isEmpty else { return nil }
         let now = Date()
         let file = AppPaths.transcripts.appendingPathComponent("note-\(AppPaths.stamp(now)).md")
@@ -94,7 +98,7 @@ enum Transcriber {
         date: \(ISO8601DateFormatter().string(from: now))
         duration: \(duration)
         transcribe_time: \(String(format: "%.1f", took))s
-        model: \(Settings.model)
+        engine: \(engine)
         language: \(Settings.language)
         audio: \(audioField)
         ---

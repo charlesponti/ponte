@@ -47,6 +47,8 @@ enum SettingKey {
     static let keepAudio = "keepAudio"
     static let hotKeyCode = "hotKeyCode"
     static let hotKeyMods = "hotKeyMods"
+    static let engine = "engine"
+    static let parakeetModel = "parakeetModel"
 }
 
 enum Settings {
@@ -56,6 +58,8 @@ enum Settings {
             SettingKey.language: "en",
             SettingKey.autoPaste: true,
             SettingKey.keepAudio: false,
+            SettingKey.engine: AsrEngineKind.parakeet.rawValue,
+            SettingKey.parakeetModel: ParakeetModel.ultra.rawValue,
         ])
     }
 
@@ -74,6 +78,17 @@ enum Settings {
     static var keepAudio: Bool {
         get { UserDefaults.standard.bool(forKey: SettingKey.keepAudio) }
         set { UserDefaults.standard.set(newValue, forKey: SettingKey.keepAudio) }
+    }
+
+    /// Which ASR engine does the work. Default: Parakeet on the Neural Engine.
+    static var engine: AsrEngineKind {
+        get { AsrEngineKind(rawValue: UserDefaults.standard.string(forKey: SettingKey.engine) ?? "") ?? .parakeet }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: SettingKey.engine) }
+    }
+
+    static var parakeetModel: ParakeetModel {
+        get { ParakeetModel(rawValue: UserDefaults.standard.string(forKey: SettingKey.parakeetModel) ?? "") ?? .ultra }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: SettingKey.parakeetModel) }
     }
 }
 

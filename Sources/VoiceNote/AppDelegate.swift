@@ -75,6 +75,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
+        // Warm the ASR engine so the first dictation doesn't sit through CoreML's
+        // one-time Neural Engine programme specialisation (~20 s).
+        if Settings.engine == .parakeet {
+            let model = Settings.parakeetModel
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    try ParakeetEngine.shared.preload(model: model)
+                } catch {
+                    vlog("preload failed: \(error.localizedDescription)")
+                }
+            }
+        }
+
         // Proof-of-life: record where the menu bar item actually landed.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self, let button = self.statusItem.button else {
@@ -135,9 +148,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             do {
-                let result = try Transcriber.transcribe(wav: url)
+                let result = try AsrEngine.transcribe(wav: url) { message in
+                    DispatchQueue.main.async { self.hud.showWorking(message) }
+                }
                 DispatchQueue.main.async {
-                    self.finish(text: result.text, took: result.seconds, audio: url, elapsed: elapsed)
+                    self.finish(text: result.text, took: result.seconds, audio: url,
+                                elapsed: elapsed, engine: result.engine)
                 }
             } catch {
                 vlog("transcribe failed: \(error.localizedDescription)")
@@ -152,7 +168,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func finish(text: String, took: Double, audio: URL, elapsed: TimeInterval) {
+    private func finish(text: String, took: Double, audio: URL, elapsed: TimeInterval, engine: String) {
         state = .idle
         updateIcon()
 
@@ -163,8 +179,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         lastTranscript = text
-        Transcriber.save(transcript: text, audio: audio, elapsed: elapsed, took: took)
-        vlog(String(format: "transcribed %.1fs audio in %.1fs -> %d chars", elapsed, took, text.count))
+        Transcriber.save(transcript: text, audio: audio, elapsed: elapsed, took: took, engine: engine)
+        vlog(String(format: "transcribed %.1fs audio in %.1fs -> %d chars [%@]", elapsed, took, text.count, engine))
 
         let pb = NSPasteboard.general
         pb.clearContents()
@@ -251,6 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(modelMenu())
         menu.addItem(languageMenu())
+        menu.addItem(engineMenu())
 
         menu.addItem(.separator())
         menu.addItem(check("Auto-paste into frontmost app", Settings.autoPaste, #selector(toggleAutoPaste)))
@@ -303,6 +320,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         sub.addItem(.separator())
         sub.addItem(item("Reveal Models Folder", #selector(openModels), nil))
+
+        parent.submenu = sub
+        return parent
+    }
+
+    private func engineMenu() -> NSMenuItem {
+        let parent = NSMenuItem(title: "Engine", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        sub.autoenablesItems = false
+
+        for kind in AsrEngineKind.allCases {
+            sub.addItem(check(kind.label, Settings.engine == kind,
+                              #selector(selectEngine(_:)), represented: kind.rawValue))
+        }
+
+        sub.addItem(.separator())
+        for model in ParakeetModel.allCases {
+            let installed = ParakeetEngine.shared.isInstalled(model)
+            let title = installed ? model.label : "\(model.label) — not downloaded"
+            sub.addItem(check(title, Settings.parakeetModel == model,
+                              #selector(selectParakeetModel(_:)), represented: model.rawValue))
+        }
+
+        sub.addItem(.separator())
+        let current = Settings.parakeetModel
+        if ParakeetEngine.shared.isInstalled(current) {
+            sub.addItem(item("Unload Parakeet from memory", #selector(unloadParakeet), nil))
+        } else {
+            sub.addItem(item("Download \(current.shortLabel) now", #selector(downloadParakeet), nil))
+        }
+        sub.addItem(item("Reveal Parakeet Models Folder", #selector(openParakeetModels), nil))
 
         parent.submenu = sub
         return parent
@@ -410,6 +458,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func selectModel(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
         Settings.model = name
+    }
+
+    @objc private func selectEngine(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let kind = AsrEngineKind(rawValue: raw) else { return }
+        Settings.engine = kind
+        vlog("engine set to \(kind.rawValue)")
+        if kind == .parakeet {
+            let model = Settings.parakeetModel
+            if !ParakeetEngine.shared.isInstalled(model) {
+                Shell.notify("VoiceNote", "Parakeet models download on first use — the next recording will pause while they fetch.")
+            }
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                do {
+                    try ParakeetEngine.shared.preload(model: model) { message in
+                        DispatchQueue.main.async { self?.hud.showWorking(message) }
+                    }
+                    DispatchQueue.main.async { self?.hud.showDone("parakeet ready ✓") }
+                } catch {
+                    vlog("preload failed: \(error.localizedDescription)")
+                    DispatchQueue.main.async { self?.hud.showError("Parakeet unavailable") }
+                }
+            }
+        }
+    }
+
+    @objc private func selectParakeetModel(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let model = ParakeetModel(rawValue: raw) else { return }
+        Settings.parakeetModel = model
+        ParakeetEngine.shared.unload()
+        vlog("parakeet model set to \(model.shortLabel)")
+        guard Settings.engine == .parakeet else { return }
+        hud.showWorking("Loading \(model.shortLabel)…")
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            do {
+                try ParakeetEngine.shared.preload(model: model) { message in
+                    DispatchQueue.main.async { self?.hud.showWorking(message) }
+                }
+                DispatchQueue.main.async { self?.hud.showDone("\(model.shortLabel) ready ✓") }
+            } catch {
+                DispatchQueue.main.async { self?.hud.showError("Could not load \(model.shortLabel)") }
+            }
+        }
+    }
+
+    @objc private func downloadParakeet() {
+        let model = Settings.parakeetModel
+        hud.showWorking("Downloading \(model.shortLabel)…")
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            do {
+                try ParakeetEngine.shared.download(model: model) { message in
+                    DispatchQueue.main.async { self?.hud.showWorking(message) }
+                }
+                DispatchQueue.main.async { self?.hud.showDone("\(model.shortLabel) ready ✓") }
+            } catch {
+                DispatchQueue.main.async { self?.hud.showError("Download failed") }
+                Shell.notify("VoiceNote", "Parakeet download failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    @objc private func unloadParakeet() {
+        ParakeetEngine.shared.unload()
+        Shell.notify("VoiceNote", "Parakeet models unloaded from memory.")
+    }
+
+    @objc private func openParakeetModels() {
+        NSWorkspace.shared.open(ParakeetEngine.shared.modelsRoot)
     }
 
     @objc private func selectLanguage(_ sender: NSMenuItem) {

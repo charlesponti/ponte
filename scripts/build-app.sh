@@ -19,6 +19,14 @@ cp .build/release/VoiceNote "$APP/Contents/MacOS/VoiceNote"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+# Resource bundles (FluidAudio ships CoreML/tokenizer resources) must travel with
+# the binary, or the CoreML models fail to load at runtime.
+for bundle in .build/release/*.bundle; do
+  [ -e "$bundle" ] || continue
+  echo "    + $(basename "$bundle")"
+  cp -R "$bundle" "$APP/Contents/Resources/"
+done
+
 # Stable ad-hoc signature so macOS remembers the microphone grant between builds.
 codesign --force --sign - --identifier com.ponti.voicenote "$APP" >/dev/null 2>&1 \
   || { echo "codesign failed"; exit 1; }

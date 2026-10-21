@@ -20,12 +20,17 @@ func usage() {
     USAGE
       VoiceNote                      run the menu bar app
       VoiceNote --record <seconds> [--out <file.wav>]
-      VoiceNote --transcribe <file.wav> [--model <name>] [--language <code>]
-      VoiceNote --selftest <seconds>
+      VoiceNote --transcribe <file.wav> [--engine whisper|parakeet]
+                                        [--parakeet-model ultra|v3|v2|redux]
+                                        [--model <whisper model>] [--language <code>]
+      VoiceNote --bench <file.wav>    run every installed engine on one file and compare
+      VoiceNote --download [ultra|v3|v2|redux|all]
+      VoiceNote --selftest <seconds> [--engine …]
       VoiceNote --devices
       VoiceNote --help
 
-    Models live in \(AppPaths.models.path)
+    whisper models live in \(AppPaths.models.path)
+    Parakeet (CoreML/ANE) models live in \(ParakeetEngine.shared.installPath(.ultra).path)
     Notes are written to \(AppPaths.transcripts.path)
     """)
 }
@@ -80,6 +85,40 @@ func value(of flag: String) -> String? {
     return argv[i + 1]
 }
 
+func audioDuration(_ url: URL) -> Double {
+    guard let file = try? AVAudioFile(forReading: url), file.processingFormat.sampleRate > 0 else { return 0 }
+    return Double(file.length) / file.processingFormat.sampleRate
+}
+
+func engineFlags() -> (AsrEngineKind, ParakeetModel, String) {
+    let kind = AsrEngineKind(rawValue: value(of: "--engine") ?? "") ?? Settings.engine
+    let model = ParakeetModel(rawValue: value(of: "--parakeet-model") ?? "") ?? Settings.parakeetModel
+    let language = value(of: "--language") ?? Settings.language
+    return (kind, model, language)
+}
+
+/// Run one engine a few times over the same file and report first/warm timings plus the text.
+func bench(_ label: String, runs: Int, audioSeconds: Double, _ work: () throws -> Transcriber.Result) {
+    var times: [Double] = []
+    var text = ""
+    for _ in 0..<runs {
+        let started = Date()
+        do {
+            let result = try work()
+            times.append(Date().timeIntervalSince(started))
+            text = result.text
+        } catch {
+            print("  \(label): FAILED — \(error.localizedDescription)")
+            return
+        }
+    }
+    let warm = times.dropFirst().min() ?? times[0]
+    let speed = warm > 0 ? audioSeconds / warm : 0
+    print(String(format: "  %-30@ first %5.2fs   warm %5.2fs   %6.1fx realtime",
+                 label as NSString, times[0], warm, speed))
+    print("     \"\(text.prefix(220))\"")
+}
+
 // MARK: - CLI dispatch
 
 func runCLI() -> Int32? {
@@ -100,17 +139,70 @@ func runCLI() -> Int32? {
         guard FileManager.default.fileExists(atPath: file.path) else {
             print("no such file: \(file.path)"); return 2
         }
-        let model = value(of: "--model") ?? Settings.model
         let language = value(of: "--language") ?? Settings.language
+        let (kind, parakeetModel, lang) = engineFlags()
         do {
-            let result = try Transcriber.transcribe(wav: file, modelName: model, language: language)
+            let result = try AsrEngine.transcribe(wav: file, engine: kind, parakeetModel: parakeetModel,
+                                                  language: lang) { message in
+                FileHandle.standardError.write("  \(message)\n".data(using: .utf8)!)
+            }
             print(result.text)
-            FileHandle.standardError.write("(\(String(format: "%.2f", result.seconds))s, model=\(model))\n".data(using: .utf8)!)
+            FileHandle.standardError.write("(\(String(format: "%.2f", result.seconds))s, engine=\(result.engine))\n".data(using: .utf8)!)
+            _ = language
             return result.text.isEmpty ? 1 : 0
         } catch {
             print("error: \(error.localizedDescription)")
             return 1
         }
+
+    case "--download":
+        let requested = argv.count > 2 && argv[2] != "all" ? [argv[2]] : ParakeetModel.allCases.map { $0.rawValue }
+        for name in requested {
+            guard let model = ParakeetModel(rawValue: name) else {
+                print("unknown parakeet model: \(name) (try ultra, v3, v2, redux)"); return 2
+            }
+            if ParakeetEngine.shared.isInstalled(model) {
+                print("\(model.shortLabel): already installed at \(ParakeetEngine.shared.installPath(model).path)")
+                continue
+            }
+            print("downloading \(model.shortLabel)…")
+            do {
+                try ParakeetEngine.shared.download(model: model) { message in print("  \(message)") }
+                print("\(model.shortLabel): ready at \(ParakeetEngine.shared.installPath(model).path)")
+            } catch {
+                print("\(model.shortLabel): failed — \(error.localizedDescription)")
+                return 1
+            }
+        }
+        return 0
+
+    case "--bench":
+        guard argv.count > 2 else { print("usage: VoiceNote --bench <file.wav>"); return 2 }
+        let file = URL(fileURLWithPath: argv[2])
+        guard FileManager.default.fileExists(atPath: file.path) else { print("no such file: \(file.path)"); return 2 }
+        let seconds = audioDuration(file)
+        let attrs = try? FileManager.default.attributesOfItem(atPath: file.path)
+        let bytes = (attrs?[.size] as? Int) ?? 0
+        let (_, benchModel, benchLang) = engineFlags()
+        print("file: \(file.lastPathComponent)  \(String(format: "%.2f", seconds))s  \(bytes / 1024) KB  language=\(benchLang)")
+        print("whisper:")
+        bench("whisper.cpp \(Settings.model)", runs: 3, audioSeconds: seconds) {
+            try Transcriber.transcribe(wav: file, modelName: Settings.model, language: benchLang)
+        }
+        print("parakeet (Neural Engine):")
+        for model in ParakeetModel.allCases {
+            let installed = ParakeetEngine.shared.isInstalled(model)
+            if installed || model == benchModel {
+                bench("parakeet \(model.shortLabel)", runs: 3, audioSeconds: seconds) {
+                    try ParakeetEngine.shared.transcribe(wav: file, model: model,
+                                                         language: ParakeetEngine.languageHint(benchLang),
+                                                         progress: nil)
+                }
+            } else {
+                print("  parakeet \(model.shortLabel): not downloaded (VoiceNote --download \(model.rawValue))")
+            }
+        }
+        return 0
 
     case "--record":
         let seconds = Double(value(of: "--record") ?? "") ?? 5
@@ -134,7 +226,7 @@ func runCLI() -> Int32? {
             let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
             let size = (attrs?[.size] as? Int) ?? 0
             print("captured \(url.lastPathComponent) (\(size) bytes)")
-            let result = try Transcriber.transcribe(wav: url)
+            let result = try AsrEngine.transcribe(wav: url) { message in print("  \(message)") }
             print("transcript (\(String(format: "%.2f", result.seconds))s): \(result.text)")
             try? FileManager.default.removeItem(at: url)
             return result.text.isEmpty ? 1 : 0
