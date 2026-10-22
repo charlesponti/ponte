@@ -1,50 +1,33 @@
 #!/bin/bash
-# Regenerates Resources/AppIcon.icns from scratch with ImageMagick.
-# Explicit intermediate files keep ImageMagick's composite order unambiguous.
+# Regenerates Resources/AppIcon.icns — every size inside it — with the app's own renderer.
+#   ./scripts/make-icon.sh [orb|halftone|ripple|core]
+#
+# The art is drawn by `Ponte --icon`, the same code that draws the orb in the HUD, so the icon
+# cannot drift from the thing it is an icon of. Each size is rendered *at* that size: the
+# renderer grows the dots relative to the sphere as the tile shrinks, which is what keeps a
+# 240-dot sphere from turning into a grey smudge at 32 px.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$ROOT/Resources"
+MARK="${1:-orb}"
+BIN="$ROOT/.build/release/Ponte"
+
 mkdir -p "$OUT"
+[ -x "$BIN" ] || { echo "build first: swift build -c release"; exit 1; }
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-
-S=1024
-
-# 1. gradient background
-magick -size ${S}x${S} "gradient:#4f6bff-#a855f7" "$TMP/bg.png"
-
-# 2. rounded-square mask (≈ macOS corner radius)
-magick -size ${S}x${S} xc:none -fill white \
-  -draw "roundrectangle 0,0 $((S-1)),$((S-1)) 232,232" "$TMP/mask.png"
-
-# 3. background clipped to the mask
-magick "$TMP/bg.png" "$TMP/mask.png" -alpha off -compose CopyOpacity -composite "$TMP/base.png"
-
-# 4. white microphone glyph on transparency:
-#    capsule body, cradle arc hugging its lower half, stem, foot
-magick -size ${S}x${S} xc:none \
-  -fill white -stroke none \
-  -draw "roundrectangle 438,190 586,550 74,74" \
-  -fill none -stroke white -strokewidth 50 \
-  -draw "arc 344,352 680,688 180,360" \
-  -draw "line 512,688 512,790" \
-  -draw "line 404,790 620,790" \
-  "$TMP/mic.png"
-
-# 5. glyph over background
-magick "$TMP/base.png" "$TMP/mic.png" -composite "$TMP/icon-${S}.png"
-
 ICONSET="$TMP/AppIcon.iconset"
 mkdir -p "$ICONSET"
+
 for s in 16 32 64 128 256 512; do
-  sips -z $s $s "$TMP/icon-${S}.png" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
-  d=$((s * 2))
-  sips -z $d $d "$TMP/icon-${S}.png" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+  "$BIN" --icon "$ICONSET/icon_${s}x${s}.png" "$MARK" "$s" >/dev/null
+  "$BIN" --icon "$ICONSET/icon_${s}x${s}@2x.png" "$MARK" "$((s * 2))" >/dev/null
 done
-cp "$TMP/icon-${S}.png" "$ICONSET/icon_512x512@2x.png"
+# a 1024 px render *is* icon_512x512@2x
+"$BIN" --icon "$ICONSET/icon_512x512@2x.png" "$MARK" 1024 >/dev/null
 
 iconutil -c icns "$ICONSET" -o "$OUT/AppIcon.icns"
-magick "$TMP/icon-${S}.png" -resize 320x320 "$OUT/icon-preview.png"
-echo "wrote $OUT/AppIcon.icns"
+"$BIN" --icon "$OUT/icon-preview.png" "$MARK" 320 >/dev/null
+echo "wrote $OUT/AppIcon.icns ($MARK, 16–1024 px)"

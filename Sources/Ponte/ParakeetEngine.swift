@@ -340,7 +340,7 @@ private final class ResultBox: @unchecked Sendable {
     func get() throws -> Transcriber.Result {
         lock.lock()
         defer { lock.unlock() }
-        guard let value else { throw VoiceNoteError.transcriptionFailed("engine returned nothing") }
+        guard let value else { throw PonteError.transcriptionFailed("engine returned nothing") }
         return try value.get()
     }
 }

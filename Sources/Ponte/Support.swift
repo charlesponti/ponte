@@ -6,7 +6,7 @@ enum AppPaths {
     static let home = FileManager.default.homeDirectoryForCurrentUser
 
     static let support: URL = {
-        let u = home.appendingPathComponent("Library/Application Support/VoiceNote", isDirectory: true)
+        let u = home.appendingPathComponent("Library/Application Support/Ponte", isDirectory: true)
         try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
         return u
     }()
@@ -24,12 +24,12 @@ enum AppPaths {
     }()
 
     static let transcripts: URL = {
-        let u = home.appendingPathComponent("Documents/VoiceNotes", isDirectory: true)
+        let u = home.appendingPathComponent("Documents/Ponte", isDirectory: true)
         try? FileManager.default.createDirectory(at: u, withIntermediateDirectories: true)
         return u
     }()
 
-    static let log = support.appendingPathComponent("voicenote.log")
+    static let log = support.appendingPathComponent("ponte.log")
 
     static func stamp(_ d: Date = Date()) -> String {
         let f = DateFormatter()
@@ -113,7 +113,7 @@ enum Settings {
 
 // MARK: - Errors
 
-enum VoiceNoteError: LocalizedError {
+enum PonteError: LocalizedError {
     case whisperMissing
     case modelMissing(String)
     case recordFailed
@@ -195,7 +195,7 @@ enum Shell {
 
     static func notify(_ title: String, _ message: String) {
         guard let tn = which("terminal-notifier") else { return }
-        run(tn.path, ["-title", title, "-message", message, "-group", "voicenote"])
+        run(tn.path, ["-title", title, "-message", message, "-group", "ponte"])
     }
 }
 

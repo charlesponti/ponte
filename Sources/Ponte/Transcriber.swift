@@ -13,11 +13,11 @@ enum Transcriber {
                            modelName: String = Settings.model,
                            language: String = Settings.language,
                            threads: Int = 8) throws -> Result {
-        guard let bin = Whisper.binary() else { throw VoiceNoteError.whisperMissing }
+        guard let bin = Whisper.binary() else { throw PonteError.whisperMissing }
 
         let model = Whisper.modelURL(modelName)
         guard FileManager.default.fileExists(atPath: model.path) else {
-            throw VoiceNoteError.modelMissing(modelName)
+            throw PonteError.modelMissing(modelName)
         }
 
         let started = Date()
@@ -54,7 +54,7 @@ enum Transcriber {
         text = clean(text)
 
         if text.isEmpty && status != 0 {
-            throw VoiceNoteError.transcriptionFailed(err.isEmpty ? "exit \(status)" : err)
+            throw PonteError.transcriptionFailed(err.isEmpty ? "exit \(status)" : err)
         }
 
         return Result(text: text, seconds: Date().timeIntervalSince(started),
@@ -174,7 +174,7 @@ final class ModelDownloader {
                     } catch { self.onFinish?(.failure(error)) }
                 } else {
                     vlog("model download failed \(name) status=\(p.terminationStatus)")
-                    self.onFinish?(.failure(VoiceNoteError.modelMissing(name)))
+                    self.onFinish?(.failure(PonteError.modelMissing(name)))
                 }
             }
         }

@@ -1,7 +1,7 @@
 # design/
 
-Design artifacts for VoiceNote. **Nothing in here ships to the app** and nothing here rebuilds or
-installs VoiceNote — it exists so a design can be agreed on before any code changes.
+Design artifacts for Ponte. **Nothing in here ships to the app** and nothing here rebuilds or
+installs Ponte — it exists so a design can be agreed on before any code changes.
 
 ## How we work
 

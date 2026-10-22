@@ -18,6 +18,12 @@ struct OrbLattice {
     /// 0 at the equator to 1 at a pole.
     let age: [Float]
 
+    init(unit: [SIMD3<Float>], age: [Float]) {
+        self.count = unit.count
+        self.unit = unit
+        self.age = age
+    }
+
     init(count: Int) {
         precondition(count > 1)
         self.count = count
@@ -35,6 +41,25 @@ struct OrbLattice {
         }
         self.unit = unit
         self.age = age
+    }
+}
+
+extension OrbLattice {
+    /// Even rows of dots around the sphere, like the lines of a halftone screen.
+    static func rows(rings: Int, perRing: (Int) -> Int) -> OrbLattice {
+        var unit: [SIMD3<Float>] = []
+        var age: [Float] = []
+        for row in 0...rings {
+            let y = 1 - 2 * Float(row) / Float(rings)
+            let radius = max(0.0001, (1 - y * y).squareRoot())
+            let count = perRing(row)
+            for i in 0..<count {
+                let angle = 2 * Float.pi * Float(i) / Float(count)
+                unit.append(SIMD3(cos(angle) * radius, y, sin(angle) * radius))
+                age.append(abs(asin(max(-1, min(1, y)))) / (.pi / 2))
+            }
+        }
+        return OrbLattice(unit: unit, age: age)
     }
 }
 
@@ -77,7 +102,7 @@ struct VoiceColumn {
 /// The last second or so of the voice, one entry per meter tick, read at any fractional age.
 ///
 /// Waveform keeps a ring of 120 columns a second and reads it with a Catmull-Rom curve through the
-/// four neighbours, so the motion has no corners as the playhead moves between entries. VoiceNote's
+/// four neighbours, so the motion has no corners as the playhead moves between entries. Ponte's
 /// meter ticks 30 times a second, so the ring is coarser — the curve is what keeps it smooth.
 final class LevelRing {
     private var slots: [VoiceColumn]
@@ -134,11 +159,12 @@ enum OrbRenderer {
     static let baseDotRadius: CGFloat = 0.62
 
     static func draw(in ctx: CGContext, center: CGPoint, size: CGFloat,
-                     tint: NSColor, alpha: CGFloat, spin: Float, voice: VoiceProfile? = nil) {
+                     tint: NSColor, alpha: CGFloat, spin: Float, voice: VoiceProfile? = nil,
+                     lattice: OrbLattice = OrbRenderer.lattice, dotScale: CGFloat = 1) {
         guard size >= 1.5, alpha > 0.01 else { return }
         let radius = OrbProjection.radius(in: size)
         // The whole object scales, so the dots scale with it rather than shedding.
-        let dotRadius = max(0.32, baseDotRadius * (size / fullSize))
+        let dotRadius = max(0.32, baseDotRadius * (size / fullSize) * dotScale)
         var layers = [[(CGPoint, CGFloat)]](repeating: [], count: 4)
         for i in 0..<lattice.count {
             // The dot at this age shows the sound that many columns back: silence is a plain sphere,

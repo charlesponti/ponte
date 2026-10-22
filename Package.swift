@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "VoiceNote",
+    name: "Ponte",
     platforms: [.macOS(.v14)],
     dependencies: [
         // Parakeet TDT / Unified ASR on the Apple Neural Engine via CoreML.
@@ -10,11 +10,11 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "VoiceNote",
+            name: "Ponte",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
             ],
-            path: "Sources/VoiceNote",
+            path: "Sources/Ponte",
             linkerSettings: [
                 .linkedFramework("Carbon"),
                 .linkedFramework("AppKit"),

@@ -1,4 +1,4 @@
-# VoiceNote
+# Ponte
 
 Push-to-talk dictation for macOS. Press a hotkey, talk, and the text appears at your cursor.
 Everything runs on your Mac — no network calls, no account, no subscription.
@@ -19,27 +19,27 @@ Two interchangeable engines, switchable from the menu (**Engine**):
 | **Parakeet on the ANE** (default) | FluidAudio 0.17.7 → CoreML Parakeet Ultra via `AsrManager` | Apple Neural Engine, models stay resident |
 | whisper.cpp | `whisper-cli` subprocess, `large-v3-turbo` | CPU, model reloaded per recording |
 
-Installed at `/Applications/VoiceNote.app`. Lives in the menu bar (no Dock icon).
+Installed at `/Applications/Ponte.app`. Lives in the menu bar (no Dock icon).
 
 ## What's in the repo
 
 | File | Purpose |
 |---|---|
-| `Sources/VoiceNote/main.swift` | entry point + CLI modes (`--record`, `--transcribe`, `--bench`, `--download`, `--selftest`, `--devices`) |
-| `Sources/VoiceNote/AppDelegate.swift` | menu bar item, menu, hotkey → record → transcribe → paste flow |
-| `Sources/VoiceNote/Recorder.swift` | mic capture straight to 16 kHz mono 16-bit WAV (what both engines want) |
-| `Sources/VoiceNote/ParakeetEngine.swift` | FluidAudio/CoreML engine + `AsrEngine` router that picks the engine |
-| `Sources/VoiceNote/Transcriber.swift` | whisper.cpp subprocess, transcript saving, model downloads |
-| `Sources/VoiceNote/Orb.swift` | the orb: lattice, projection, depth layers, and the whole lifecycle spec (`HudSpec`) |
-| `Sources/VoiceNote/HUD.swift` | the floating squircle, its collapse animation, and the offscreen renderer |
-| `Sources/VoiceNote/HotKey.swift` | Carbon global hotkey (no Accessibility permission needed to *trigger*) |
-| `scripts/build-app.sh` | builds and ad-hoc signs `VoiceNote.app`, copies SPM resource bundles |
+| `Sources/Ponte/main.swift` | entry point + CLI modes (`--record`, `--transcribe`, `--bench`, `--download`, `--selftest`, `--devices`) |
+| `Sources/Ponte/AppDelegate.swift` | menu bar item, menu, hotkey → record → transcribe → paste flow |
+| `Sources/Ponte/Recorder.swift` | mic capture straight to 16 kHz mono 16-bit WAV (what both engines want) |
+| `Sources/Ponte/ParakeetEngine.swift` | FluidAudio/CoreML engine + `AsrEngine` router that picks the engine |
+| `Sources/Ponte/Transcriber.swift` | whisper.cpp subprocess, transcript saving, model downloads |
+| `Sources/Ponte/Orb.swift` | the orb: lattice, projection, depth layers, and the whole lifecycle spec (`HudSpec`) |
+| `Sources/Ponte/HUD.swift` | the floating squircle, its collapse animation, and the offscreen renderer |
+| `Sources/Ponte/HotKey.swift` | Carbon global hotkey (no Accessibility permission needed to *trigger*) |
+| `scripts/build-app.sh` | builds and ad-hoc signs `Ponte.app`, copies SPM resource bundles |
 | `scripts/make-icon.sh` | regenerates the app icon with ImageMagick |
 
 ## Build & install
 
 ```bash
-./scripts/build-app.sh            # → dist/VoiceNote.app
+./scripts/build-app.sh            # → dist/Ponte.app
 ./scripts/build-app.sh --install  # → /Applications and launch
 ```
 
@@ -54,31 +54,51 @@ then ad-hoc. This matters more than it looks:
 - Signing with a certificate keys the requirement to the cert + bundle id:
 
   ```
-  identifier "com.ponti.voicenote" and anchor apple generic
+  identifier "com.ponti.ponte" and anchor apple generic
     and certificate leaf[subject.CN] = "Apple Development: …"
   ```
 
   Grants then survive rebuilds. Verified: two rebuilds after granting, zero
   `Failed to match existing code requirement` lines in the TCC log, recording started with no prompt.
 
-Override the identity with `VOICENOTE_SIGN_ID="Developer ID Application: …" ./scripts/build-app.sh`.
+Override the identity with `PONTE_SIGN_ID="Developer ID Application: …" ./scripts/build-app.sh`.
 
 If you ever switch identity, the old grants are dead — clear them and re-grant once:
 
 ```bash
-tccutil reset Accessibility com.ponti.voicenote
-tccutil reset Microphone com.ponti.voicenote
+tccutil reset Accessibility com.ponti.ponte
+tccutil reset Microphone com.ponti.ponte
 ```
 
 ## Requirements
 
 - FluidAudio 0.17.7 (Swift Package, resolved automatically) — runs Parakeet on the ANE
 - `brew install whisper-cpp` (v1.9.5) — only needed for the whisper.cpp engine
-- whisper models in `~/Library/Application Support/VoiceNote/models/`
+- whisper models in `~/Library/Application Support/Ponte/models/`
   - `ggml-large-v3-turbo.bin` — default, most accurate
   - `ggml-base.en.bin` — fallback, fast but noticeably worse punctuation
 - Parakeet models in `~/Library/Application Support/FluidAudio/Models/`. They download on first use,
-  or up front with `VoiceNote --download ultra`. Ultra's encoder is 595 MB (int8, ANE).
+  or up front with `Ponte --download ultra`. Ultra's encoder is 595 MB (int8, ANE).
+
+## The mark
+
+The app icon is **the orb itself**, drawn by the app's own renderer — `scripts/make-icon.sh` calls
+`Ponte --icon` for every size Apple's icon grid wants. It cannot drift from the thing it depicts.
+
+- **Each size is rendered at that size**, and the renderer grows the dots relative to the sphere as the
+  tile shrinks (`IconRenderer.dotScale`). Without that hint a 240-dot sphere averages into a grey smudge
+  at 64 px and is gone by 16 px; with it the same drawing is a dotted sphere at 512 and a solid dot at 16.
+- Four marks are available — `orb`, `halftone`, `ripple`, `core` — and all four survive to 16 px.
+- **The menu bar wears a silhouette, not the dots.** At 18 pt the dots merge into a fuzzy disc, so the
+  menu bar gets the sphere's outline: a core and a ring, as a template image the system tints for light
+  and dark bars. At rest only; the momentary states keep their own glyphs, because "recording" is worth
+  more than branding while it is happening (the orb is on screen in the HUD by then anyway).
+
+```bash
+./scripts/make-icon.sh orb        # writes Resources/AppIcon.icns, 16–1024 px
+Ponte --icon-sheet /tmp/marks.png # every mark at every size, for choosing
+Ponte --status-icon /tmp/bar.png  # the menu bar mark on its own
+```
 
 ## The HUD
 
@@ -134,10 +154,10 @@ Design decisions worth knowing before changing it:
 ### Seeing it without a screen grab
 
 ```bash
-VoiceNote --hud-strip /tmp/hud.png          # the lifecycle as a contact sheet, drawn by the app
-VoiceNote --hud-render /tmp/one.png done 0.45   # one frame: <out.png> <state> [t] [text]
-VoiceNote --hud-voice /tmp/voice.png            # the orb answering a voice: levels + a spoken word
-VoiceNote --orb-level /tmp/l.png 0.75           # one recording frame at a voice level
+Ponte --hud-strip /tmp/hud.png          # the lifecycle as a contact sheet, drawn by the app
+Ponte --hud-render /tmp/one.png done 0.45   # one frame: <out.png> <state> [t] [text]
+Ponte --hud-voice /tmp/voice.png            # the orb answering a voice: levels + a spoken word
+Ponte --orb-level /tmp/l.png 0.75           # one recording frame at a voice level
 ```
 
 `--hud-strip` is the honest way to review the HUD: it is the app's own renderer, not a mockup. The blur
@@ -186,11 +206,11 @@ confidence score, which is logged.
 
 | | |
 |---|---|
-| Transcripts | `~/Documents/VoiceNotes/note-<timestamp>.md` + rolling `all-notes.md` |
-| Recordings | `~/Library/Application Support/VoiceNote/audio/` (deleted after use unless "Keep audio files" is on) |
-| whisper models | `~/Library/Application Support/VoiceNote/models/` |
+| Transcripts | `~/Documents/Ponte/note-<timestamp>.md` + rolling `all-notes.md` |
+| Recordings | `~/Library/Application Support/Ponte/audio/` (deleted after use unless "Keep audio files" is on) |
+| whisper models | `~/Library/Application Support/Ponte/models/` |
 | Parakeet models | `~/Library/Application Support/FluidAudio/Models/` |
-| Log | `~/Library/Application Support/VoiceNote/voicenote.log` |
+| Log | `~/Library/Application Support/Ponte/ponte.log` |
 
 Each note records which engine produced it:
 
@@ -210,9 +230,9 @@ engine: parakeet-ultra
   on the clipboard and the HUD says "Copied to clipboard"; the app logs one quiet notice per launch
   rather than raising the system dialog at the end of every dictation. Grant it in
   **Permissions ▸ Accessibility**, restart, done.
-- **Documents folder** — macOS asks the first time a note is written to `~/Documents/VoiceNotes`.
+- **Documents folder** — macOS asks the first time a note is written to `~/Documents/Ponte`.
   One grant, then it sticks (as long as the signature is stable). Move `AppPaths.transcripts` into
-  `~/Library/Application Support/VoiceNote/` to avoid this prompt entirely.
+  `~/Library/Application Support/Ponte/` to avoid this prompt entirely.
 
 After granting Accessibility, the running process usually needs a restart before it takes effect —
 `AXIsProcessTrusted()` is cached per launch.
@@ -233,8 +253,8 @@ Two defaults, then restart the app (the hotkey is registered at launch):
 
 ```bash
 # ⌃⌥D = kVK_ANSI_D (2) with controlKey (4096) + optionKey (2048)
-defaults write com.ponti.voicenote hotKeyCode -int 2
-defaults write com.ponti.voicenote hotKeyMods -int 6144
+defaults write com.ponti.ponte hotKeyCode -int 2
+defaults write com.ponti.ponte hotKeyMods -int 6144
 ```
 
 Hex works too, if you'd rather read straight from a header: `-string 0x02` and `-string 0x1800`.
@@ -242,11 +262,11 @@ Hex works too, if you'd rather read straight from a header: `-string 0x02` and `
 Back to the default ⌥⌘Space:
 
 ```bash
-defaults delete com.ponti.voicenote hotKeyCode
-defaults delete com.ponti.voicenote hotKeyMods
+defaults delete com.ponti.ponte hotKeyCode
+defaults delete com.ponti.ponte hotKeyMods
 ```
 
-If another app already owns the chord, VoiceNote logs `hotkey registration failed`, posts a
+If another app already owns the chord, Ponte logs `hotkey registration failed`, posts a
 notification, and the menu item still works — pick a different chord.
 
 ### Modifier masks
@@ -290,13 +310,13 @@ Key code `0` is the **A** key — a real value, not "unset" (the app reads the d
 ## CLI
 
 ```bash
-VoiceNote --devices                              # list audio inputs, whisper path, models
-VoiceNote --download ultra                       # fetch + ANE-compile a Parakeet model
-VoiceNote --bench take.wav                       # every installed engine, 3 runs each, same file
-VoiceNote --transcribe take.wav                  # uses the default engine
-VoiceNote --transcribe take.wav --engine whisper --model ggml-base.en.bin
-VoiceNote --transcribe take.wav --engine parakeet --parakeet-model ultra
-VoiceNote --selftest 5                           # record 5 s from the mic and transcribe it
-VoiceNote --hud-strip hud.png                    # the HUD lifecycle as a contact sheet
-VoiceNote --hud-render hud.png error 0.64        # one HUD frame at a moment in a state
+Ponte --devices                              # list audio inputs, whisper path, models
+Ponte --download ultra                       # fetch + ANE-compile a Parakeet model
+Ponte --bench take.wav                       # every installed engine, 3 runs each, same file
+Ponte --transcribe take.wav                  # uses the default engine
+Ponte --transcribe take.wav --engine whisper --model ggml-base.en.bin
+Ponte --transcribe take.wav --engine parakeet --parakeet-model ultra
+Ponte --selftest 5                           # record 5 s from the mic and transcribe it
+Ponte --hud-strip hud.png                    # the HUD lifecycle as a contact sheet
+Ponte --hud-render hud.png error 0.64        # one HUD frame at a moment in a state
 ```

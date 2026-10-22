@@ -49,7 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
         hotKey = GlobalHotKey(keyCode: code, modifiers: mods) { [weak self] in self?.toggle() }
         if hotKey == nil {
-            Shell.notify("VoiceNote", "Hotkey \(HotKeySpec.describe(keyCode: code, modifiers: mods)) is taken — use the menu icon.")
+            Shell.notify("Ponte", "Hotkey \(HotKeySpec.describe(keyCode: code, modifiers: mods)) is taken — use the menu icon.")
         }
 
         downloader.onProgress = { [weak self] text in
@@ -60,14 +60,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             switch result {
             case .success(let url):
                 Settings.model = url.lastPathComponent
-                Shell.notify("VoiceNote", "Model ready: \(url.lastPathComponent)")
+                Shell.notify("Ponte", "Model ready: \(url.lastPathComponent)")
             case .failure(let error):
-                Shell.notify("VoiceNote", "Download failed: \(error.localizedDescription)")
+                Shell.notify("Ponte", "Download failed: \(error.localizedDescription)")
             }
         }
 
         if Whisper.binary() == nil {
-            Shell.notify("VoiceNote", "whisper-cli not found — run: brew install whisper-cpp")
+            Shell.notify("Ponte", "whisper-cli not found — run: brew install whisper-cpp")
         }
 
         // Ask for the microphone once at first launch instead of surprising you
@@ -137,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.state = .idle
                 self.updateIcon()
                 self.hud.showError("Microphone access denied — System Settings ▸ Privacy")
-                Shell.notify("VoiceNote", "Microphone access denied. Grant it in System Settings ▸ Privacy & Security ▸ Microphone.")
+                Shell.notify("Ponte", "Microphone access denied. Grant it in System Settings ▸ Privacy & Security ▸ Microphone.")
                 return
             }
             // A stop may have arrived while the permission call was in flight.
@@ -187,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.state = .idle
                     self.updateIcon()
                     self.hud.showError("Transcription failed")
-                    Shell.notify("VoiceNote", error.localizedDescription)
+                    Shell.notify("Ponte", error.localizedDescription)
                     self.cleanUp(audio: url)
                 }
             }
@@ -259,7 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !hasNotedAccessibility else { return }
         hasNotedAccessibility = true
         vlog("auto-paste unavailable — Accessibility not granted for this build")
-        Shell.notify("VoiceNote",
+        Shell.notify("Ponte",
                      "Auto-paste needs Accessibility: System Settings ▸ Privacy & Security ▸ Accessibility. Until then the text goes to the clipboard.")
     }
 
@@ -275,19 +275,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func updateIcon() {
-        let (symbol, tint): (String, NSColor?) = {
+        // At rest the menu bar wears the app's own mark; the momentary states keep their glyphs,
+        // because "recording" is worth more than branding while it is happening (the orb is on
+        // screen in the HUD at that point anyway).
+        let (symbol, tint): (String?, NSColor?) = {
             switch state {
-            case .idle: return ("mic.fill", nil)
+            case .idle: return (nil, nil)
             case .starting: return ("record.circle.fill", .systemOrange)
             case .recording: return ("record.circle.fill", .systemRed)
             case .working: return ("waveform", .systemOrange)
             }
         }()
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "VoiceNote")
-        image?.isTemplate = (tint == nil)
+        let image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: "Ponte") }
+            ?? IconRenderer.menuBarImage()
+        image.isTemplate = (tint == nil)
         statusItem?.button?.image = image
         statusItem?.button?.contentTintColor = tint
-        statusItem?.button?.toolTip = "VoiceNote — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers))"
+        statusItem?.button?.toolTip = "Ponte — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers))"
     }
 
     // MARK: - Menu
@@ -338,7 +342,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         dev.isEnabled = false
         menu.addItem(dev)
 
-        let quit = NSMenuItem(title: "Quit VoiceNote", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        let quit = NSMenuItem(title: "Quit Ponte", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
     }
 
@@ -491,14 +495,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             vlog("login item toggle failed: \(error.localizedDescription)")
-            Shell.notify("VoiceNote", "Launch at Login failed: \(error.localizedDescription)")
+            Shell.notify("Ponte", "Launch at Login failed: \(error.localizedDescription)")
         }
     }
 
     @objc private func requestMic() {
         Recorder.requestPermission { granted in
             if !granted {
-                Shell.notify("VoiceNote", "Grant microphone access in System Settings ▸ Privacy & Security ▸ Microphone.")
+                Shell.notify("Ponte", "Grant microphone access in System Settings ▸ Privacy & Security ▸ Microphone.")
             }
         }
     }
@@ -524,7 +528,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if kind == .parakeet {
             let model = Settings.parakeetModel
             if !ParakeetEngine.shared.isInstalled(model) {
-                Shell.notify("VoiceNote", "Parakeet models download on first use — the next recording will pause while they fetch.")
+                Shell.notify("Ponte", "Parakeet models download on first use — the next recording will pause while they fetch.")
             }
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 do {
@@ -571,14 +575,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 DispatchQueue.main.async { self?.hud.showDone("\(model.shortLabel) ready ✓") }
             } catch {
                 DispatchQueue.main.async { self?.hud.showError("Download failed") }
-                Shell.notify("VoiceNote", "Parakeet download failed: \(error.localizedDescription)")
+                Shell.notify("Ponte", "Parakeet download failed: \(error.localizedDescription)")
             }
         }
     }
 
     @objc private func unloadParakeet() {
         ParakeetEngine.shared.unload()
-        Shell.notify("VoiceNote", "Parakeet models unloaded from memory.")
+        Shell.notify("Ponte", "Parakeet models unloaded from memory.")
     }
 
     @objc private func openParakeetModels() {

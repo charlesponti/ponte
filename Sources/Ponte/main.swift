@@ -2,35 +2,38 @@ import AppKit
 import AVFoundation
 import Foundation
 
-// VoiceNote — push-to-talk dictation for macOS, fully on-device.
+// Ponte — push-to-talk dictation for macOS, fully on-device.
 //
-//   VoiceNote                 → menu bar app (global hotkey to record/transcribe)
-//   VoiceNote --help          → usage
-//   VoiceNote --devices       → list audio input devices
-//   VoiceNote --record 5      → record 5 seconds to a WAV (debugging)
-//   VoiceNote --transcribe f  → transcribe an existing WAV
-//   VoiceNote --selftest 5    → record 5s from the mic and transcribe it (end-to-end check)
+//   Ponte                 → menu bar app (global hotkey to record/transcribe)
+//   Ponte --help          → usage
+//   Ponte --devices       → list audio input devices
+//   Ponte --record 5      → record 5 seconds to a WAV (debugging)
+//   Ponte --transcribe f  → transcribe an existing WAV
+//   Ponte --selftest 5    → record 5s from the mic and transcribe it (end-to-end check)
 
 let argv = CommandLine.arguments
 
 func usage() {
     print("""
-    VoiceNote — local push-to-talk dictation
+    Ponte — local push-to-talk dictation
 
     USAGE
-      VoiceNote                      run the menu bar app
-      VoiceNote --record <seconds> [--out <file.wav>]
-      VoiceNote --transcribe <file.wav> [--engine whisper|parakeet]
+      Ponte                      run the menu bar app
+      Ponte --record <seconds> [--out <file.wav>]
+      Ponte --transcribe <file.wav> [--engine whisper|parakeet]
                                         [--parakeet-model ultra|v3|v2|redux]
                                         [--model <whisper model>] [--language <code>]
-      VoiceNote --bench <file.wav>    run every installed engine on one file and compare
-      VoiceNote --download [ultra|v3|v2|redux|all]
-      VoiceNote --selftest <seconds> [--engine …]
-      VoiceNote --devices
-      VoiceNote --hud-render <out.png> <idle|recording|working|done|error> [t] [text]
-      VoiceNote --hud-strip <out.png>       render the lifecycle as a contact sheet
-      VoiceNote --hud-voice <out.png>       render the orb answering a voice
-      VoiceNote --help
+      Ponte --bench <file.wav>    run every installed engine on one file and compare
+      Ponte --download [ultra|v3|v2|redux|all]
+      Ponte --selftest <seconds> [--engine …]
+      Ponte --devices
+      Ponte --hud-render <out.png> <idle|recording|working|done|error> [t] [text]
+      Ponte --hud-strip <out.png>       render the lifecycle as a contact sheet
+      Ponte --hud-voice <out.png>       render the orb answering a voice
+      Ponte --icon <out.png> <mark> [px]  render the app icon (orb|halftone|ripple|core)
+      Ponte --status-icon <out.png> [pt]  render the menu bar mark
+      Ponte --icon-sheet <out.png>      every mark at every size
+      Ponte --help
 
     whisper models live in \(AppPaths.models.path)
     Parakeet (CoreML/ANE) models live in \(ParakeetEngine.shared.installPath(.ultra).path)
@@ -241,9 +244,9 @@ struct SheetRow {
 }
 
 /// Draws a contact sheet of pre-rendered frames, two pixels per point.
-func writeSheet(_ rows: [SheetRow], to path: String) -> Int32 {
-    let cellW: CGFloat = 152, cellH: CGFloat = 124, pad: CGFloat = 26
-    let titleH: CGFloat = 30, captionH: CGFloat = 30, rowGap: CGFloat = 14
+func writeSheet(_ rows: [SheetRow], to path: String,
+                cellW: CGFloat = 152, cellH: CGFloat = 124, pad: CGFloat = 26,
+                titleH: CGFloat = 30, captionH: CGFloat = 30, rowGap: CGFloat = 14) -> Int32 {
     let maxFrames = rows.map(\.cells.count).max() ?? 1
     let width = pad * 2 + CGFloat(maxFrames) * cellW
     let height = pad * 2 + CGFloat(rows.count) * (titleH + cellH + captionH + rowGap)
@@ -302,6 +305,27 @@ func writeSheet(_ rows: [SheetRow], to path: String) -> Int32 {
     }
 }
 
+/// Every mark at the sizes an icon is actually seen at — rendered at true pixel size, then
+/// drawn enlarged, so a 32 px tile is judged as a 32 px tile and not as a zoomed drawing.
+func writeIconSheet(to path: String) -> Int32 {
+    let sizes: [CGFloat] = [512, 256, 128, 64, 32, 16]
+    let descriptions: [IconMark: String] = [
+        .orb: "the sphere, as the HUD draws it",
+        .halftone: "the same sphere as rows of dots",
+        .ripple: "the sphere with rings leaving it",
+        .core: "a solid core and a halo — the quietest",
+    ]
+    let rows = IconMark.allCases.map { mark in
+        SheetRow(title: "\(mark.rawValue) — \(descriptions[mark] ?? "")",
+                 cells: sizes.map { size in
+                    SheetCell(caption: "\(Int(size)) px",
+                              image: IconRenderer.image(mark, size: size))
+                 })
+    }
+    return writeSheet(rows, to: path, cellW: 268, cellH: 268, pad: 30,
+                      titleH: 34, captionH: 26, rowGap: 18)
+}
+
 func runCLI() -> Int32? {
     guard argv.count > 1 else { return nil }
 
@@ -315,7 +339,7 @@ func runCLI() -> Int32? {
         return 0
 
     case "--transcribe":
-        guard argv.count > 2 else { print("usage: VoiceNote --transcribe <file.wav>"); return 2 }
+        guard argv.count > 2 else { print("usage: Ponte --transcribe <file.wav>"); return 2 }
         let file = URL(fileURLWithPath: argv[2])
         guard FileManager.default.fileExists(atPath: file.path) else {
             print("no such file: \(file.path)"); return 2
@@ -358,7 +382,7 @@ func runCLI() -> Int32? {
         return 0
 
     case "--bench":
-        guard argv.count > 2 else { print("usage: VoiceNote --bench <file.wav>"); return 2 }
+        guard argv.count > 2 else { print("usage: Ponte --bench <file.wav>"); return 2 }
         let file = URL(fileURLWithPath: argv[2])
         guard FileManager.default.fileExists(atPath: file.path) else { print("no such file: \(file.path)"); return 2 }
         let seconds = audioDuration(file)
@@ -380,14 +404,14 @@ func runCLI() -> Int32? {
                                                          progress: nil)
                 }
             } else {
-                print("  parakeet \(model.shortLabel): not downloaded (VoiceNote --download \(model.rawValue))")
+                print("  parakeet \(model.shortLabel): not downloaded (Ponte --download \(model.rawValue))")
             }
         }
         return 0
 
     case "--hud-render":
         guard argv.count > 3, let state = HudState(rawValue: argv[3]) else {
-            print("usage: VoiceNote --hud-render <out.png> <idle|recording|working|done|error> [t] [text]")
+            print("usage: Ponte --hud-render <out.png> <idle|recording|working|done|error> [t] [text]")
             return 2
         }
         let t = argv.count > 4 ? (Double(argv[4]) ?? 0) : 0
@@ -396,9 +420,26 @@ func runCLI() -> Int32? {
         return writePNG(HUD.render(state: state, t: t, text: text, colour: hudColour(for: state)),
                         to: argv[2])
 
+    case "--status-icon":
+        guard argv.count > 2 else { print("usage: Ponte --status-icon <out.png> [pt]"); return 2 }
+        let pt = argv.count > 3 ? (Double(argv[3]) ?? 18) : 18
+        return writePNG(IconRenderer.menuBarImage(pointSize: CGFloat(pt)), to: argv[2])
+
+    case "--icon":
+        guard argv.count > 3, let mark = IconMark(rawValue: argv[3]) else {
+            print("usage: Ponte --icon <out.png> <orb|halftone|ripple|core> [size]")
+            return 2
+        }
+        let size = argv.count > 4 ? (Double(argv[4]) ?? 1024) : 1024
+        return writePNG(IconRenderer.image(mark, size: CGFloat(size)), to: argv[2])
+
+    case "--icon-sheet":
+        guard argv.count > 2 else { print("usage: Ponte --icon-sheet <out.png>"); return 2 }
+        return writeIconSheet(to: argv[2])
+
     case "--orb-level":
         guard argv.count > 3, let level = Float(argv[3]) else {
-            print("usage: VoiceNote --orb-level <out.png> <level 0...1>")
+            print("usage: Ponte --orb-level <out.png> <level 0...1>")
             return 2
         }
         return writePNG(HUD.render(state: .recording, t: 0,
@@ -406,11 +447,11 @@ func runCLI() -> Int32? {
                                    spin: 1.1, voice: { _ in (level, level) }), to: argv[2])
 
     case "--hud-voice":
-        guard argv.count > 2 else { print("usage: VoiceNote --hud-voice <out.png>"); return 2 }
+        guard argv.count > 2 else { print("usage: Ponte --hud-voice <out.png>"); return 2 }
         return writeVoiceSheet(to: argv[2])
 
     case "--hud-strip":
-        guard argv.count > 2 else { print("usage: VoiceNote --hud-strip <out.png>"); return 2 }
+        guard argv.count > 2 else { print("usage: Ponte --hud-strip <out.png>"); return 2 }
         return writeHUDSheet(to: argv[2])
 
     case "--record":

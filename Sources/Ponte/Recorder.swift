@@ -62,7 +62,7 @@ final class Recorder {
         let r = try AVAudioRecorder(url: url, settings: settings)
         r.isMeteringEnabled = true
         r.prepareToRecord()
-        guard r.record() else { throw VoiceNoteError.recordFailed }
+        guard r.record() else { throw PonteError.recordFailed }
 
         recorder = r
         currentURL = url
