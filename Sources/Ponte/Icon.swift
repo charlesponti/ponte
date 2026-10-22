@@ -6,14 +6,20 @@ import WaveformUI
 /// The app's mark, drawn with `WaveformUI`'s orb — so the icon is the thing the app is, and the
 /// codebase has one dot-drawing path rather than one per renderer.
 enum IconMark: String, CaseIterable {
-    /// The sphere exactly as the HUD draws it.
+    /// The sphere exactly as the HUD draws it, through `WaveformUI` — the shared view.
     case orb
+    /// The same sphere drawn as rows of dots, like a halftone screen.
+    case halftone
+    /// The sphere with rings leaving it: sound on its way out.
+    case ripple
     /// A solid core with a dotted halo: the quietest mark, and the clearest at 16 px.
     case core
 
     var summary: String {
         switch self {
         case .orb: return "the sphere, as the HUD draws it"
+        case .halftone: return "the same sphere as rows of dots"
+        case .ripple: return "the sphere with rings leaving it"
         case .core: return "a solid core and a halo"
         }
     }
@@ -89,6 +95,52 @@ enum IconRenderer {
     }
 }
 
+/// The sphere as rows of dots, like a halftone screen. This one is the icon's own decorative mark
+/// rather than `WaveformUI`'s orb: the shared view draws the spiral lattice the HUD shows, and a
+/// halftone is a different shape — rows — which the view has no way to ask for. Nothing of the audio
+/// pipeline is repeated here: no columns, no depth layers, no loudness.
+struct HalftoneSphere: View {
+    var tint: Color
+    /// The tile this mark is drawn on, so the dots can answer its size the way `WaveformUI`'s do.
+    var tileSize: CGFloat
+    /// The rows seen as a globe: rings of latitude, tilted toward the viewer.
+    private let tip = 0.35
+    private let rows = 15
+
+    var body: some View {
+        Canvas { context, size in
+            let centre = CGPoint(x: size.width / 2, y: size.height / 2)
+            let radius = min(size.width, size.height) / 2 * 0.94
+            // An absolute dot size, like the shared view's: scaled to the tile with the same nudge,
+            // or the dots are sub-pixel at 16 px and the mark is a smudge of grey.
+            let dot = IconRenderer.dotScale(forTile: tileSize) * 0.9
+            for row in 0...rows {
+                let latitude = 1 - 2 * Double(row) / Double(rows)   // 1 at the top pole
+                for index in 0..<HalftoneSphere.perRow(latitude) {
+                    let angle = 2 * Double.pi * Double(index) / Double(HalftoneSphere.perRow(latitude))
+                    let ring = (max(0, 1 - latitude * latitude)).squareRoot()
+                    let x = ring * cos(angle)
+                    let z = ring * sin(angle)
+                    // Tilt the sphere toward the viewer, so a pole is visible.
+                    let y = latitude * cos(tip) - z * sin(tip)
+                    let depth = (latitude * sin(tip) + z * cos(tip) + 1) / 2
+                    let point = CGPoint(x: centre.x + CGFloat(x) * radius,
+                                        y: centre.y - CGFloat(y) * radius)
+                    let r = dot * (0.75 + 0.25 * depth)
+                    context.fill(
+                        Path(ellipseIn: CGRect(x: point.x - r, y: point.y - r, width: r * 2, height: r * 2)),
+                        with: .color(tint.opacity(0.35 + 0.6 * depth)))
+                }
+            }
+        }
+    }
+
+    /// Fewer dots on the rows near the poles, or they crowd together.
+    private static func perRow(_ latitude: Double) -> Int {
+        max(6, Int((26 * (max(0, 1 - latitude * latitude)).squareRoot()).rounded()))
+    }
+}
+
 /// The icon at `size` points: the squircle, the glow the orb sits in, and the mark.
 struct IconView: View {
     var mark: IconMark
@@ -127,6 +179,35 @@ struct IconView: View {
                 tint: mint, dotCount: 240, spinRate: 0, still: 1.1,
                 dotScale: IconRenderer.dotScale(forTile: size))
                 .frame(width: size * 0.8, height: size * 0.8)
+
+        case .halftone:
+            // Slightly tighter than the orb, so the rows read the same size as the sphere beside them.
+            HalftoneSphere(tint: mint, tileSize: size)
+                .frame(width: size * 0.70, height: size * 0.70)
+
+        case .ripple:
+            ZStack {
+                OrbView(
+                    ring: IconRenderer.silentRing, columnsPerSecond: HudSpec.columnsPerSecond,
+                    clock: nil, scale: .decibels(floor: HudSpec.voiceFloor), gain: HudSpec.orbGain,
+                    historySeconds: HudSpec.voiceHistory, showStats: false, turning: false,
+                    tint: mint, dotCount: 240, spinRate: 0, still: 1.1,
+                    dotScale: IconRenderer.dotScale(forTile: size))
+                    .frame(width: size * 0.66, height: size * 0.66)
+                // Rings on their way out, each fainter and finer than the last.
+                ForEach(Array([(0.237, 0.55, 0.0088, 84), (0.294, 0.34, 0.0073, 102),
+                               (0.347, 0.18, 0.0059, 120)].enumerated()), id: \.offset) { _, ring in
+                    let (radius, opacity, dotSize, count) = ring
+                    ForEach(0..<count, id: \.self) { index in
+                        let angle = 2 * Double.pi * Double(index) / Double(count)
+                        Circle()
+                            .fill(mint.opacity(opacity))
+                            .frame(width: size * dotSize, height: size * dotSize)
+                            .offset(x: CGFloat(cos(angle)) * size * radius,
+                                    y: CGFloat(sin(angle)) * size * radius)
+                    }
+                }
+            }
 
         case .core:
             ZStack {

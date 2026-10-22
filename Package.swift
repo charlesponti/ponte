@@ -9,17 +9,17 @@ let package = Package(
     dependencies: [
         // Parakeet TDT / Unified ASR on the Apple Neural Engine via CoreML.
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.17.0"),
-        // Local checkout while the capture target settles; by URL once tagged.
-        .package(path: "../Waveform"),
+        // The orb maths, the orb view and the recording engine, shared with Thames.
+        .package(url: "https://github.com/charlesponti/waveform-ios.git", from: "0.2.0"),
     ],
     targets: [
         .executableTarget(
             name: "Ponte",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
-                .product(name: "WaveformCore", package: "Waveform"),
-                .product(name: "WaveformUI", package: "Waveform"),
-                .product(name: "WaveformCapture", package: "Waveform"),
+                .product(name: "WaveformCore", package: "waveform-ios"),
+                .product(name: "WaveformUI", package: "waveform-ios"),
+                .product(name: "WaveformCapture", package: "waveform-ios"),
             ],
             path: "Sources/Ponte",
             // The app's own code is Swift 5: the manifest has to be 6.0 to name macOS 15, but

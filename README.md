@@ -82,7 +82,8 @@ tccutil reset Microphone com.ponti.ponte
 
 ## One package, both apps
 
-Ponte and Thames share three products from the same package (`../Waveform`):
+Ponte and Thames share three products from the same package
+(`github.com/charlesponti/waveform-ios`, `from: "0.2.0"`):
 
 | product | what it brings |
 |---|---|
@@ -138,7 +139,7 @@ Ponte --status-icon /tmp/bar.png  # the menu bar mark on its own
 ## The HUD
 
 The HUD is a **96 px squircle holding an orb of 1,100 dots**, borrowed from
-[Waveform](~/Developer/Waveform) and reproduced from its maths — Fibonacci lattice, four depth layers at
+the shared `Waveform` package and reproduced from its maths — Fibonacci lattice, four depth layers at
 opacity `[0.18, 0.4, 0.7, 1.0]`, perspective `0.75 + 0.25·depth`, spin 0.35 rad/s, tip 0.35.
 
 | State | Orb | Box |

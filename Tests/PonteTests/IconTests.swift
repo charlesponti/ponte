@@ -8,8 +8,8 @@ import XCTest
 @MainActor
 final class IconTests: XCTestCase {
 
-    func testBothMarksDraw() {
-        XCTAssertEqual(IconMark.allCases.count, 2)
+    func testEveryMarkDraws() {
+        XCTAssertEqual(IconMark.allCases.count, 4)
         for mark in IconMark.allCases {
             let ink = Probe.mint(IconRenderer.image(mark, size: 512))
             XCTAssertGreaterThan(ink.count, 5_000, "\(mark) drew almost nothing")
