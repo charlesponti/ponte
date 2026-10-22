@@ -253,4 +253,10 @@ enum HudLifecycle {
         default: return nil
         }
     }
+
+    /// The recording clock: counts up from nothing, m:ss.
+    static func clock(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
 }

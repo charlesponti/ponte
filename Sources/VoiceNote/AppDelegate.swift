@@ -212,7 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if Settings.autoPaste, AXIsProcessTrusted() {
             pasteAtCursor()
-            hud.showDone("Pasted ✓  \(String(format: "%.1fs", took))")
+            hud.showDone("Pasted ✓ \(String(format: "%.1fs", elapsed)) → \(String(format: "%.1fs", took))")
         } else {
             // Never raise the system Accessibility dialog here: it fired at the end of
             // every dictation. Fall back to the clipboard and say so quietly.

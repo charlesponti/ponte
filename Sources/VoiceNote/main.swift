@@ -340,7 +340,8 @@ func runCLI() -> Int32? {
             return 2
         }
         let t = argv.count > 4 ? (Double(argv[4]) ?? 0) : 0
-        let text = argv.count > 5 ? argv[5] : defaultHudText(for: state)
+        let text = argv.count > 5 ? argv[5]
+            : (state == .recording ? HudLifecycle.clock(t) : defaultHudText(for: state))
         return writePNG(HUD.render(state: state, t: t, text: text, colour: hudColour(for: state)),
                         to: argv[2])
 

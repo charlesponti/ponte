@@ -88,9 +88,9 @@ opacity `[0.18, 0.4, 0.7, 1.0]`, perspective `0.75 + 0.25·depth`, spin 0.35 rad
 
 | State | Orb | Box |
 |---|---|---|
-| Recording | mint, **4× spin** | 96 × 96 |
+| Recording | mint, **4× spin**, label is a live `m:ss` clock | 96 × 96 |
 | Working / downloading | mint, calm spin, label `…` or `43%` | 96 × 96 |
-| Done | mint → green, shrinks to nothing | 96 × 96 → **text + 16 px all round** |
+| Done | mint → green, shrinks to nothing, label `Pasted ✓ 9.3s → 0.2s` | 96 × 96 → **text + 16 px all round** |
 | Error | mint → red, shrinks to 82%, **three throbs**, then exits | 96 × 96 through the throbs, then collapses |
 
 Design decisions worth knowing before changing it:
@@ -99,7 +99,10 @@ Design decisions worth knowing before changing it:
   the orb talking, so the container holds still while they happen.
 - **The throb scales the object, not the dots.** Pushing dots outward is how this model expresses loudness;
   throbbing that way would be lying about the audio.
-- **The pill is measured from the rendered string**, so "Pasted ✓ 1.7s" sizes correctly, not just "0.2s".
+- **The pill is measured from the rendered string**, so "Pasted ✓ 9.3s → 0.2s" sizes correctly.
+- **Numbers are measured, never captioned.** The recording label is a live clock (`HudLifecycle.clock`) driven by
+  the same display-link tick that turns the orb, and the done pill reports the real recorded length and the real
+  transcribe time. Parakeet transcribes in 0.2 s so consistently that a single number looks hardcoded — hence both.
 - **The box sinks**: its bottom edge stays 96 px above the visible frame while the height shrinks.
 - Dot count stays at 1,100 as the orb shrinks — the whole object scales, so the dots scale with it.
 

@@ -23,7 +23,7 @@ final class HUD {
     // MARK: - Public
 
     func beginRecording() {
-        set(state: .recording, text: "0:07", colour: labelDim)
+        set(state: .recording, text: HudLifecycle.clock(0), colour: labelDim)
     }
 
     /// Working: the orb turns at the model's calm rate, label is an ellipsis.
@@ -86,6 +86,11 @@ final class HUD {
 
     @objc private func tick() {
         let t = CACurrentMediaTime() - startedAt
+        // The recording label is a live clock, not a caption.
+        if state == .recording {
+            let text = HudLifecycle.clock(t)
+            if text != label { label = text }
+        }
         if let geometry = drawFrame(at: t) {
             spin += geometry.visual.spin * Float(1.0 / 60.0)
         }
