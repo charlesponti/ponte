@@ -5,7 +5,7 @@ import AppKit
 /// (design/hud-b-lifecycle-v2.html) is the spec.
 final class HUD {
     private var panel: NSPanel?
-    private var blur: NSVisualEffectView?
+    private var backdrop: NSView?
     private var content: HudContentView?
     private var link: CADisplayLink?
 
@@ -16,6 +16,9 @@ final class HUD {
     private var labelColour: NSColor = NSColor.white.withAlphaComponent(0.55)
     private var targetSize = CGSize(width: HudSpec.fullBox, height: HudSpec.fullBox)
     private var hideWork: DispatchWorkItem?
+    private let levels = LevelRing()
+    private var smoothedLevel: Float = 0
+    private var lastMeterAt: CFTimeInterval = 0
 
     private let bottomInset: CGFloat = 96
     private let labelDim = NSColor.white.withAlphaComponent(0.55)
@@ -23,7 +26,33 @@ final class HUD {
     // MARK: - Public
 
     func beginRecording() {
+        levels.reset()
+        smoothedLevel = 0
+        lastMeterAt = CACurrentMediaTime()
         set(state: .recording, text: HudLifecycle.clock(0), colour: labelDim)
+    }
+
+    /// One meter tick of the live microphone: how loud, and how high the peak.
+    ///
+    /// The level rises at once and falls away over `voiceRelease`, so a word's shape is a swell that
+    /// decays rather than a flicker (Waveform's meter ballistics).
+    func pushLevel(_ level: Float, peak: Float) {
+        guard state == .recording else { return }
+        let decay = Float(exp(-1.0 / (HudSpec.voiceRate * HudSpec.voiceRelease)))
+        smoothedLevel = max(level, smoothedLevel * decay)
+        levels.append(level: smoothedLevel, peak: peak)
+        lastMeterAt = CACurrentMediaTime()
+    }
+
+    /// What each dot should show, or nil while nothing has been heard — a plain sphere.
+    private func voiceProfile(at now: CFTimeInterval) -> VoiceProfile? {
+        guard levels.head > 0 else { return nil }
+        // The newest column advances smoothly between meter ticks, so the rings ripple out instead of
+        // stepping 30 times a second. A dot at `age` shows the sound `age * history` columns back.
+        let sinceLast = min(1, max(0, (now - lastMeterAt) * HudSpec.voiceRate))
+        let newest = Double(levels.head) - 1 + sinceLast
+        let columns = HudSpec.voiceColumns
+        return { age in self.levels.sample(at: newest - Double(age) * columns) }
     }
 
     /// Working: the orb turns at the model's calm rate, label is an ellipsis.
@@ -100,7 +129,7 @@ final class HUD {
 
     @discardableResult
     private func drawFrame(at t: TimeInterval) -> HudGeometry? {
-        guard let panel, let content, let blur else { return nil }
+        guard let panel, let content, let backdrop else { return nil }
         let geometry = HudLifecycle.geometry(state, t, target: targetSize)
         let size = geometry.box
 
@@ -111,13 +140,14 @@ final class HUD {
                              y: (visible.minY + bottomInset).rounded())
         panel.setFrame(NSRect(origin: origin, size: size), display: false)
 
-        blur.frame = NSRect(origin: .zero, size: size)
-        blur.layer?.cornerRadius = geometry.radius
+        backdrop.frame = NSRect(origin: .zero, size: size)
+        backdrop.layer?.cornerRadius = geometry.radius
         content.frame = NSRect(origin: .zero, size: size)
         content.geometry = geometry
         content.label = label
         content.labelColour = labelColour
         content.spin = spin
+        content.voice = state == .recording ? voiceProfile(at: CACurrentMediaTime()) : nil
         content.needsDisplay = true
         panel.alphaValue = geometry.hudAlpha
         return geometry
@@ -142,13 +172,13 @@ final class HUD {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: side, height: side))
         container.wantsLayer = true
 
-        let b = NSVisualEffectView(frame: container.bounds)
-        b.material = .hudWindow
-        b.blendingMode = .behindWindow
-        b.state = .active
+        let b = NSView(frame: container.bounds)
         b.wantsLayer = true
+        b.layer?.backgroundColor = HudSpec.boxFill.withAlphaComponent(HudSpec.boxFillAlpha).cgColor
         b.layer?.cornerRadius = HudSpec.fullRadius
         b.layer?.masksToBounds = true
+        b.layer?.borderWidth = 1
+        b.layer?.borderColor = NSColor.white.withAlphaComponent(HudSpec.boxBorderAlpha).cgColor
         b.autoresizingMask = [.width, .height]
 
         let c = HudContentView(frame: container.bounds)
@@ -159,7 +189,7 @@ final class HUD {
         p.contentView = container
 
         panel = p
-        blur = b
+        backdrop = b
         content = c
     }
 
@@ -174,7 +204,8 @@ final class HUD {
     /// Renders the HUD at one moment of a state. The blur material is approximated with a
     /// solid fill; the orb, the label and the box geometry use the real drawing path.
     static func render(state: HudState, t: TimeInterval, text: String, colour: NSColor,
-                       spin: Float = 1.1, scale: CGFloat = 2) -> NSImage {
+                       spin: Float = 1.1, scale: CGFloat = 2,
+                       voice: VoiceProfile? = nil) -> NSImage {
         let geometry = HudLifecycle.geometry(state, t, target: HudLifecycle.pillSize(for: text))
         let size = geometry.box
         let pixels = CGSize(width: size.width * scale, height: size.height * scale)
@@ -187,10 +218,10 @@ final class HUD {
             let path = CGPath(roundedRect: rect, cornerWidth: geometry.radius,
                               cornerHeight: geometry.radius, transform: nil)
             ctx.addPath(path)
-            ctx.setFillColor(NSColor(srgbRed: 0.11, green: 0.11, blue: 0.12, alpha: 0.94).cgColor)
+            ctx.setFillColor(HudSpec.boxFill.withAlphaComponent(HudSpec.boxFillAlpha).cgColor)
             ctx.fillPath()
             ctx.addPath(path)
-            ctx.setStrokeColor(NSColor.white.withAlphaComponent(0.10).cgColor)
+            ctx.setStrokeColor(NSColor.white.withAlphaComponent(HudSpec.boxBorderAlpha).cgColor)
             ctx.setLineWidth(1)
             ctx.strokePath()
 
@@ -199,6 +230,7 @@ final class HUD {
             view.label = text
             view.labelColour = colour
             view.spin = spin
+            view.voice = voice
             view.drawContents(in: ctx)
         }
         image.unlockFocus()
@@ -212,6 +244,7 @@ final class HudContentView: NSView {
     var label = "…"
     var labelColour: NSColor = .white
     var spin: Float = 0
+    var voice: VoiceProfile?
 
     override func draw(_ dirtyRect: NSRect) {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
@@ -237,7 +270,8 @@ final class HudContentView: NSView {
                              size: orbSize,
                              tint: geometry.visual.tint,
                              alpha: geometry.visual.alpha,
-                             spin: spin)
+                             spin: spin,
+                             voice: voice)
         }
 
         let textRect = CGRect(x: bounds.midX - textSize.width / 2,

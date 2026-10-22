@@ -41,7 +41,12 @@ struct OrbLattice {
 enum OrbProjection {
     static let tip: Float = 0.35
     static let opacities: [CGFloat] = [0.18, 0.4, 0.7, 1.0]
-    static let gain: Float = 0.45
+    /// How far full scale pushes a dot out, as a fraction of the resting radius.
+    ///
+    /// Waveform uses 0.45 in a canvas of its own; here the orb shares a fixed 96 px box with a label
+    /// underneath, and 0.45 would push the dots into it. At 0.25 the *loudest* voice lands on exactly
+    /// the 60 px orb the design board draws and a quiet room is a smaller, calmer sphere.
+    static let gain: Float = 0.25
 
     /// Where the dot at unit-sphere position `u`, pushed out to `out` times the radius,
     /// lands: x and y in units of the radius (y up), and depth 0 far to 1 near.
@@ -62,6 +67,66 @@ enum OrbProjection {
     }
 }
 
+/// What one dot shows: how loud the sound at its age was, and how high its peak was.
+/// Both are already in display units (0...1), the same scale Waveform's `Scale.decibels` produces.
+struct VoiceColumn {
+    var level: Float = 0
+    var peak: Float = 0
+}
+
+/// The last second or so of the voice, one entry per meter tick, read at any fractional age.
+///
+/// Waveform keeps a ring of 120 columns a second and reads it with a Catmull-Rom curve through the
+/// four neighbours, so the motion has no corners as the playhead moves between entries. VoiceNote's
+/// meter ticks 30 times a second, so the ring is coarser — the curve is what keeps it smooth.
+final class LevelRing {
+    private var slots: [VoiceColumn]
+    private var written = 0
+    private let capacity: Int
+
+    init(capacity: Int = 128) {
+        self.capacity = capacity
+        slots = Array(repeating: VoiceColumn(), count: capacity)
+    }
+
+    /// Total columns ever appended.
+    var head: Int { written }
+
+    func reset() {
+        slots = Array(repeating: VoiceColumn(), count: capacity)
+        written = 0
+    }
+
+    func append(level: Float, peak: Float) {
+        slots[written % capacity] = VoiceColumn(level: level, peak: peak)
+        written += 1
+    }
+
+    /// Level and peak at an absolute column position, fractional, oldest history clamped to silence.
+    func sample(at position: Double) -> (level: Float, peak: Float) {
+        let i = Int(position.rounded(.down))
+        let t = Float(position - Double(i))
+        func at(_ k: Int) -> VoiceColumn {
+            guard k >= 0, k < written, k > written - capacity else { return VoiceColumn() }
+            return slots[k % capacity]
+        }
+        let p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2)
+        return (max(0, Self.catmullRom(p0.level, p1.level, p2.level, p3.level, t)),
+                max(0, min(1, Self.catmullRom(p0.peak, p1.peak, p2.peak, p3.peak, t))))
+    }
+
+    /// The curve through p1 (at t = 0) and p2 (at t = 1), shaped by the points either side.
+    static func catmullRom(_ p0: Float, _ p1: Float, _ p2: Float, _ p3: Float, _ t: Float) -> Float {
+        let t2 = t * t
+        let t3 = t2 * t
+        return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+            + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+    }
+}
+
+/// What a dot of a given age shows, for the renderer and for offscreen pictures.
+typealias VoiceProfile = (Float) -> (level: Float, peak: Float)
+
 /// Draws the orb. One pass per depth layer, so 1,100 dots cost four fills a frame.
 enum OrbRenderer {
     static let lattice = OrbLattice(count: 1100)
@@ -69,16 +134,22 @@ enum OrbRenderer {
     static let baseDotRadius: CGFloat = 0.62
 
     static func draw(in ctx: CGContext, center: CGPoint, size: CGFloat,
-                     tint: NSColor, alpha: CGFloat, spin: Float) {
+                     tint: NSColor, alpha: CGFloat, spin: Float, voice: VoiceProfile? = nil) {
         guard size >= 1.5, alpha > 0.01 else { return }
         let radius = OrbProjection.radius(in: size)
         // The whole object scales, so the dots scale with it rather than shedding.
         let dotRadius = max(0.32, baseDotRadius * (size / fullSize))
         var layers = [[(CGPoint, CGFloat)]](repeating: [], count: 4)
         for i in 0..<lattice.count {
-            let p = OrbProjection.place(lattice.unit[i], out: 1, spin: spin)
+            // The dot at this age shows the sound that many columns back: silence is a plain sphere,
+            // a loud moment pushes dots out, and a high peak makes them bigger.
+            // `voice` reports the level itself (0...1); how far that pushes a dot is the gain's job.
+            let (level, peak) = voice?(lattice.age[i]) ?? (0, 0)
+            let out = 1 + OrbProjection.gain * level
+            let p = OrbProjection.place(lattice.unit[i], out: out, spin: spin)
             let depth = p.depth
-            let r = dotRadius * CGFloat(OrbProjection.perspective(depth: depth))
+            let dotScale = (1.1 + 2.4 * peak + (out - 1)) / 1.1
+            let r = dotRadius * CGFloat(OrbProjection.perspective(depth: depth)) * CGFloat(dotScale)
             layers[OrbProjection.layer(depth: depth)].append(
                 (CGPoint(x: center.x + CGFloat(p.x) * CGFloat(radius),
                          y: center.y - CGFloat(p.y) * CGFloat(radius)), max(0.3, r)))
@@ -116,6 +187,13 @@ enum HudSpec {
     static let recordingSpinMultiple: Float = 4      // "spins fast" while recording
     static let workingSpin: Float = 0.35             // calm
 
+    // What the box is made of. Black, not the usual translucent `.hudWindow` material: the orb's
+    // outer dots are drawn at 18 % and vanish against a grey blur. The face and the hairline are here
+    // so the app and the offscreen renders cannot drift apart.
+    static let boxFill = NSColor.black
+    static let boxFillAlpha: CGFloat = 0.94
+    static let boxBorderAlpha: CGFloat = 0.12
+
     static let fullBox: CGFloat = 96                 // the squircle
     static let fullRadius: CGFloat = 26
     static let finalRadius: CGFloat = 18
@@ -143,6 +221,18 @@ enum HudSpec {
 
     // fade the whole HUD out over the last quarter second of its life
     static let fadeOut: TimeInterval = 0.25
+
+    // MARK: - The voice
+
+    /// How much of the past the orb spans, equator to pole (Waveform's `historySeconds`).
+    static let voiceHistory: Double = 0.8
+    /// How often the meter ticks. Waveform uses 120 columns a second from the audio itself; the
+    /// recorder's meter is 30, and the Catmull-Rom read is what hides the difference.
+    static let voiceRate: Double = 30
+    /// How long the level takes to fall by about 63% once the sound stops (Waveform's `releaseSeconds`).
+    static let voiceRelease: Double = 0.15
+    /// Columns the orb spans, equator to pole.
+    static var voiceColumns: Double { voiceHistory * voiceRate }
 }
 
 struct HudVisual {

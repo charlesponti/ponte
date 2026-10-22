@@ -29,6 +29,7 @@ func usage() {
       VoiceNote --devices
       VoiceNote --hud-render <out.png> <idle|recording|working|done|error> [t] [text]
       VoiceNote --hud-strip <out.png>       render the lifecycle as a contact sheet
+      VoiceNote --hud-voice <out.png>       render the orb answering a voice
       VoiceNote --help
 
     whisper models live in \(AppPaths.models.path)
@@ -157,11 +158,8 @@ func writePNG(_ image: NSImage, to path: String) -> Int32 {
     }
 }
 
-/// The lifecycle as a contact sheet, drawn by the app's own renderer — so what you look
-/// at is what the HUD draws, not a mockup of it.
+/// The lifecycle as a contact sheet, drawn by the app's own renderer.
 func writeHUDSheet(to path: String) -> Int32 {
-    _ = NSApplication.shared
-
     struct Frame { let t: Double; let spin: Float; var note: String = "" }
     struct Row { let title: String; let state: HudState; let text: String; let colour: NSColor; let frames: [Frame] }
 
@@ -184,12 +182,71 @@ func writeHUDSheet(to path: String) -> Int32 {
                      Frame(t: 2.20, spin: 1.80, note: "text only")]),
     ]
 
+    return writeSheet(rows.map { row in
+        SheetRow(title: row.title, cells: row.frames.map { frame in
+            let geometry = HudLifecycle.geometry(row.state, frame.t,
+                                                 target: HudLifecycle.pillSize(for: row.text))
+            var caption = String(format: "%.2fs  box %.0f×%.0f", frame.t,
+                                 geometry.box.width, geometry.box.height)
+            if !frame.note.isEmpty { caption += "  " + frame.note }
+            return SheetCell(caption: caption,
+                             image: HUD.render(state: row.state, t: frame.t, text: row.text,
+                                               colour: row.colour, spin: frame.spin))
+        })
+    }, to: path)
+}
+
+/// The orb answering a voice: a row of steady levels, and a row of a word being spoken.
+func writeVoiceSheet(to path: String) -> Int32 {
+    let dim = NSColor.white.withAlphaComponent(0.55)
+
+    func steady(_ level: Float) -> VoiceProfile { { _ in (level, level) } }
+
+    /// A syllable every 250 ms, so the rings along the sphere are visible in a still.
+    let syllables: VoiceProfile = { age in
+        let secondsAgo = Double(age) * HudSpec.voiceHistory
+        let envelope = abs(sin(secondsAgo * .pi / 0.25))
+        let level = Float(max(0, envelope - 0.2) / 0.8)
+        return (level, min(1, level * 1.6))
+    }
+
+    let levels = SheetRow(
+        title: "The orb answers the level (silence → full voice)",
+        cells: [0.0, 0.25, 0.5, 0.75, 1.0].map { level in
+            SheetCell(caption: String(format: "level %.2f  →  dots ×%.2f", level,
+                                      1 + Double(OrbProjection.gain) * level),
+                      image: HUD.render(state: .recording, t: 0, text: "0:07", colour: dim,
+                                        spin: 1.1, voice: steady(Float(level))))
+        })
+    let word = SheetRow(
+        title: "A word being spoken: 0.8 s of voice, equator (now) to poles (0.8 s ago)",
+        cells: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0].map { moment in
+            // The picture advances through the word, so each frame catches the sound at a different age.
+            let profile: VoiceProfile = { age in syllables(Float(max(0, min(1, Double(age) + moment)))) }
+            return SheetCell(caption: String(format: "%.2f s in", moment),
+                             image: HUD.render(state: .recording, t: 0, text: "0:07", colour: dim,
+                                               spin: 1.1 + Float(moment), voice: profile))
+        })
+    return writeSheet([levels, word], to: path)
+}
+
+struct SheetCell {
+    let caption: String
+    let image: NSImage
+}
+
+struct SheetRow {
+    let title: String
+    let cells: [SheetCell]
+}
+
+/// Draws a contact sheet of pre-rendered frames, two pixels per point.
+func writeSheet(_ rows: [SheetRow], to path: String) -> Int32 {
     let cellW: CGFloat = 152, cellH: CGFloat = 124, pad: CGFloat = 26
     let titleH: CGFloat = 30, captionH: CGFloat = 30, rowGap: CGFloat = 14
-    let maxFrames = rows.map { $0.frames.count }.max() ?? 1
+    let maxFrames = rows.map(\.cells.count).max() ?? 1
     let width = pad * 2 + CGFloat(maxFrames) * cellW
     let height = pad * 2 + CGFloat(rows.count) * (titleH + cellH + captionH + rowGap)
-
     let scale: CGFloat = 2
     guard let rep = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -219,19 +276,13 @@ func writeHUDSheet(to path: String) -> Int32 {
         y -= titleH
         row.title.draw(at: CGPoint(x: pad, y: y + 8), withAttributes: titleAttrs)
         y -= cellH
-        for (index, frame) in row.frames.enumerated() {
-            let geometry = HudLifecycle.geometry(row.state, frame.t,
-                                                 target: HudLifecycle.pillSize(for: row.text))
+        for (index, cell) in row.cells.enumerated() {
             let x = pad + CGFloat(index) * cellW
-            let box = geometry.box
-            let frameImage = HUD.render(state: row.state, t: frame.t, text: row.text,
-                                        colour: row.colour, spin: frame.spin)
-            frameImage.draw(in: CGRect(x: x + (cellW - box.width) / 2,
+            let box = cell.image.size
+            cell.image.draw(in: CGRect(x: x + (cellW - box.width) / 2,
                                        y: y + (cellH - box.height) / 2,
                                        width: box.width, height: box.height))
-            var caption = String(format: "%.2fs  box %.0f×%.0f", frame.t, box.width, box.height)
-            if !frame.note.isEmpty { caption += "  " + frame.note }
-            caption.draw(at: CGPoint(x: x + 8, y: y - 16), withAttributes: captionAttrs)
+            cell.caption.draw(at: CGPoint(x: x + 8, y: y - 16), withAttributes: captionAttrs)
         }
         y -= captionH + rowGap
     }
@@ -344,6 +395,19 @@ func runCLI() -> Int32? {
             : (state == .recording ? HudLifecycle.clock(t) : defaultHudText(for: state))
         return writePNG(HUD.render(state: state, t: t, text: text, colour: hudColour(for: state)),
                         to: argv[2])
+
+    case "--orb-level":
+        guard argv.count > 3, let level = Float(argv[3]) else {
+            print("usage: VoiceNote --orb-level <out.png> <level 0...1>")
+            return 2
+        }
+        return writePNG(HUD.render(state: .recording, t: 0,
+                                   text: HudLifecycle.clock(7), colour: hudColour(for: .recording),
+                                   spin: 1.1, voice: { _ in (level, level) }), to: argv[2])
+
+    case "--hud-voice":
+        guard argv.count > 2 else { print("usage: VoiceNote --hud-voice <out.png>"); return 2 }
+        return writeVoiceSheet(to: argv[2])
 
     case "--hud-strip":
         guard argv.count > 2 else { print("usage: VoiceNote --hud-strip <out.png>"); return 2 }

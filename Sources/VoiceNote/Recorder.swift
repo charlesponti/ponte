@@ -9,7 +9,9 @@ final class Recorder {
     private(set) var currentURL: URL?
     private(set) var startedAt: Date?
 
-    var onLevel: ((Float) -> Void)?
+    /// One meter tick: how loud the microphone is, and how high its peak was. Both are 0…1, mapped
+    /// from dBFS the way Waveform's `Scale.decibels` maps a sample onto its display range.
+    var onMeter: ((_ level: Float, _ peak: Float) -> Void)?
 
     var isRecording: Bool { recorder?.isRecording ?? false }
 
@@ -90,10 +92,11 @@ final class Recorder {
         let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
             guard let self, let r = self.recorder, r.isRecording else { return }
             r.updateMeters()
-            // averagePower is dBFS in -160...0; map -55 dB up to 1.0.
-            let db = r.averagePower(forChannel: 0)
-            let norm = Float(max(0.0, min(1.0, (Double(db) + 55.0) / 55.0)))
-            self.onLevel?(norm)
+            // Both powers are dBFS in -160...0; map -55 dB up to 1.0.
+            func norm(_ db: Float) -> Float {
+                Float(max(0.0, min(1.0, (Double(db) + 55.0) / 55.0)))
+            }
+            self.onMeter?(norm(r.averagePower(forChannel: 0)), norm(r.peakPower(forChannel: 0)))
         }
         RunLoop.main.add(t, forMode: .common)
         meterTimer = t
