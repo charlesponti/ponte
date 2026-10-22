@@ -10,8 +10,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let downloader = ModelDownloader()
     private var hotKey: GlobalHotKey?
 
-    private enum State { case idle, recording, working }
+    private enum State { case idle, starting, recording, working }
     private var state: State = .idle
+
+    /// A single physical press can deliver two hotkey events (key down/up, or key
+    /// repeat). Swallow the duplicate so one press never spawns two recorders.
+    private var lastHotKeyAt = Date.distantPast
+    private let hotKeyDebounce: TimeInterval = 0.25
 
     private var lastTranscript: String?
     private var progressItem: NSMenuItem?
@@ -38,12 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         recorder.onLevel = { [weak self] v in self?.hud.pushLevel(v) }
 
-        let code = UInt32(UserDefaults.standard.integer(forKey: SettingKey.hotKeyCode) == 0
-                          ? Int(HotKeySpec.defaultKeyCode)
-                          : UserDefaults.standard.integer(forKey: SettingKey.hotKeyCode))
-        let mods = UInt32(UserDefaults.standard.integer(forKey: SettingKey.hotKeyMods) == 0
-                          ? Int(HotKeySpec.defaultModifiers)
-                          : UserDefaults.standard.integer(forKey: SettingKey.hotKeyMods))
+        let code = Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode)
+        let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
         hotKey = GlobalHotKey(keyCode: code, modifiers: mods) { [weak self] in self?.toggle() }
         if hotKey == nil {
             Shell.notify("VoiceNote", "Hotkey \(HotKeySpec.describe(keyCode: code, modifiers: mods)) is taken — use the menu icon.")
@@ -106,24 +107,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Recording flow
 
     @objc private func toggle() {
+        let now = Date()
+        if now.timeIntervalSince(lastHotKeyAt) < hotKeyDebounce {
+            vlog("duplicate hotkey event ignored (\(String(format: "%.0f", now.timeIntervalSince(lastHotKeyAt) * 1000))ms)")
+            return
+        }
+        lastHotKeyAt = now
+
         switch state {
         case .idle: startRecording()
+        case .starting: vlog("hotkey ignored — recording is already starting")
         case .recording: stopAndTranscribe()
         case .working: NSSound.beep()
         }
     }
 
     private func startRecording() {
+        // Set this synchronously: the permission callback is async, and a second
+        // event landing in that window would otherwise start a second recorder.
+        state = .starting
+        updateIcon()
+
         Recorder.requestPermission { [weak self] granted in
             guard let self else { return }
             guard granted else {
+                self.state = .idle
+                self.updateIcon()
                 self.hud.showError("Microphone access denied — System Settings ▸ Privacy")
                 Shell.notify("VoiceNote", "Microphone access denied. Grant it in System Settings ▸ Privacy & Security ▸ Microphone.")
+                return
+            }
+            // A stop may have arrived while the permission call was in flight.
+            guard case .starting = self.state else {
+                vlog("start aborted — state changed to \(self.state) while waiting for permission")
                 return
             }
             do {
                 _ = try self.recorder.start()
             } catch {
+                self.state = .idle
+                self.updateIcon()
                 self.hud.showError("Could not start recording")
                 vlog("record start failed: \(error)")
                 return
@@ -227,6 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let (symbol, tint): (String, NSColor?) = {
             switch state {
             case .idle: return ("mic.fill", nil)
+            case .starting: return ("record.circle.fill", .systemOrange)
             case .recording: return ("record.circle.fill", .systemRed)
             case .working: return ("waveform", .systemOrange)
             }
@@ -248,6 +272,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch state {
         case .idle:
             menu.addItem(item("Start Recording", #selector(toggle), shortcut))
+        case .starting:
+            let i = item("Starting…", nil, nil)
+            i.isEnabled = false
+            menu.addItem(i)
         case .recording:
             menu.addItem(item("Stop & Transcribe", #selector(toggle), shortcut))
         case .working:

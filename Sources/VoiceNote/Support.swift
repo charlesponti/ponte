@@ -90,6 +90,25 @@ enum Settings {
         get { ParakeetModel(rawValue: UserDefaults.standard.string(forKey: SettingKey.parakeetModel) ?? "") ?? .ultra }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: SettingKey.parakeetModel) }
     }
+
+    /// Reads a hotkey number that may be written as a decimal int (`-int 49`) or as
+    /// a hex string (`-string 0x31`). Falls back to `def` only when the key is absent —
+    /// 0 is a legitimate key code (kVK_ANSI_A), so "unset" must be tested explicitly.
+    static func hotKey(_ key: String, default def: UInt32) -> UInt32 {
+        switch UserDefaults.standard.object(forKey: key) {
+        case let number as Int:
+            return UInt32(number)
+        case let text as String:
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            if trimmed.lowercased().hasPrefix("0x"), let value = UInt32(trimmed.dropFirst(2), radix: 16) {
+                return value
+            }
+            if let value = UInt32(trimmed) { return value }
+            return def
+        default:
+            return def
+        }
+    }
 }
 
 // MARK: - Errors

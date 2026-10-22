@@ -127,18 +127,55 @@ engine: parakeet-ultra
 - Auto-paste into frontmost app · Keep audio files · Launch at Login
 - **Permissions** — mic + accessibility status and shortcuts to Settings
 
-## Changing the hotkey
+## Setting the hotkey
 
-Defaults are stored in `com.ponti.voicenote`:
+Two defaults, then restart the app (the hotkey is registered at launch):
 
 ```bash
-# key codes are Carbon virtual key codes; modifiers are Carbon modifier masks
-defaults write com.ponti.voicenote hotKeyCode  -int 9      # kVK_ANSI_V
-defaults write com.ponti.voicenote hotKeyMods  -int 2304   # ⌥⌘
+# ⌃⌥D = kVK_ANSI_D (2) with controlKey (4096) + optionKey (2048)
+defaults write com.ponti.voicenote hotKeyCode -int 2
+defaults write com.ponti.voicenote hotKeyMods -int 6144
 ```
 
-Modifier masks: `cmdKey = 256`, `shiftKey = 512`, `optionKey = 2048`, `controlKey = 4096`.
-Defaults: `keyCode 49` (Space) + `2304` (⌥⌘). Restart the app afterwards.
+Hex works too, if you'd rather read straight from a header: `-string 0x02` and `-string 0x1800`.
+
+Back to the default ⌥⌘Space:
+
+```bash
+defaults delete com.ponti.voicenote hotKeyCode
+defaults delete com.ponti.voicenote hotKeyMods
+```
+
+If another app already owns the chord, VoiceNote logs `hotkey registration failed`, posts a
+notification, and the menu item still works — pick a different chord.
+
+### Modifier masks
+
+Add them together: ⌃⌥ = 6144, ⌥⌘ = 2304, ⌃⇧⌘ = 4864.
+
+| Key | Value |
+|---|---|
+| ⌘ cmdKey | 256 |
+| ⇧ shiftKey | 512 |
+| ⌥ optionKey | 2048 |
+| ⌃ controlKey | 4096 |
+
+### Key codes
+
+Straight from Carbon's `Events.h`, so these are authoritative for macOS 27:
+
+| | |
+|---|---|
+| Letters | A 0 · S 1 · D 2 · F 3 · H 4 · G 5 · Z 6 · X 7 · C 8 · V 9 · B 11 · Q 12 · W 13 · E 14 · R 15 · Y 16 · T 17 |
+| Digits | 1 18 · 2 19 · 3 20 · 4 21 · 6 22 · 5 23 · 9 25 · 7 26 · 8 28 · 0 29 |
+| Symbols | `=` 24 · `-` 27 · `]` 30 · `[` 33 · `'` 39 · `;` 41 · `\` 42 · `,` 43 · `/` 44 · `.` 47 · `` ` `` 50 |
+| Editing | Return 36 · Tab 48 · Space 49 · Delete 51 · ForwardDelete 117 · Escape 53 |
+| Arrows | ← 123 · → 124 · ↓ 125 · ↑ 126 |
+| Navigation | Help 114 · Home 115 · PageUp 116 · End 119 · PageDown 121 |
+| Function | F1 122 · F2 120 · F3 99 · F4 118 · F5 96 · F6 97 · F7 98 · F8 100 · F9 101 · F10 109 · F11 103 · F12 111 · F13 105 · F14 107 · F15 113 |
+
+Key code `0` is the **A** key — a real value, not "unset" (the app reads the defaults with
+`object(forKey:)` so it can tell the difference).
 
 ## Known limits / next steps
 

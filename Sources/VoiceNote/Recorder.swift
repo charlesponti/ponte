@@ -36,6 +36,12 @@ final class Recorder {
     }
 
     func start() throws -> URL {
+        // Defensive: never leak a running recorder — that leaves a header-only WAV
+        // behind and a mic that stays hot.
+        if recorder?.isRecording == true {
+            vlog("recorder already running — stopping it before restarting")
+            stop()
+        }
         try FileManager.default.createDirectory(at: AppPaths.audio, withIntermediateDirectories: true)
 
         // Which mic? Honour the system default input; log it so history is traceable.
