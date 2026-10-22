@@ -157,6 +157,7 @@
   .bars { display: flex; align-items: center; gap: 3px; height: 30px; }
   .bars b { flex: 1 1 0; border-radius: 2px; min-height: 3px; }
   .bars.idle b { background: rgba(255,255,255,0.35) !important; }
+  .hud.sweep .bars b { background: rgba(255,173,38,0.9) !important; }
 
   /* B — quiet: small pill, glyph + 4 slim bars + timer */
   .B { width: 172px; height: 40px; border-radius: 20px; padding: 0 14px; gap: 10px; }
@@ -332,7 +333,7 @@
     <div class="card">
       <div class="card-head">
         <div class="card-tag"><i>B</i> least intrusive</div>
-        <div class="card-name">Quiet — one line, no meter</div>
+        <div class="card-name">Quiet — one line, minimal meter</div>
         <p class="card-why">A single small pill: mic glyph, four slim bars, timer. Enough to know it’s
         listening and that your voice is landing, without a 340 px slab of glass over your work.</p>
       </div>
@@ -603,7 +604,7 @@
   // hue = 0.33 * (1 - v * 1.25), saturation 0.72, brightness 0.95.
   // NSColor brightness .95 / saturation .72 lands at CSS lightness ~61%.
   function paintBars() {
-    document.querySelectorAll(".bars:not(.idle) b, .wave b, .slabars b").forEach(b => {
+    document.querySelectorAll(".bars:not(.idle):not(.sweep) b, .wave b, .slabars b").forEach(b => {
       const h = parseFloat(b.style.height) || 3;
       const track = b.parentElement.getBoundingClientRect().height || 30;
       const v = Math.max(0, Math.min(1, h / track));
@@ -621,7 +622,7 @@
   // hue = 0.33 * (1 - v * 1.25), saturation 0.72, brightness 0.95.
   // NSColor brightness .95 / saturation .72 lands at CSS lightness ~61%.
   function paintBars() {
-    document.querySelectorAll(".bars:not(.idle) b, .wave b, .slabars b").forEach(b => {
+    document.querySelectorAll(".bars:not(.idle):not(.sweep) b, .wave b, .slabars b").forEach(b => {
       const h = parseFloat(b.style.height) || 3;
       const track = b.parentElement.getBoundingClientRect().height || 30;
       const v = Math.max(0, Math.min(1, h / track));
