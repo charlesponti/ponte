@@ -156,7 +156,7 @@
   .A .row { display: flex; align-items: center; gap: 8px; }
   .bars { display: flex; align-items: center; gap: 3px; height: 30px; }
   .bars b { flex: 1 1 0; border-radius: 2px; min-height: 3px; }
-  .bars.idle b { background: rgba(255,255,255,0.35) !important; }
+  .bars.idle b, .slabars.idle b { background: rgba(255,255,255,0.35) !important; }
   .hud.sweep .bars b { background: rgba(255,173,38,0.9) !important; }
 
   /* B — quiet: small pill, glyph + 4 slim bars + timer */
@@ -246,6 +246,34 @@
 
   /* client scale: 1x for honest pixel judgement, 1.5x to check the small ones */
   .scale-150 .hud-hold { transform: scale(1.5); transform-origin: bottom center; }
+
+  /* ---------- B: state variants ---------- */
+  .B .dots { display: flex; gap: 4px; align-items: center; width: 38px; justify-content: center; }
+  .B .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--hud-ink); opacity: .3; }
+  .motion .B .dots i { animation: dotpulse 1.1s ease-in-out infinite; }
+  .motion .B .dots i:nth-child(2) { animation-delay: .18s; }
+  .motion .B .dots i:nth-child(3) { animation-delay: .36s; }
+  @keyframes dotpulse { 0%,100% { opacity: .22; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+  /* the one state where B has to grow: a word will not fit in 172 px */
+  .B.wide { width: 236px; }
+  .B .prog { display: flex; gap: 3px; width: 38px; }
+  .B .prog b { flex: 1 1 0; border-radius: 2px; height: 14px; background: rgba(255,255,255,.16); }
+  .B .prog b.on { background: rgba(255,173,38,.9); }
+  .B .check { width: 14px; height: 14px; }
+  .B .check path { fill: none; stroke: var(--green); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- C: state variants ---------- */
+  .C .wrapsweep { position: absolute; inset: 0; overflow: hidden; }
+  .C .wrapsweep i { position: absolute; top: 0; bottom: 0; width: 90px;
+                    background: linear-gradient(90deg, transparent, rgba(255,173,38,.5), transparent); }
+  .motion .C .wrapsweep i { animation: sweepx 1.6s linear infinite; }
+  @keyframes sweepx { from { transform: translateX(-90px); } to { transform: translateX(330px); } }
+  .C .progbar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: rgba(255,255,255,.16);
+                position: relative; overflow: hidden; }
+  .C .progbar i { position: absolute; top: 0; bottom: 0; left: 0; width: 43%;
+                  background: rgba(255,173,38,.9); border-radius: 3px; }
+  .C .flatbar { flex: 1 1 auto; height: 2px; border-radius: 1px; background: rgba(255,255,255,.22); }
+  .C .word { flex: 1 1 auto; font-size: 12.5px; font-weight: 600; }
 </style>
 </head>
 <body class="motion scale-100" data-backdrop="dark">
@@ -535,6 +563,61 @@
 
   </div>
 
+
+  <h2 style="margin-top:26px">State vocabulary &mdash; B (172 &times; 40)</h2>
+  <p class="card-why" style="margin-bottom:14px">B has no label row, so each state is carried by
+  <b>shape, colour and one short string</b>. Four of the five fit inside 172&nbsp;px; only the state
+  that needs a sentence has to grow &mdash; which is exactly why I keep A around for errors.</p>
+  <div class="states">
+    <div class="state-row">
+      <div class="state-what"><b>Recording</b>same pill, meter animating, timer running</div>
+      <div class="state-stage"><div class="hud B"><svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1.6" width="4" height="7.4" rx="2"></rect><path d="M3.6 7.4a4.4 4.4 0 0 0 8.8 0"></path><path d="M8 11.8V14.4"></path></svg><div class="slabars"><b style="height:7px"></b><b style="height:14px"></b><b style="height:10px"></b><b style="height:16px"></b></div><span class="timer">0:07</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Working</b>meter collapses to three dots, timer becomes an ellipsis &mdash; no width change</div>
+      <div class="state-stage"><div class="hud B"><svg class="glyph" style="opacity:.5" viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1.6" width="4" height="7.4" rx="2"></rect><path d="M3.6 7.4a4.4 4.4 0 0 0 8.8 0"></path><path d="M8 11.8V14.4"></path></svg><div class="dots"><i></i><i></i><i></i></div><span class="timer">&hellip;</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Done</b>glyph becomes a tick, bars flatten, palette turns green</div>
+      <div class="state-stage"><div class="hud B"><svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.6l3.3 3.2L13 4.8"></path></svg><div class="slabars idle"><b style="height:3px"></b><b style="height:3px"></b><b style="height:3px"></b><b style="height:3px"></b></div><span class="timer" style="color:var(--green)">0.2s</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Downloading</b>glyph becomes an arrow, the four bars become a four-segment fill</div>
+      <div class="state-stage"><div class="hud B"><svg class="glyph" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v9"></path><path d="M4.4 7.6L8 11.2l3.6-3.6"></path><path d="M3 13.6h10"></path></svg><div class="prog"><b class="on"></b><b class="on"></b><b></b><b></b></div><span class="timer">43%</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Nothing heard</b>the state that forces B to grow &mdash; 172 &rarr; 236 px, because the word matters</div>
+      <div class="state-stage"><div class="hud B wide"><span class="dot red"></span><span class="label err" style="font-size:12px">Heard nothing</span></div></div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:26px">State vocabulary &mdash; C (400 &times; 56)</h2>
+  <p class="card-why" style="margin-bottom:14px">C takes the opposite trade: wide enough to keep the
+  waveform <i>and</i> say things in words. Nothing here resizes &mdash; it only dims what it is not
+  saying.</p>
+  <div class="states">
+    <div class="state-row">
+      <div class="state-what"><b>Recording</b>waveform + timer, as designed</div>
+      <div class="state-stage"><div class="hud C"><div class="wave"><b style="height:5px"></b><b style="height:11px"></b><b style="height:21px"></b><b style="height:9px"></b><b style="height:16px"></b><b style="height:27px"></b><b style="height:12px"></b><b style="height:7px"></b><b style="height:19px"></b><b style="height:25px"></b><b style="height:14px"></b><b style="height:8px"></b><b style="height:23px"></b><b style="height:17px"></b><b style="height:11px"></b><b style="height:29px"></b><b style="height:13px"></b><b style="height:6px"></b><b style="height:20px"></b><b style="height:26px"></b><b style="height:10px"></b><b style="height:15px"></b><b style="height:24px"></b><b style="height:7px"></b><b style="height:18px"></b><b style="height:28px"></b><b style="height:12px"></b><b style="height:9px"></b><b style="height:22px"></b><b style="height:16px"></b><b style="height:11px"></b><b style="height:25px"></b><b style="height:8px"></b><b style="height:19px"></b><b style="height:13px"></b><b style="height:27px"></b><b style="height:10px"></b><b style="height:6px"></b><b style="height:21px"></b><b style="height:15px"></b></div><span class="timer">0:07</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Working</b>wave damps to low amplitude, an amber sweep travels it; timer becomes an ellipsis</div>
+      <div class="state-stage"><div class="hud C"><div class="wave"><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><b style="height:4px"></b><b style="height:6px"></b><b style="height:5px"></b><b style="height:7px"></b><div class="wrapsweep"><i></i></div></div><span class="timer">&hellip;</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Done</b>wave flattens &mdash; and C has the room to say it in words</div>
+      <div class="state-stage"><div class="hud C"><div class="wave"></div><span class="flatbar"></span><span class="timer" style="color:var(--green)">Pasted &check; 0.2s</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Downloading</b>the wave becomes a progress track with a percentage</div>
+      <div class="state-stage"><div class="hud C"><span class="progbar"><i></i></span><span class="timer">43%</span></div></div>
+    </div>
+    <div class="state-row">
+      <div class="state-what"><b>Nothing heard</b>wave replaced by the words, red, no width change</div>
+      <div class="state-stage"><div class="hud C"><span class="word" style="color:var(--red)">Heard nothing</span></div></div>
+    </div>
+  </div>
+
   <h2 style="margin-top:26px">What we’re actually choosing</h2>
   <table>
     <thead>
@@ -604,7 +687,7 @@
   // hue = 0.33 * (1 - v * 1.25), saturation 0.72, brightness 0.95.
   // NSColor brightness .95 / saturation .72 lands at CSS lightness ~61%.
   function paintBars() {
-    document.querySelectorAll(".bars:not(.idle):not(.sweep) b, .wave b, .slabars b").forEach(b => {
+    document.querySelectorAll(".bars:not(.idle):not(.sweep) b, .slabars:not(.idle) b, .wave b").forEach(b => {
       const h = parseFloat(b.style.height) || 3;
       const track = b.parentElement.getBoundingClientRect().height || 30;
       const v = Math.max(0, Math.min(1, h / track));
@@ -622,7 +705,7 @@
   // hue = 0.33 * (1 - v * 1.25), saturation 0.72, brightness 0.95.
   // NSColor brightness .95 / saturation .72 lands at CSS lightness ~61%.
   function paintBars() {
-    document.querySelectorAll(".bars:not(.idle):not(.sweep) b, .wave b, .slabars b").forEach(b => {
+    document.querySelectorAll(".bars:not(.idle):not(.sweep) b, .slabars:not(.idle) b, .wave b").forEach(b => {
       const h = parseFloat(b.style.height) || 3;
       const track = b.parentElement.getBoundingClientRect().height || 30;
       const v = Math.max(0, Math.min(1, h / track));
