@@ -26,10 +26,16 @@ installs VoiceNote — it exists so a design can be agreed on before any code ch
 
 | File | What it decides |
 |---|---|
-| `hud-directions.html` | The recording HUD: four directions (bar meter / quiet line / ribbon / dial), current state vocabulary, and the trade-offs. |
+| `hud-directions.html` | Direction board: four HUD shapes (bar meter / quiet line / ribbon / dial). **Decided: B.** Kept as the record. |
+| `hud-b.html` | B alone, with the Waveform orb in the waiting state. Four orb sizes at true size — **decided: 64 px orb**. |
+| `hud-b-lifecycle.html` | Orb lifecycle v1: recording spins fast, working calm, done fades green, error throbs red three times. |
+| `hud-b-lifecycle-v2.html` | Orb lifecycle v2: the **box collapses with the orb** — done ends at text + 16 px padding, error holds through the throbs then collapses as the orb exits. |
 
 ## Open questions
 
-- HUD direction (A–D) — my read is **B** for daily use with **A** kept for error states.
+- Recording spin rate — board offers 2× / 4× / 7× of the model's 0.35 rad/s; currently 4×.
+- Does *working* keep spinning fast, or drop to the model's calm rate? (currently calm)
+- The collapsed pill ends wider than tall (96 × 96 → 118 × 47). That is what “text + 16 px all round”
+  gives you; more vertical padding would keep it squarer.
 - Whether the HUD should ever be repositionable, or stay bottom-centre.
-- Whether to show a live partial transcript (streaming) instead of a level meter at all.
+- Whether to show a live partial transcript (streaming) instead of an orb at all.

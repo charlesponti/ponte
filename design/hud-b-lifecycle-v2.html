@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VoiceNote — orb lifecycle, box collapses</title>
+<style>
+  /* ---------------------------------------------------------------
+     v2: the box collapses with the orb.
+     Done  — orb shrinks away, squircle collapses to a text pill sized
+             text + 16 px padding on all four sides.
+     Error — orb throbs red, then exits, box collapses the same way.
+     Orb maths: ~/Developer/Waveform (OrbModel / OrbProjection).
+     --------------------------------------------------------------- */
+  :root {
+    --hud-fill: rgba(28,28,30,0.72);
+    --hud-border: rgba(255,255,255,0.10);
+    --hud-ink: rgba(255,255,255,0.96);
+    --hud-ink-dim: rgba(255,255,255,0.55);
+    --red: #ff453a; --green: #32d74b; --mint: #66d4cf;
+    --page: #0b0b0d; --card: #141418; --card-2: #1b1b20; --line: #2a2a31;
+    --ink: #ececf1; --ink-mid: #a2a2ad; --ink-dim: #6e6e78; --accent: #7aa2ff;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; width: 980px; }
+  .wrap { padding: 22px 24px 26px; }
+  h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+  h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+       color: var(--ink-dim); margin: 0 0 10px; }
+  p { margin: 0; }
+  .lede { color: var(--ink-mid); max-width: 76ch; }
+  .lede b, .note b { color: var(--ink); font-weight: 600; }
+  .agreement { margin-top: 14px; padding: 11px 14px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; color: var(--ink-mid);
+    display: flex; gap: 10px; align-items: baseline; }
+  .agreement strong { color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+  /* ---------- HUD: geometry is driven by JS every frame ---------- */
+  .hud { background: var(--hud-fill); border: 1px solid var(--hud-border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.05) inset;
+    -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; }
+  .hud .orbcanvas { display: block; }
+  .hud .pill-label { color: var(--hud-ink-dim); white-space: nowrap; line-height: 1.2;
+    font-weight: 600; letter-spacing: -0.005em; }
+  .hud .pill-label.ok { color: var(--green); }
+  .hud .pill-label.err { color: var(--red); }
+
+  /* ---------- demo ---------- */
+  .demo { margin-top: 18px; display: grid; grid-template-columns: 320px 1fr; gap: 18px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .demo-stage { position: relative; height: 280px; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--line); display: grid; place-items: center; }
+  .demo-stage.dark { background: #1c1c1f; }
+  .demo-stage.light { background: #f4f4f2; }
+  .demo-stage.grey { background: #6f7480; }
+  .fake { position: absolute; inset: 16px 18px auto 18px; display: grid; gap: 9px; }
+  .fake i { display: block; height: 8px; border-radius: 4px; background: #2e2e33; }
+  .demo-stage.light .fake i { background: #e2e2de; }
+  .demo-stage.grey .fake i { background: #7f848f; }
+  .fake i:nth-child(2) { width: 74%; } .fake i:nth-child(3) { width: 88%; }
+  .fake i:nth-child(4) { width: 55%; }
+  .demo-hold { z-index: 1; display: grid; place-items: center; }
+
+  .demo-controls { display: flex; flex-direction: column; gap: 12px; }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  button.state { all: unset; cursor: pointer; padding: 8px 13px; font: inherit; font-size: 12.5px;
+    font-weight: 600; color: var(--ink-mid); background: var(--card-2);
+    border: 1px solid var(--line); border-radius: 9px; }
+  button.state:hover { color: var(--ink); border-color: #3a3a46; }
+  button.state[aria-pressed="true"] { background: #33333d; color: var(--ink); border-color: #45454f; }
+  button.state:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.play { border-color: #3a4a6a; color: #cfe0ff; background: #1d2536; }
+  .readout { font: 11.5px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-mid); }
+  .readout b { color: var(--ink); font-weight: 600; }
+  .readout span { color: var(--ink-dim); }
+
+  .tweaks { margin-top: 16px; padding: 12px 14px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; display: flex; flex-wrap: wrap;
+    gap: 20px; align-items: center; }
+  .tweak { display: flex; gap: 8px; align-items: center; }
+  .tweak > span { color: var(--ink-dim); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.06em; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { all: unset; cursor: pointer; padding: 5px 10px; font: inherit; font-size: 12px;
+    color: var(--ink-mid); background: var(--card-2); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: #33333d; color: var(--ink); }
+
+  /* ---------- keyframes ---------- */
+  .kf-section { margin-top: 22px; }
+  .kf-row { display: flex; align-items: flex-end; gap: 18px; padding: 18px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    overflow-x: auto; }
+  .kf { display: grid; justify-items: center; gap: 9px; flex: none; }
+  .kf-cell { height: 104px; display: grid; place-items: center; }
+  .kf em { font-style: normal; font-size: 11px; color: var(--ink-dim);
+    font-variant-numeric: tabular-nums; text-align: center; }
+  .kf-note { color: var(--ink-mid); font-size: 12.5px; padding: 12px 2px 0; max-width: 84ch; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-dim); font-weight: 600; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; }
+  td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  td { color: var(--ink-mid); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  code { color: var(--ink-mid); font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .note { margin-top: 16px; color: var(--ink-dim); font-size: 12px; max-width: 84ch; }
+  .foot { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    color: var(--ink-dim); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>The orb leaves, the box follows</h1>
+  <p class="lede">
+    Same lifecycle as before, but the container is now part of the animation. On <b>done</b> the squircle
+    collapses with the orb until it is only the text plus <b>16 px of padding on every side</b>. On
+    <b>error</b> the box holds through the three throbs — the red orb has something to say — and then
+    collapses as the orb exits.
+  </p>
+
+  <div class="agreement">
+    <strong>Working agreement:</strong>
+    <span>Design-only. Play it, then tell me what to change.</span>
+  </div>
+
+  <div class="demo">
+    <div class="demo-stage dark">
+      <div class="fake"><i></i><i></i><i></i><i></i></div>
+      <div class="demo-hold"><div class="hud" id="heroBox"></div></div>
+    </div>
+    <div class="demo-controls">
+      <div class="btnrow">
+        <button class="state" data-goto="idle">Idle</button>
+        <button class="state" data-goto="recording">Recording</button>
+        <button class="state" data-goto="working">Working</button>
+        <button class="state" data-goto="done">Done</button>
+        <button class="state" data-goto="error">Error</button>
+        <button class="state play" data-play="1">▶ Play the whole thing</button>
+      </div>
+      <div class="readout" id="readout"></div>
+    </div>
+  </div>
+
+  <div class="tweaks">
+    <div class="tweak"><span>Backdrop</span>
+      <div class="seg" role="group">
+        <button data-set="backdrop" data-value="dark" aria-pressed="true">Dark editor</button>
+        <button data-set="backdrop" data-value="light" aria-pressed="false">Light doc</button>
+        <button data-set="backdrop" data-value="grey" aria-pressed="false">Mid grey</button>
+      </div>
+    </div>
+    <div class="tweak"><span>Recording spin</span>
+      <div class="seg" role="group">
+        <button data-set="fast" data-value="2.0" aria-pressed="false">2×</button>
+        <button data-set="fast" data-value="4.0" aria-pressed="true">4×</button>
+        <button data-set="fast" data-value="7.0" aria-pressed="false">7×</button>
+      </div>
+    </div>
+    <div class="tweak"><span>Working spin</span>
+      <div class="seg" role="group">
+        <button data-set="workSpin" data-value="0.35" aria-pressed="true">calm 0.35</button>
+        <button data-set="workSpin" data-value="0.7" aria-pressed="false">eager 0.7</button>
+      </div>
+    </div>
+    <div class="tweak"><span>Final text size</span>
+      <div class="seg" role="group">
+        <button data-set="labelPx" data-value="11.5" aria-pressed="false">11.5</button>
+        <button data-set="labelPx" data-value="12.5" aria-pressed="true">12.5</button>
+        <button data-set="labelPx" data-value="13.5" aria-pressed="false">13.5</button>
+      </div>
+    </div>
+    <div class="tweak"><span>Motion</span>
+      <div class="seg" role="group">
+        <button data-set="motion" data-value="on" aria-pressed="true">On</button>
+        <button data-set="motion" data-value="off" aria-pressed="false">Freeze</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kf-section">
+    <h2>Done — the box collapses</h2>
+    <div class="kf-row" id="kfDone"></div>
+    <p class="kf-note">Green lands at 150 ms while the box is still a 96 px squircle, so the news arrives
+    before the movement. Then the orb shrinks to nothing over 550 ms and the box follows it all the way in —
+    ending at exactly the text plus 16 px padding, which measures <span id="doneTarget"></span>.
+    The dot count stays put: the whole object is scaling, so the dots scale with it rather than shedding.</p>
+  </div>
+
+  <div class="kf-section">
+    <h2>Error — throbs first, collapse second</h2>
+    <div class="kf-row" id="kfError"></div>
+    <p class="kf-note">Red at 180 ms, shrink to 82%, three throbs — and the box does <b>not</b> move during
+    any of it, because the throbs are the orb talking. Only once the third throb finishes does the orb exit
+    and the box collapse, ending at the text plus 16 px padding: <span id="errorTarget"></span>.</p>
+  </div>
+
+  <h2 style="margin-top:26px">The numbers</h2>
+  <table>
+    <thead><tr><th>State</th><th>Orb</th><th>Box</th><th>Timing</th></tr></thead>
+    <tbody>
+      <tr><td>Idle</td><td>mint · 64 px · 0.35 rad/s</td><td>96 × 96, r 26</td><td>until the hotkey</td></tr>
+      <tr><td>Recording</td><td>mint · 64 px · 4× spin</td><td>96 × 96</td><td>while the mic is live</td></tr>
+      <tr><td>Working</td><td>mint · 64 px · calm spin</td><td>96 × 96</td><td>0.2–0.6 s</td></tr>
+      <tr><td>Done</td><td>green · 64 → 0 px</td><td>96 × 96 → text + 32 px</td><td>150 ms hold · 550 ms collapse · HUD gone at 1.4 s</td></tr>
+      <tr><td>Error</td><td>red · 64 → 52 px, 3 throbs, then 0</td><td>96 × 96 → text + 32 px</td><td>180 ms colour · 250 ms shrink · 3 × 420 ms throbs · 460 ms collapse · gone at 3.0 s</td></tr>
+    </tbody>
+  </table>
+
+  <p class="note">
+    <b>Why the dots don’t shed.</b> When the orb is the thing shrinking, the whole object scales — sphere
+    and dots together — so the lattice keeps its proportions and the orb dissolves rather than thins out.
+    Dot count only had to drop in the earlier board, where a <i>fixed-size</i> orb was being compared at
+    different diameters.
+  </p>
+  <p class="note" style="margin-top:12px">
+    <b>One decision worth your eye:</b> the collapse makes the box <i>wider</i> than tall at the end
+    (a 96 px square becomes a wide short pill). That is what “text + 16 px all round” produces. If you would
+    rather it stayed square-ish, the fix is more vertical padding, not less — say so and I will show both.
+  </p>
+
+  <div class="foot">
+    Board: <code>design/hud-b-lifecycle-v2.html</code> · design-only, nothing installed · orb maths from
+    <code>~/Developer/Waveform</code> · box geometry driven per frame, target size measured from the
+    rendered text.
+  </div>
+
+</div>
+
+<script>
+  const TAU = Math.PI * 2;
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+  const TIP = 0.35;
+  const OPACITIES = [0.18, 0.4, 0.7, 1.0];
+  const MINT = [102, 212, 207], GREEN = [50, 215, 75], RED = [255, 69, 58];
+  const BASE_SPIN = 0.35, BASE_DOTS = 1100, BASE_DOTR = 0.62, ORB_MAX = 64;
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+
+  const settings = { fast: 4.0, workSpin: 0.35, motion: "on", labelPx: 12.5, pad: 16 };
+  const LABELS = { idle: "…", recording: "0:07", working: "…", done: "Pasted ✓ 0.2s", error: "Heard nothing" };
+
+  // ---- timeline constants, all in seconds ----
+  const T = {
+    done:  { hold: 0.15, collapse: 0.55, life: 1.40 },
+    error: { colour: 0.18, shrink: 0.25, throb: 0.42, throbs: 3, collapse: 0.46, life: 3.00 },
+  };
+
+  // ---- orb look per state ----
+  function visual(state, t) {
+    switch (state) {
+      case "idle":      return { tint: MINT, spin: BASE_SPIN, orb: 1, alpha: 1 };
+      case "recording": return { tint: MINT, spin: BASE_SPIN * settings.fast, orb: 1, alpha: 1 };
+      case "working":   return { tint: MINT, spin: settings.workSpin, orb: 1, alpha: 1 };
+      case "done": {
+        const k = clamp((t - T.done.hold) / T.done.collapse, 0, 1);
+        return { tint: mix(MINT, GREEN, clamp(t / T.done.hold, 0, 1)),
+                 spin: BASE_SPIN * settings.fast * (1 - 0.85 * k),
+                 orb: 1 - 0.95 * ease(k), alpha: 1 - ease(k) };
+      }
+      case "error": {
+        const e = T.error;
+        const shrinkK = clamp((t - e.colour) / e.shrink, 0, 1);
+        const shrink = 1 - 0.18 * ease(shrinkK);
+        const throbStart = e.colour + e.shrink;
+        const tk = (t - throbStart) / e.throb;
+        let orb = shrink + (tk > 0 && tk < e.throbs ? 0.12 * Math.abs(Math.sin(tk * Math.PI)) : 0);
+        const exitStart = throbStart + e.throbs * e.throb;
+        const exitK = clamp((t - exitStart) / e.collapse, 0, 1);
+        orb *= (1 - 0.95 * ease(exitK));
+        return { tint: mix(MINT, RED, clamp(t / e.colour, 0, 1)),
+                 spin: BASE_SPIN * settings.fast * (1 - 0.65 * shrinkK),
+                 orb, alpha: 1 - ease(exitK) };
+      }
+    }
+  }
+
+  // ---- box geometry per state ----
+  function geometry(state, t) {
+    const v = visual(state, t);
+    const target = state === "error" ? TARGET.error : TARGET.done;
+    let k = 0, hudAlpha = 1;
+    if (state === "done") {
+      k = clamp((t - T.done.hold) / T.done.collapse, 0, 1);
+      hudAlpha = 1 - clamp((t - (T.done.life - 0.25)) / 0.25, 0, 1);
+    } else if (state === "error") {
+      const e = T.error;
+      k = clamp((t - (e.colour + e.shrink + e.throbs * e.throb)) / e.collapse, 0, 1);
+      hudAlpha = 1 - clamp((t - (e.life - 0.25)) / 0.25, 0, 1);
+    }
+    const e = ease(k);
+    const w = lerp(96, target.w, e);
+    const h = lerp(96, target.h, e);
+    return { v, k: e, w, h,
+             radius: Math.min(h / 2, lerp(26, 18, e)),
+             labelPx: lerp(10, settings.labelPx, e),
+             orbPx: ORB_MAX * v.orb,
+             gap: lerp(5, 0, e),
+             alpha: hudAlpha };
+  }
+
+  // ---- measure the pill the text needs: text + 16 px on every side ----
+  function measureTarget(text) {
+    const el = document.createElement("span");
+    el.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font-weight:600;` +
+      `letter-spacing:-0.005em;line-height:1.2;font-size:${settings.labelPx}px;` +
+      `font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif`;
+    el.textContent = text;
+    document.body.appendChild(el);
+    const r = el.getBoundingClientRect();
+    el.remove();
+    return { w: Math.ceil(r.width) + settings.pad * 2, h: Math.ceil(r.height) + settings.pad * 2 };
+  }
+  let TARGET = { done: measureTarget(LABELS.done), error: measureTarget(LABELS.error) };
+
+  // ---- lattice + drawing (each HUD draws its own canvas at its current size) ----
+  function makeLattice(count) {
+    const unit = [];
+    for (let i = 0; i < count; i++) {
+      const y = 1 - 2 * (i + 0.5) / count;
+      const ring = Math.sqrt(Math.max(0, 1 - y * y));
+      const a = GOLDEN * i;
+      unit.push([Math.cos(a) * ring, y, Math.sin(a) * ring]);
+    }
+    return unit;
+  }
+  const LATTICE = makeLattice(BASE_DOTS);
+
+  function drawOrb(canvas, cssSize, tint, alpha, spin) {
+    if (cssSize < 1.5 || alpha <= 0.01) { canvas.style.display = "none"; return; }
+    canvas.style.display = "block";
+    const dpr = window.devicePixelRatio || 1;
+    const px = Math.max(2, Math.round(cssSize));
+    canvas.width = Math.round(px * dpr);
+    canvas.height = Math.round(px * dpr);
+    canvas.style.width = px + "px";
+    canvas.style.height = px + "px";
+    const g = canvas.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, px, px);
+    const half = px / 2;
+    const radius = px / 2 / (1 + 0.45) * 0.94;          // OrbProjection.radius(in:gain:)
+    const dotR = Math.max(0.32, BASE_DOTR * (px / ORB_MAX)); // dots scale with the object
+    const sy = Math.sin(spin), cy = Math.cos(spin);
+    const sx = Math.sin(TIP), cx = Math.cos(TIP);
+    const layers = [[], [], [], []];
+    for (let i = 0; i < BASE_DOTS; i++) {
+      const u = LATTICE[i];
+      const x1 = u[0] * cy + u[2] * sy;
+      const z1 = -u[0] * sy + u[2] * cy;
+      const y2 = u[1] * cx - z1 * sx;
+      const z2 = u[1] * sx + z1 * cx;
+      const depth = (z2 + 1) / 2;
+      const r = dotR * (0.75 + 0.25 * depth);            // OrbProjection.perspective(depth:)
+      layers[Math.min(3, Math.floor(depth * 4))].push(
+        half + x1 * radius, half - y2 * radius, Math.max(0.3, r));
+    }
+    g.globalAlpha = alpha;
+    for (let L = 0; L < 4; L++) {
+      const arr = layers[L];
+      if (!arr.length) continue;
+      g.beginPath();
+      for (let k = 0; k < arr.length; k += 3) {
+        g.moveTo(arr[k] + arr[k + 2], arr[k + 1]);
+        g.arc(arr[k], arr[k + 1], arr[k + 2], 0, TAU);
+      }
+      g.fillStyle = `rgba(${tint.join(",")},${OPACITIES[L]})`;
+      g.fill();
+    }
+    g.globalAlpha = 1;
+  }
+
+  // ---- one HUD element, laid out at a given moment of a state ----
+  function buildHud(host, state, t, spin) {
+    const geo = geometry(state, t);
+    const canvas = host.querySelector("canvas");
+    const label = host.querySelector(".pill-label");
+    const first = !canvas;
+    const cv = canvas || document.createElement("canvas");
+    const lb = label || document.createElement("span");
+    if (first) {
+      cv.className = "orbcanvas";
+      lb.className = "pill-label";
+      host.appendChild(cv); host.appendChild(lb);
+    }
+    host.style.width = geo.w.toFixed(1) + "px";
+    host.style.height = geo.h.toFixed(1) + "px";
+    host.style.borderRadius = geo.radius.toFixed(1) + "px";
+    host.style.gap = geo.gap.toFixed(1) + "px";
+    host.style.opacity = geo.alpha.toFixed(3);
+    lb.style.fontSize = geo.labelPx.toFixed(2) + "px";
+    lb.textContent = LABELS[state];
+    lb.className = "pill-label" +
+      (state === "done" ? " ok" : state === "error" ? " err" : "") + (geo.k > 0.55 ? " final" : "");
+    drawOrb(cv, geo.orbPx, geo.v.tint, geo.v.alpha, spin);
+    return geo;
+  }
+
+  // ---- hero ----
+  const heroBox = document.getElementById("heroBox");
+  const readout = document.getElementById("readout");
+  let state = "idle", stateStart = performance.now() / 1000, spinAccum = 0, lastT = stateStart, sequence = null;
+
+  function goto(s, play) {
+    state = s; stateStart = performance.now() / 1000; spinAccum = 1.1;
+    if (!play) sequence = null;
+    document.querySelectorAll("[data-goto]").forEach(b =>
+      b.setAttribute("aria-pressed", String(b.dataset.goto === s)));
+  }
+
+  function updateReadout(t, geo) {
+    const tintName = geo.v.tint === MINT ? "mint" : geo.v.tint === GREEN ? "green" : "red";
+    const target = state === "error" ? TARGET.error : TARGET.done;
+    readout.innerHTML =
+      `<b>${state}</b> <span>t=${t.toFixed(2)}s</span><br>` +
+      `tint <b>${tintName}</b> <span>rgb(${geo.v.tint.join(",")})</span><br>` +
+      `spin <b>${geo.v.spin.toFixed(2)}</b> rad/s <span>${(geo.v.spin / BASE_SPIN).toFixed(1)}× base</span><br>` +
+      `orb <b>${geo.orbPx.toFixed(0)}px</b> · alpha <b>${(geo.v.alpha * 100).toFixed(0)}%</b><br>` +
+      `box <b>${geo.w.toFixed(0)} × ${geo.h.toFixed(0)}</b> <span>→ ${target.w} × ${target.h} at 100%</span><br>` +
+      `collapse <b>${(geo.k * 100).toFixed(0)}%</b> · radius ${geo.radius.toFixed(0)}px`;
+  }
+
+  function tick() {
+    const now = performance.now() / 1000;
+    const dt = Math.min(0.05, now - lastT); lastT = now;
+    const t = now - stateStart;
+    const geo = buildHud(heroBox, state, t, spinAccum);
+    spinAccum += geo.v.spin * dt;
+    updateReadout(t, geo);
+    if (sequence) {
+      const step = sequence[0];
+      if (t >= step.hold) {
+        sequence.shift();
+        if (!sequence.length) goto("idle");
+        else goto(sequence[0].state, true);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => goto(b.dataset.goto)));
+  document.querySelector("[data-play]").addEventListener("click", () => {
+    sequence = [
+      { state: "recording", hold: 2.6 }, { state: "working", hold: 1.4 },
+      { state: "done", hold: 1.8 }, { state: "recording", hold: 2.0 },
+      { state: "error", hold: 3.2 }, { state: "idle", hold: 0.4 },
+    ];
+    goto("recording", true);
+  });
+
+  // ---- keyframe strips: real HUD elements so the box is in the picture ----
+  function strip(target, state, frames) {
+    const host = document.getElementById(target);
+    frames.forEach(f => {
+      const wrap = document.createElement("div");
+      wrap.className = "kf";
+      const cell = document.createElement("div");
+      cell.className = "kf-cell";
+      const hud = document.createElement("div");
+      hud.className = "hud";
+      cell.appendChild(hud); wrap.appendChild(cell);
+      const em = document.createElement("em");
+      em.innerHTML = f.label;
+      wrap.appendChild(em);
+      host.appendChild(wrap);
+      const geo = buildHud(hud, state, f.t, f.spin);
+      em.innerHTML = f.label + `<br>box ${geo.w.toFixed(0)}×${geo.h.toFixed(0)}`;
+    });
+  }
+
+  strip("kfDone", "done", [
+    { t: 0.00, spin: 1.1, label: "0 ms · mint" },
+    { t: 0.15, spin: 1.3, label: "150 ms · green" },
+    { t: 0.30, spin: 1.5, label: "300 ms" },
+    { t: 0.45, spin: 1.7, label: "450 ms" },
+    { t: 0.60, spin: 1.85, label: "600 ms" },
+    { t: 0.70, spin: 1.95, label: "700 ms · text only" },
+  ]);
+
+  strip("kfError", "error", [
+    { t: 0.00, spin: 1.1, label: "0 ms · mint" },
+    { t: 0.18, spin: 1.25, label: "180 ms · red" },
+    { t: 0.43, spin: 1.35, label: "430 ms · throb 1" },
+    { t: 0.85, spin: 1.45, label: "850 ms · throb 2" },
+    { t: 1.27, spin: 1.55, label: "1.27 s · throb 3" },
+    { t: 1.92, spin: 1.7, label: "1.92 s · exiting" },
+    { t: 2.20, spin: 1.8, label: "2.2 s · text only" },
+  ]);
+
+  // ---- tweaks ----
+  document.querySelectorAll("[data-set]").forEach(b => {
+    b.addEventListener("click", () => {
+      const k = b.dataset.set;
+      if (k === "backdrop" || k === "motion") settings[k] = b.dataset.value;
+      else settings[k] = parseFloat(b.dataset.value);
+      if (k === "backdrop") {
+        document.querySelectorAll(".demo-stage").forEach(s => {
+          s.classList.remove("dark", "light", "grey"); s.classList.add(b.dataset.value);
+        });
+      }
+      if (k === "motion" && b.dataset.value === "off") { sequence = null; goto("working"); }
+      if (k === "labelPx") {                    // text size changes the target pill
+        TARGET = { done: measureTarget(LABELS.done), error: measureTarget(LABELS.error) };
+      }
+      document.querySelectorAll(`[data-set="${k}"]`).forEach(x =>
+        x.setAttribute("aria-pressed", String(x.dataset.value === b.dataset.value)));
+      paintTargets();
+    });
+  });
+
+  function paintTargets() {
+    document.getElementById("doneTarget").textContent =
+      `${TARGET.done.w} × ${TARGET.done.h} px (text ${TARGET.done.w - 32} × ${TARGET.done.h - 32} + 16 px all round)`;
+    document.getElementById("errorTarget").textContent =
+      `${TARGET.error.w} × ${TARGET.error.h} px (text ${TARGET.error.w - 32} × ${TARGET.error.h - 32} + 16 px all round)`;
+  }
+
+  paintTargets();
+  goto("idle");
+  // First frame synchronous: rAF is paused in hidden tabs and headless screenshots.
+  buildHud(heroBox, state, 0, 1.1);
+  updateReadout(0, geometry(state, 0));
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>
