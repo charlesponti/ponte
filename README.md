@@ -88,10 +88,29 @@ opacity `[0.18, 0.4, 0.7, 1.0]`, perspective `0.75 + 0.25·depth`, spin 0.35 rad
 
 | State | Orb | Box |
 |---|---|---|
-| Recording | mint, **4× spin**, label is a live `m:ss` clock | 96 × 96 |
+| Recording | mint, **4× spin**, label is a live `m:ss` clock, **dots answer your voice** | 96 × 96 |
 | Working / downloading | mint, calm spin, label `…` or `43%` | 96 × 96 |
 | Done | mint → green, shrinks to nothing, label `Pasted ✓ 9.3s → 0.2s` | 96 × 96 → **text + 16 px all round** |
 | Error | mint → red, shrinks to 82%, **three throbs**, then exits | 96 × 96 through the throbs, then collapses |
+
+### The voice
+
+The orb is Waveform's model, ported whole (`OrbModel.sample`, `ColumnWindow`, `ColumnBuilder`):
+
+- **One entry per meter tick**, level and peak, from the recorder's `averagePower` and `peakPower`,
+  both mapped from dBFS the way Waveform's `Scale.decibels` maps a sample onto its display range.
+- **Meter ballistics**: the level rises at once and falls away over 0.15 s, so a word is a swell that
+  decays rather than a flicker.
+- **Read back with a Catmull-Rom curve** through four neighbours, and the newest column advances
+  smoothly *between* ticks, so a 30 Hz meter still ripples instead of stepping.
+- **`out = 1 + gain · level`** pushes dots outward and **`1.1 + 2.4 · peak + (out − 1)`** (over 1.1)
+  makes a peak's dots bigger. Measured: 49 pt across at silence, 64 pt at full voice.
+- **Gain is 0.25, not Waveform's 0.45.** Waveform's orb has a canvas of its own; this one shares a fixed
+  96 px box with a label, and 0.45 would push the dots into it. At 0.25 the loudest voice lands on exactly
+  the 60 px orb the board draws.
+
+The box is **black** (94 %, hairline border), not the usual translucent `.hudWindow` material: the outer
+dots are drawn at 18 % opacity and were lost against grey. Black raised measured dot contrast 1.14–1.20×.
 
 Design decisions worth knowing before changing it:
 
@@ -111,6 +130,8 @@ Design decisions worth knowing before changing it:
 ```bash
 VoiceNote --hud-strip /tmp/hud.png          # the lifecycle as a contact sheet, drawn by the app
 VoiceNote --hud-render /tmp/one.png done 0.45   # one frame: <out.png> <state> [t] [text]
+VoiceNote --hud-voice /tmp/voice.png            # the orb answering a voice: levels + a spoken word
+VoiceNote --orb-level /tmp/l.png 0.75           # one recording frame at a voice level
 ```
 
 `--hud-strip` is the honest way to review the HUD: it is the app's own renderer, not a mockup. The blur
