@@ -5,8 +5,10 @@ Everything runs on your Mac — no network calls, no account, no subscription.
 
 ```
 ⌥⌘Space   start recording  (press again to stop)
-          → HUD shows a live mic level
+          → a 96 px squircle holding the orb, mint and spinning fast while it listens
           → Parakeet on the Neural Engine (default) or whisper.cpp on the CPU
+          → done: the orb turns green and the box collapses to the text + 16 px padding
+          → error: the orb shrinks, turns red, throbs three times, then the box follows
           → text is pasted into whatever app is focused
 ```
 
@@ -28,7 +30,8 @@ Installed at `/Applications/VoiceNote.app`. Lives in the menu bar (no Dock icon)
 | `Sources/VoiceNote/Recorder.swift` | mic capture straight to 16 kHz mono 16-bit WAV (what both engines want) |
 | `Sources/VoiceNote/ParakeetEngine.swift` | FluidAudio/CoreML engine + `AsrEngine` router that picks the engine |
 | `Sources/VoiceNote/Transcriber.swift` | whisper.cpp subprocess, transcript saving, model downloads |
-| `Sources/VoiceNote/HUD.swift` | floating level-meter pill + status states (also shows download progress) |
+| `Sources/VoiceNote/Orb.swift` | the orb: lattice, projection, depth layers, and the whole lifecycle spec (`HudSpec`) |
+| `Sources/VoiceNote/HUD.swift` | the floating squircle, its collapse animation, and the offscreen renderer |
 | `Sources/VoiceNote/HotKey.swift` | Carbon global hotkey (no Accessibility permission needed to *trigger*) |
 | `scripts/build-app.sh` | builds and ad-hoc signs `VoiceNote.app`, copies SPM resource bundles |
 | `scripts/make-icon.sh` | regenerates the app icon with ImageMagick |
@@ -76,6 +79,39 @@ tccutil reset Microphone com.ponti.voicenote
   - `ggml-base.en.bin` — fallback, fast but noticeably worse punctuation
 - Parakeet models in `~/Library/Application Support/FluidAudio/Models/`. They download on first use,
   or up front with `VoiceNote --download ultra`. Ultra's encoder is 595 MB (int8, ANE).
+
+## The HUD
+
+The HUD is a **96 px squircle holding an orb of 1,100 dots**, borrowed from
+[Waveform](~/Developer/Waveform) and reproduced from its maths — Fibonacci lattice, four depth layers at
+opacity `[0.18, 0.4, 0.7, 1.0]`, perspective `0.75 + 0.25·depth`, spin 0.35 rad/s, tip 0.35.
+
+| State | Orb | Box |
+|---|---|---|
+| Recording | mint, **4× spin** | 96 × 96 |
+| Working / downloading | mint, calm spin, label `…` or `43%` | 96 × 96 |
+| Done | mint → green, shrinks to nothing | 96 × 96 → **text + 16 px all round** |
+| Error | mint → red, shrinks to 82%, **three throbs**, then exits | 96 × 96 through the throbs, then collapses |
+
+Design decisions worth knowing before changing it:
+
+- **The box only collapses on done and error**, and on error only *after* the third throb — the throbs are
+  the orb talking, so the container holds still while they happen.
+- **The throb scales the object, not the dots.** Pushing dots outward is how this model expresses loudness;
+  throbbing that way would be lying about the audio.
+- **The pill is measured from the rendered string**, so "Pasted ✓ 1.7s" sizes correctly, not just "0.2s".
+- **The box sinks**: its bottom edge stays 96 px above the visible frame while the height shrinks.
+- Dot count stays at 1,100 as the orb shrinks — the whole object scales, so the dots scale with it.
+
+### Seeing it without a screen grab
+
+```bash
+VoiceNote --hud-strip /tmp/hud.png          # the lifecycle as a contact sheet, drawn by the app
+VoiceNote --hud-render /tmp/one.png done 0.45   # one frame: <out.png> <state> [t] [text]
+```
+
+`--hud-strip` is the honest way to review the HUD: it is the app's own renderer, not a mockup. The blur
+material is approximated with a solid fill offscreen; everything else is the real drawing path.
 
 ## Measured on this Mac (M1 Max, 32 GB)
 
@@ -231,4 +267,6 @@ VoiceNote --transcribe take.wav                  # uses the default engine
 VoiceNote --transcribe take.wav --engine whisper --model ggml-base.en.bin
 VoiceNote --transcribe take.wav --engine parakeet --parakeet-model ultra
 VoiceNote --selftest 5                           # record 5 s from the mic and transcribe it
+VoiceNote --hud-strip hud.png                    # the HUD lifecycle as a contact sheet
+VoiceNote --hud-render hud.png error 0.64        # one HUD frame at a moment in a state
 ```

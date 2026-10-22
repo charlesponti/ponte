@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
         statusItem.menu = menu
 
-        recorder.onLevel = { [weak self] v in self?.hud.pushLevel(v) }
+        recorder.onLevel = nil
 
         let code = Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode)
         let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
@@ -52,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         downloader.onProgress = { [weak self] text in
             self?.progressItem?.title = text
+            self?.hudProgress(text)
         }
         downloader.onFinish = { result in
             switch result {
@@ -166,13 +167,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         state = .working
         updateIcon()
-        hud.showWorking("Transcribing…")
+        hud.showWorking()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             do {
                 let result = try AsrEngine.transcribe(wav: url) { message in
-                    DispatchQueue.main.async { self.hud.showWorking(message) }
+                    DispatchQueue.main.async { self.hudProgress(message) }
                 }
                 DispatchQueue.main.async {
                     self.finish(text: result.text, took: result.seconds, audio: url,
@@ -256,6 +257,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         vlog("auto-paste unavailable — Accessibility not granted for this build")
         Shell.notify("VoiceNote",
                      "Auto-paste needs Accessibility: System Settings ▸ Privacy & Security ▸ Accessibility. Until then the text goes to the clipboard.")
+    }
+
+    /// Progress arrives as prose ("Downloading Parakeet models… 43% (12/20 files)").
+    /// The HUD has room for the number, so show that; otherwise just the orb.
+    private func hudProgress(_ message: String) {
+        if let range = message.range(of: #"(\d{1,3})%"#, options: .regularExpression),
+           let percent = Int(message[range].dropLast()) {
+            hud.showDownload(percent: percent)
+        } else {
+            hud.showWorking()
+        }
     }
 
     private func updateIcon() {
@@ -513,7 +525,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 do {
                     try ParakeetEngine.shared.preload(model: model) { message in
-                        DispatchQueue.main.async { self?.hud.showWorking(message) }
+                        DispatchQueue.main.async { self?.hudProgress(message) }
                     }
                     DispatchQueue.main.async { self?.hud.showDone("parakeet ready ✓") }
                 } catch {
@@ -531,11 +543,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ParakeetEngine.shared.unload()
         vlog("parakeet model set to \(model.shortLabel)")
         guard Settings.engine == .parakeet else { return }
-        hud.showWorking("Loading \(model.shortLabel)…")
+        hudProgress("Loading \(model.shortLabel)…")
         DispatchQueue.global(qos: .utility).async { [weak self] in
             do {
                 try ParakeetEngine.shared.preload(model: model) { message in
-                    DispatchQueue.main.async { self?.hud.showWorking(message) }
+                    DispatchQueue.main.async { self?.hudProgress(message) }
                 }
                 DispatchQueue.main.async { self?.hud.showDone("\(model.shortLabel) ready ✓") }
             } catch {
@@ -546,11 +558,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func downloadParakeet() {
         let model = Settings.parakeetModel
-        hud.showWorking("Downloading \(model.shortLabel)…")
+        hudProgress("Downloading \(model.shortLabel)…")
         DispatchQueue.global(qos: .utility).async { [weak self] in
             do {
                 try ParakeetEngine.shared.download(model: model) { message in
-                    DispatchQueue.main.async { self?.hud.showWorking(message) }
+                    DispatchQueue.main.async { self?.hudProgress(message) }
                 }
                 DispatchQueue.main.async { self?.hud.showDone("\(model.shortLabel) ready ✓") }
             } catch {
