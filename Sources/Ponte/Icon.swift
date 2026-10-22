@@ -132,7 +132,9 @@ enum IconRenderer {
             let base = side * 0.26      // tall enough that the rest state is not a faint smudge
             let span = side * 0.40 * min(max(level, 0), 1)
             let total = width * 3 + gap * 2
-            let bottom = centre.y - (base + side * 0.40) / 2
+            // The resting group is centred, so the mark is not bottom-heavy in the bar; it then
+            // grows upward, which is what a meter does.
+            let bottom = centre.y - base / 2
             for (index, factor) in factors.enumerated() {
                 let height = base + span * factor
                 let x = centre.x - total / 2 + CGFloat(index) * (width + gap)

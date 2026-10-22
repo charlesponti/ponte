@@ -10,8 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let downloader = ModelDownloader()
     private var hotKey: GlobalHotKey?
 
-    private enum State { case idle, starting, recording, working }
-    private var state: State = .idle
+    private var state: AppState = .idle
 
     /// A single physical press can deliver two hotkey events (key down/up, or key
     /// repeat). Swallow the duplicate so one press never spawns two recorders.
@@ -290,22 +289,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // At rest the menu bar wears the app's own mark; the momentary states keep their glyphs,
         // because "recording" is worth more than branding while it is happening (the orb is on
         // screen in the HUD at that point anyway).
-        let (symbol, tint): (String?, NSColor?) = {
-            switch state {
-            case .idle: return (nil, nil)
-            case .starting: return ("record.circle.fill", .systemOrange)
-            case .recording: return ("record.circle.fill", .systemRed)
-            case .working: return ("waveform", .systemOrange)
-            }
-        }()
-        let image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: "Ponte") }
-            ?? IconRenderer.menuBarImage(MenuBarMark.chosen)
-        image.isTemplate = true      // contentTintColor does the colouring; a black glyph on a dark
-                                     // menu bar is what the other arrangement produces.
-
-        statusItem?.button?.image = image
-        statusItem?.button?.contentTintColor = tint
+        statusItem?.button?.image = StatusIcon.image(for: state)
+        statusItem?.button?.contentTintColor = StatusIcon.tint(for: state)
         statusItem?.button?.toolTip = "Ponte — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers))"
+        // The item moves when the bar re-lays out — macOS adds its own microphone pill while we
+        // record — so where it is has to be re-read per state, not remembered from launch.
+        if let f = statusItem?.button?.window?.frame {
+            vlog("icon \(state) at x=\(Int(f.origin.x)) y=\(Int(f.origin.y)) w=\(Int(f.width)) h=\(Int(f.height))")
+        }
     }
 
     // MARK: - Menu

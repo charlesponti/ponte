@@ -518,6 +518,15 @@ func runCLI() -> Int32? {
         return writePNG(MainActor.assumeIsolated { IconRenderer.image(mark, size: CGFloat(size)) },
                         to: argv[2])
 
+    case "--status-image":
+        guard argv.count > 3 else {
+            print("usage: Ponte --status-image <out.png> <\(AppState.allCases.map(\.rawValue).joined(separator: "|"))>")
+            return 2
+        }
+        guard let state = AppState(rawValue: argv[3]) else { print("unknown state: \(argv[3])"); return 2 }
+        let image = StatusIcon.image(for: state)
+        print("state=\(state) template=\(image.isTemplate) tint=\(StatusIcon.tint(for: state)?.description ?? "none") size=\(Int(image.size.width))x\(Int(image.size.height))")
+        return writePNG(image, to: argv[2])
     case "--menubar-mark":
         guard argv.count > 3 else {
             print("usage: Ponte --menubar-mark <out.png> <\(MenuBarMark.allCases.map(\.rawValue).joined(separator: "|"))> [pt] [level]")
