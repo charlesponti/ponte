@@ -41,9 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
         statusItem.menu = menu
 
-        recorder.onMeter = { [weak self] level, peak in
-            self?.hud.pushLevel(level, peak: peak)
-        }
 
         let code = Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode)
         let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
@@ -156,6 +153,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             self.state = .recording
             self.updateIcon()
+            if let columns = self.recorder.columns {
+                self.hud.use(columns: columns, clock: self.recorder.clock,
+                             columnsPerSecond: HudSpec.columnsPerSecond)
+            }
             self.hud.beginRecording()
         }
     }

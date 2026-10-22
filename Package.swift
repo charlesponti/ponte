@@ -18,6 +18,7 @@ let package = Package(
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
                 .product(name: "WaveformCore", package: "Waveform"),
+                .product(name: "WaveformUI", package: "Waveform"),
                 .product(name: "WaveformCapture", package: "Waveform"),
             ],
             path: "Sources/Ponte",

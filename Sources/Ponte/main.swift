@@ -1,4 +1,7 @@
 import AppKit
+import SwiftUI
+import WaveformCore
+import WaveformUI
 import AVFoundation
 import Foundation
 
@@ -161,18 +164,53 @@ func writePNG(_ image: NSImage, to path: String) -> Int32 {
     }
 }
 
+/// The HUD at one moment, drawn by the app's own SwiftUI view.
+func hudImage(state: HudState, t: TimeInterval, text: String, colour: Color,
+              ring: ColumnRing, turning: Bool = false, scale: CGFloat = 2) -> NSImage {
+    // Rendering SwiftUI is main-actor work; the CLI is on the main thread.
+    MainActor.assumeIsolated {
+        let renderer = ImageRenderer(content: HudBox(
+            state: state, t: t, label: text, labelColour: colour,
+            target: HudLifecycle.pillSize(for: text), ring: ring, clock: nil, turning: turning))
+        renderer.scale = scale
+        return renderer.nsImage
+            ?? NSImage(size: NSSize(width: HudSpec.fullBox, height: HudSpec.fullBox))
+    }
+}
+
+/// A ring holding one steady level, for a still of the orb answering a voice.
+func voiceRing(level: Float, columns: Int = 140) -> ColumnRing {
+    let ring = ColumnRing(capacity: 256)
+    for _ in 0..<columns {
+        ring.append(Column(low: -level, high: level, rms: level, level: level))
+    }
+    return ring
+}
+
+/// A ring holding a train of syllables, offset by `phase`, so a still shows rings along the sphere.
+func syllableRing(phase: Double, columns: Int = 140) -> ColumnRing {
+    let ring = ColumnRing(capacity: 256)
+    for index in 0..<columns {
+        let secondsAgo = Double(columns - index) / HudSpec.columnsPerSecond
+        let envelope = abs(sin((secondsAgo + phase) * .pi / 0.25))
+        let level = Float(max(0, envelope - 0.2) / 0.8)
+        ring.append(Column(low: -level, high: level, rms: level, level: level))
+    }
+    return ring
+}
+
 /// The lifecycle as a contact sheet, drawn by the app's own renderer.
 func writeHUDSheet(to path: String) -> Int32 {
     struct Frame { let t: Double; let spin: Float; var note: String = "" }
-    struct Row { let title: String; let state: HudState; let text: String; let colour: NSColor; let frames: [Frame] }
+    struct Row { let title: String; let state: HudState; let text: String; let colour: Color; let frames: [Frame] }
 
     let rows: [Row] = [
         Row(title: "Done — the box collapses to text + 16 px", state: .done,
-            text: defaultHudText(for: .done), colour: HudSpec.green,
+            text: defaultHudText(for: .done), colour: Color(nsColor: HudSpec.green),
             frames: [Frame(t: 0.00, spin: 1.10), Frame(t: 0.15, spin: 1.30), Frame(t: 0.30, spin: 1.50),
                      Frame(t: 0.45, spin: 1.70), Frame(t: 0.60, spin: 1.85), Frame(t: 0.70, spin: 1.95)]),
         Row(title: "Error — three throbs, then the box follows", state: .error,
-            text: defaultHudText(for: .error), colour: HudSpec.red,
+            text: defaultHudText(for: .error), colour: Color(nsColor: HudSpec.red),
             // A trough is included next to a peak: the throb is a 15 % scale change, and
             // without both you cannot see it in a still.
             frames: [Frame(t: 0.00, spin: 1.10, note: "mint"),
@@ -193,42 +231,30 @@ func writeHUDSheet(to path: String) -> Int32 {
                                  geometry.box.width, geometry.box.height)
             if !frame.note.isEmpty { caption += "  " + frame.note }
             return SheetCell(caption: caption,
-                             image: HUD.render(state: row.state, t: frame.t, text: row.text,
-                                               colour: row.colour, spin: frame.spin))
+                             image: hudImage(state: row.state, t: frame.t, text: row.text,
+                                             colour: row.colour, ring: IconRenderer.silentRing))
         })
     }, to: path)
 }
 
 /// The orb answering a voice: a row of steady levels, and a row of a word being spoken.
 func writeVoiceSheet(to path: String) -> Int32 {
-    let dim = NSColor.white.withAlphaComponent(0.55)
-
-    func steady(_ level: Float) -> VoiceProfile { { _ in (level, level) } }
-
-    /// A syllable every 250 ms, so the rings along the sphere are visible in a still.
-    let syllables: VoiceProfile = { age in
-        let secondsAgo = Double(age) * HudSpec.voiceHistory
-        let envelope = abs(sin(secondsAgo * .pi / 0.25))
-        let level = Float(max(0, envelope - 0.2) / 0.8)
-        return (level, min(1, level * 1.6))
-    }
+    let dim = Color.white.opacity(0.55)
 
     let levels = SheetRow(
         title: "The orb answers the level (silence → full voice)",
         cells: [0.0, 0.25, 0.5, 0.75, 1.0].map { level in
             SheetCell(caption: String(format: "level %.2f  →  dots ×%.2f", level,
-                                      1 + Double(OrbProjection.gain) * level),
-                      image: HUD.render(state: .recording, t: 0, text: "0:07", colour: dim,
-                                        spin: 1.1, voice: steady(Float(level))))
+                                      1 + Double(HudSpec.orbGain) * level),
+                      image: hudImage(state: .recording, t: 7, text: "", colour: dim,
+                                      ring: voiceRing(level: Float(level))))
         })
     let word = SheetRow(
         title: "A word being spoken: 0.8 s of voice, equator (now) to poles (0.8 s ago)",
         cells: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0].map { moment in
-            // The picture advances through the word, so each frame catches the sound at a different age.
-            let profile: VoiceProfile = { age in syllables(Float(max(0, min(1, Double(age) + moment)))) }
-            return SheetCell(caption: String(format: "%.2f s in", moment),
-                             image: HUD.render(state: .recording, t: 0, text: "0:07", colour: dim,
-                                               spin: 1.1 + Float(moment), voice: profile))
+            SheetCell(caption: String(format: "%.2f s in", moment),
+                      image: hudImage(state: .recording, t: 7, text: "", colour: dim,
+                                      ring: syllableRing(phase: moment)))
         })
     return writeSheet([levels, word], to: path)
 }
@@ -309,17 +335,11 @@ func writeSheet(_ rows: [SheetRow], to path: String,
 /// drawn enlarged, so a 32 px tile is judged as a 32 px tile and not as a zoomed drawing.
 func writeIconSheet(to path: String) -> Int32 {
     let sizes: [CGFloat] = [512, 256, 128, 64, 32, 16]
-    let descriptions: [IconMark: String] = [
-        .orb: "the sphere, as the HUD draws it",
-        .halftone: "the same sphere as rows of dots",
-        .ripple: "the sphere with rings leaving it",
-        .core: "a solid core and a halo — the quietest",
-    ]
     let rows = IconMark.allCases.map { mark in
-        SheetRow(title: "\(mark.rawValue) — \(descriptions[mark] ?? "")",
+        SheetRow(title: "\(mark.rawValue) — \(mark.summary)",
                  cells: sizes.map { size in
                     SheetCell(caption: "\(Int(size)) px",
-                              image: IconRenderer.image(mark, size: size))
+                              image: MainActor.assumeIsolated { IconRenderer.image(mark, size: size) })
                  })
     }
     return writeSheet(rows, to: path, cellW: 268, cellH: 268, pad: 30,
@@ -417,8 +437,9 @@ func runCLI() -> Int32? {
         let t = argv.count > 4 ? (Double(argv[4]) ?? 0) : 0
         let text = argv.count > 5 ? argv[5]
             : (state == .recording ? HudLifecycle.clock(t) : defaultHudText(for: state))
-        return writePNG(HUD.render(state: state, t: t, text: text, colour: hudColour(for: state)),
-                        to: argv[2])
+        return writePNG(hudImage(state: state, t: t, text: text,
+                                 colour: Color(nsColor: hudColour(for: state)),
+                                 ring: IconRenderer.silentRing), to: argv[2])
 
     case "--status-icon":
         guard argv.count > 2 else { print("usage: Ponte --status-icon <out.png> [pt]"); return 2 }
@@ -427,24 +448,16 @@ func runCLI() -> Int32? {
 
     case "--icon":
         guard argv.count > 3, let mark = IconMark(rawValue: argv[3]) else {
-            print("usage: Ponte --icon <out.png> <orb|halftone|ripple|core> [size]")
+            print("usage: Ponte --icon <out.png> <orb|core> [size]")
             return 2
         }
         let size = argv.count > 4 ? (Double(argv[4]) ?? 1024) : 1024
-        return writePNG(IconRenderer.image(mark, size: CGFloat(size)), to: argv[2])
+        return writePNG(MainActor.assumeIsolated { IconRenderer.image(mark, size: CGFloat(size)) },
+                        to: argv[2])
 
     case "--icon-sheet":
         guard argv.count > 2 else { print("usage: Ponte --icon-sheet <out.png>"); return 2 }
         return writeIconSheet(to: argv[2])
-
-    case "--orb-level":
-        guard argv.count > 3, let level = Float(argv[3]) else {
-            print("usage: Ponte --orb-level <out.png> <level 0...1>")
-            return 2
-        }
-        return writePNG(HUD.render(state: .recording, t: 0,
-                                   text: HudLifecycle.clock(7), colour: hudColour(for: .recording),
-                                   spin: 1.1, voice: { _ in (level, level) }), to: argv[2])
 
     case "--hud-voice":
         guard argv.count > 2 else { print("usage: Ponte --hud-voice <out.png>"); return 2 }

@@ -12,16 +12,14 @@ import WaveformCore
 /// route-change and cut-short handling that comes with it.
 final class Recorder {
     private var engine: EngineRecorder?
-    private var meterTimer: Timer?
     private(set) var currentURL: URL?
 
-    /// One meter tick: how loud the microphone is, and how high its peak was, both mapped onto the
-    /// display range by the same `Scale` the orb uses.
-    var onMeter: ((_ level: Float, _ peak: Float) -> Void)?
-
-    /// The recording's columns, newest last: what the orb is drawn from. Ponte reads the newest entry
-    /// here for now; the orb moves onto this ring directly with the SwiftUI HUD.
+    /// The recording's columns, newest last: what the orb is drawn from, with the ballistics and the
+    /// dB mapping applied by the engine and by `WaveformUI`'s view.
     var columns: ColumnRing? { engine?.columns }
+
+    /// Where the audio's time meets the screen's, so the orb's picture moves smoothly between buffers.
+    var clock: StreamClock? { engine?.clock }
 
     var isRecording: Bool { engine != nil }
 
@@ -65,14 +63,11 @@ final class Recorder {
         engine = recorder
         currentURL = url
         vlog("record start device=\(deviceName) file=\(url.lastPathComponent) format=16kHz-mono-wav")
-        startMetering()
         return url
     }
 
     @discardableResult
     func stop() -> URL? {
-        meterTimer?.invalidate()
-        meterTimer = nil
         let url = currentURL
         let seconds = elapsed
         var incomplete: String?
@@ -88,21 +83,5 @@ final class Recorder {
         }
         if let incomplete { vlog("record incomplete: \(incomplete)") }
         return url
-    }
-
-    /// Reads the newest column at a steady 30 a second and reports it on the display scale.
-    private func startMetering() {
-        let scale = Scale.decibels(floor: -55)
-        let t = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
-            guard let self, let columns = self.columns, columns.count > 0 else { return }
-            var column = Column.silent
-            _ = withUnsafeMutablePointer(to: &column) { pointer in
-                columns.snapshot(1, into: pointer)
-            }
-            let peak = max(abs(column.high), abs(column.low))
-            self.onMeter?(max(0, scale.height(column.level)), max(0, scale.height(peak)))
-        }
-        RunLoop.main.add(t, forMode: .common)
-        meterTimer = t
     }
 }

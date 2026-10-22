@@ -3,11 +3,13 @@ import XCTest
 @testable import Ponte
 
 /// The app icon: exact sizes, a face that reaches the corners properly, and — the part that needed
-/// work — staying readable when the tile is tiny.
+/// work — staying readable when the tile is tiny. The mark itself is `WaveformUI`'s orb, drawn by the
+/// same view the HUD uses, so these tests are about how it is used at each size.
+@MainActor
 final class IconTests: XCTestCase {
 
-    func testThereAreFourMarksAndTheyAllDraw() {
-        XCTAssertEqual(IconMark.allCases.count, 4)
+    func testBothMarksDraw() {
+        XCTAssertEqual(IconMark.allCases.count, 2)
         for mark in IconMark.allCases {
             let ink = Probe.mint(IconRenderer.image(mark, size: 512))
             XCTAssertGreaterThan(ink.count, 5_000, "\(mark) drew almost nothing")
@@ -20,7 +22,8 @@ final class IconTests: XCTestCase {
         for size in [16, 32, 64, 128, 256, 512, 1024] {
             for mark in IconMark.allCases {
                 let image = IconRenderer.image(mark, size: CGFloat(size))
-                let rep = image.representations.compactMap { $0 as? NSBitmapImageRep }.first
+                // ImageRenderer hands back a CGImage-backed image, so ask the probe to read it.
+                let rep = Probe.bitmap(image)
                 XCTAssertEqual(rep?.pixelsWide, size, "\(mark) at \(size)")
                 XCTAssertEqual(rep?.pixelsHigh, size, "\(mark) at \(size)")
             }
@@ -40,14 +43,14 @@ final class IconTests: XCTestCase {
         }
     }
 
-    func testTheDotHintGrowsDotsAsTheTileShrinks() {
-        XCTAssertEqual(IconRenderer.dotScale(2.4, size: 512), 2.4, accuracy: 0.001)
-        XCTAssertGreaterThan(IconRenderer.dotScale(2.4, size: 128),
-                             IconRenderer.dotScale(2.4, size: 512))
-        XCTAssertGreaterThan(IconRenderer.dotScale(2.4, size: 16),
-                             IconRenderer.dotScale(2.4, size: 128))
-        XCTAssertLessThanOrEqual(IconRenderer.dotScale(2.4, size: 4), 2.4 * 4,
-                                 "the hint is capped")
+    /// The dots are an absolute point size in `WaveformUI`, so the multiplier must fall as the tile
+    /// does — but *slower* than proportionally, which is the nudge that keeps a 16 px tile filled.
+    func testTheDotHintAnswersTheTileSize() {
+        XCTAssertLessThan(IconRenderer.dotScale(forTile: 16), IconRenderer.dotScale(forTile: 512))
+        XCTAssertLessThan(IconRenderer.dotScale(forTile: 512), IconRenderer.dotScale(forTile: 1024))
+        let perPoint = { (size: CGFloat) in IconRenderer.dotScale(forTile: size) / Double(size) }
+        XCTAssertGreaterThan(perPoint(16), perPoint(512), "small tiles get relatively bigger dots")
+        XCTAssertGreaterThan(perPoint(512), perPoint(1024), "and so do medium ones")
     }
 
     func testTheFaceIsOpaqueInsideAndClearAtTheCorners() {

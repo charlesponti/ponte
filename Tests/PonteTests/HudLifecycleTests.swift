@@ -184,23 +184,15 @@ final class HudLifecycleTests: XCTestCase {
         XCTAssertEqual(short.height, long.height, accuracy: 0.01, "one line stays one line")
     }
 
-    // MARK: - The voice's ballistics
+    // MARK: - The voice
 
-    func testLevelRisesAtOnceAndFallsAwaySlowly() {
-        XCTAssertEqual(HudLifecycle.ballistic(previous: 0.1, input: 0.9), 0.9, accuracy: 0.0001,
-                       "instant attack")
-        let decay = Float(exp(-1.0 / (HudSpec.voiceRate * HudSpec.voiceRelease)))
-        XCTAssertEqual(HudLifecycle.ballistic(previous: 1, input: 0), decay, accuracy: 0.0001)
-        XCTAssertEqual(decay, 0.80, accuracy: 0.02, "about 20 % per tick at 30 Hz")
-        // a decayed level still beats a fresh quiet one, so a word has a tail
-        XCTAssertEqual(HudLifecycle.ballistic(previous: 1, input: 0.2), decay, accuracy: 0.0001)
-    }
-
-    func testLevelFallsToNothingOverAboutAHundredMilliseconds() {
-        var level: Float = 1
-        for _ in 0..<Int(HudSpec.voiceRate * 0.5) {
-            level = HudLifecycle.ballistic(previous: level, input: 0)
-        }
-        XCTAssertLessThan(level, 0.05, "half a second of silence should be quiet")
+    /// The orb and the level it shows come from the Waveform package; what Ponte owns is the numbers
+    /// it feeds that view. The gain is the one that has to hold: at 0.45 (Waveform's own) the dots
+    /// reach into the label in a 96 px box.
+    func testTheOrbIsSizedForItsBox() {
+        XCTAssertEqual(HudSpec.orbGain, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(HudSpec.orbSize, 64)
+        XCTAssertEqual(HudSpec.voiceFloor, -55, "the floor that counts as silence")
+        XCTAssertEqual(HudSpec.columnsPerSecond, 120, "how fast the engine's columns arrive")
     }
 }

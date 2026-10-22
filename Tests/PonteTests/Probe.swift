@@ -22,6 +22,28 @@ struct Ink {
 }
 
 enum Probe {
+    /// A bitmap of any `NSImage`, whatever backs it. `ImageRenderer` hands back a CGImage-backed
+    /// image, which has no `NSBitmapImageRep` to read; this draws it into one, at its own pixel size.
+    static func bitmap(_ image: NSImage) -> NSBitmapImageRep? {
+        if let rep = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first {
+            return rep
+        }
+        let size = image.size
+        guard size.width >= 1, size.height >= 1,
+              let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: Int(size.width.rounded()),
+                pixelsHigh: Int(size.height.rounded()), bitsPerSample: 8, samplesPerPixel: 4,
+                hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0,
+                bitsPerPixel: 0),
+              let graphics = NSGraphicsContext(bitmapImageRep: rep) else { return nil }
+        rep.size = size
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        image.draw(in: NSRect(origin: .zero, size: size))
+        NSGraphicsContext.restoreGraphicsState()
+        return rep
+    }
+
     /// A drawing surface of exactly `pixels` pixels, whatever the display scale is. Measurements
     /// taken through `lockFocus` depend on the machine's screen and are not reproducible.
     static func image(pixels: Int, draw: (CGContext) -> Void) -> NSImage {
@@ -43,8 +65,7 @@ enum Probe {
 
     /// Pixels where green dominates red: mint ink, and nothing else the app draws.
     static func mint(_ image: NSImage) -> Ink {
-        guard let rep = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first,
-              let data = rep.bitmapData else { return Ink() }
+        guard let rep = bitmap(image), let data = rep.bitmapData else { return Ink() }
         let width = rep.pixelsWide, height = rep.pixelsHigh
         let step = rep.samplesPerPixel, stride = rep.bytesPerRow
         var ink = Ink()
@@ -78,8 +99,7 @@ enum Probe {
 
     /// Any ink at all, whatever the colour: for template images, which are black.
     static func anyInk(_ image: NSImage, alphaAbove: CGFloat = 0.2) -> Ink {
-        guard let rep = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first,
-              let data = rep.bitmapData else { return Ink() }
+        guard let rep = bitmap(image), let data = rep.bitmapData else { return Ink() }
         let width = rep.pixelsWide, height = rep.pixelsHigh
         let step = rep.samplesPerPixel, stride = rep.bytesPerRow
         var ink = Ink()
@@ -104,8 +124,7 @@ enum Probe {
 
     /// Alpha at one pixel, for probing structure (a hole, a corner).
     static func alpha(_ image: NSImage, atX x: Int, y: Int) -> CGFloat {
-        guard let rep = image.representations.compactMap({ $0 as? NSBitmapImageRep }).first,
-              let data = rep.bitmapData, x >= 0, y >= 0,
+        guard let rep = bitmap(image), let data = rep.bitmapData, x >= 0, y >= 0,
               x < rep.pixelsWide, y < rep.pixelsHigh else { return 0 }
         return CGFloat((data + y * rep.bytesPerRow + x * rep.samplesPerPixel)[3]) / 255
     }

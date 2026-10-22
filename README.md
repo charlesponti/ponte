@@ -80,6 +80,20 @@ tccutil reset Microphone com.ponti.ponte
 - Parakeet models in `~/Library/Application Support/FluidAudio/Models/`. They download on first use,
   or up front with `Ponte --download ultra`. Ultra's encoder is 595 MB (int8, ANE).
 
+## One package, both apps
+
+Ponte and Thames share three products from the same package (`../Waveform`):
+
+| product | what it brings |
+|---|---|
+| `WaveformCore` | the orb's maths: the lattice, the projection, `ColumnRing`/`ColumnWindow`, `Scale`, the ballistics |
+| `WaveformUI` | the SwiftUI views: `OrbView` (loudness) and `SpectrumOrbView` (pitch) |
+| `WaveformCapture` | the recording engine: `EngineRecorder` + `CaptureSettings` (`.localTranscription` here, `.streamingSpeech` in Thames) |
+
+So Ponte has no recording engine, no orb maths and no dot-drawing of its own. What is left in this
+repo is what is Ponte's own: the HUD's lifecycle, the menu bar app, the hotkey, the pill, the notes,
+the icon's *use* of the orb, and the ASR engines (`FluidAudio`, whisper.cpp).
+
 ## Tests
 
 ```bash
@@ -93,9 +107,8 @@ pixels the way the eye cannot:
 
 | Suite | What it pins down |
 |---|---|
-| `HudLifecycleTests` | The clock counts up. The box holds 96 × 96 while the colour changes. Three throbs, and their peaks are at `throbStart + (n + 0.5) × period` — a strip in the app once labelled the *troughs* as peaks. The pill is the measured text plus 16 px on every side. |
+| `HudLifecycleTests` | The box is the box: the clock counts up. The box holds 96 × 96 while the colour changes. Three throbs, and their peaks are at `throbStart + (n + 0.5) × period` — a strip in the app once labelled the *troughs* as peaks. The pill is the measured text plus 16 px on every side. |
 | `LevelRingTests` | Catmull-Rom runs through its points, has no corners, stays in range, and reads the silence before a recording as silence. |
-| `OrbTests` | Dots sit on the sphere. **Louder always means bigger** — the renderer once used the level as a radius multiplier, so the orb collapsed as the user spoke. Full voice lands on the 60 px orb and the gain stays 0.25. |
 | `IconTests` | Every size is exactly that many pixels, every mark is centred, the 16 px tile stays bright, and the depth shading is still there at 512 px. |
 | `SupportTests` | The paths carry the app's name (the rename left notes and models behind once). Notes get their frontmatter and an empty transcript writes nothing. The hotkey reads as ⌥⌘Space. |
 
@@ -178,8 +191,7 @@ Design decisions worth knowing before changing it:
 ```bash
 Ponte --hud-strip /tmp/hud.png          # the lifecycle as a contact sheet, drawn by the app
 Ponte --hud-render /tmp/one.png done 0.45   # one frame: <out.png> <state> [t] [text]
-Ponte --hud-voice /tmp/voice.png            # the orb answering a voice: levels + a spoken word
-Ponte --orb-level /tmp/l.png 0.75           # one recording frame at a voice level
+Ponte --hud-voice /tmp/voice.png                # the orb answering a voice: levels + a spoken word
 ```
 
 `--hud-strip` is the honest way to review the HUD: it is the app's own renderer, not a mockup. The blur
