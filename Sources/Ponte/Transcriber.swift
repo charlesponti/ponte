@@ -87,10 +87,11 @@ enum Transcriber {
 
     @discardableResult
     static func save(transcript: String, audio: URL?, elapsed: TimeInterval, took: Double,
-                     engine: String = "whisper.cpp") -> URL? {
+                     engine: String = "whisper.cpp",
+                     directory: URL = AppPaths.transcripts,
+                     now: Date = Date()) -> URL? {
         guard !transcript.isEmpty else { return nil }
-        let now = Date()
-        let file = AppPaths.transcripts.appendingPathComponent("note-\(AppPaths.stamp(now)).md")
+        let file = directory.appendingPathComponent("note-\(AppPaths.stamp(now)).md")
         let duration = String(format: "%.1fs", elapsed)
         let audioField = (Settings.keepAudio ? audio?.lastPathComponent : nil) ?? "(deleted after transcription)"
         let body = """
@@ -109,7 +110,7 @@ enum Transcriber {
 
         // Rolling plain-text log, easiest thing to grep.
         let logLine = "## \(AppPaths.stamp(now))  (\(duration))\n\n\(transcript)\n\n"
-        let log = AppPaths.transcripts.appendingPathComponent("all-notes.md")
+        let log = directory.appendingPathComponent("all-notes.md")
         if let handle = try? FileHandle(forWritingTo: log) {
             handle.seekToEndOfFile()
             handle.write(logLine.data(using: .utf8)!)

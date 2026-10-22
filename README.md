@@ -80,6 +80,28 @@ tccutil reset Microphone com.ponti.ponte
 - Parakeet models in `~/Library/Application Support/FluidAudio/Models/`. They download on first use,
   or up front with `Ponte --download ultra`. Ultra's encoder is 595 MB (int8, ANE).
 
+## Tests
+
+```bash
+swift test        # 56 tests, five suites, no network and no microphone
+```
+
+The suite exists because this app has one bad habit: **its bugs look fine in a still.** An orb that
+collapsed as the voice got louder, an icon that smeared into a grey disc at 32 px, a menu bar glyph
+drawn in the bottom-left quadrant — all of them rendered something plausible. So the tests measure
+pixels the way the eye cannot:
+
+| Suite | What it pins down |
+|---|---|
+| `HudLifecycleTests` | The clock counts up. The box holds 96 × 96 while the colour changes. Three throbs, and their peaks are at `throbStart + (n + 0.5) × period` — a strip in the app once labelled the *troughs* as peaks. The pill is the measured text plus 16 px on every side. |
+| `LevelRingTests` | Catmull-Rom runs through its points, has no corners, stays in range, and reads the silence before a recording as silence. |
+| `OrbTests` | Dots sit on the sphere. **Louder always means bigger** — the renderer once used the level as a radius multiplier, so the orb collapsed as the user spoke. Full voice lands on the 60 px orb and the gain stays 0.25. |
+| `IconTests` | Every size is exactly that many pixels, every mark is centred, the 16 px tile stays bright, and the depth shading is still there at 512 px. |
+| `SupportTests` | The paths carry the app's name (the rename left notes and models behind once). Notes get their frontmatter and an empty transcript writes nothing. The hotkey reads as ⌥⌘Space. |
+
+`Probe` renders into an explicit bitmap rep rather than `lockFocus`, because a measurement that
+depends on the machine's display scale is not a measurement.
+
 ## The mark
 
 The app icon is **the orb itself**, drawn by the app's own renderer — `scripts/make-icon.sh` calls

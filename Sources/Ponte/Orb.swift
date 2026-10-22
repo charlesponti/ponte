@@ -370,6 +370,15 @@ enum HudLifecycle {
         }
     }
 
+    /// One tick of the meter's ballistics: the level jumps up at once and falls away over
+    /// `release`, so a word is a swell that decays rather than a flicker.
+    static func ballistic(previous: Float, input: Float,
+                          rate: Double = HudSpec.voiceRate,
+                          release: Double = HudSpec.voiceRelease) -> Float {
+        let decay = Float(exp(-1.0 / (rate * max(release, 1e-6))))
+        return max(input, previous * decay)
+    }
+
     /// The recording clock: counts up from nothing, m:ss.
     static func clock(_ seconds: TimeInterval) -> String {
         let total = max(0, Int(seconds))

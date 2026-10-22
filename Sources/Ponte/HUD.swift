@@ -38,8 +38,7 @@ final class HUD {
     /// decays rather than a flicker (Waveform's meter ballistics).
     func pushLevel(_ level: Float, peak: Float) {
         guard state == .recording else { return }
-        let decay = Float(exp(-1.0 / (HudSpec.voiceRate * HudSpec.voiceRelease)))
-        smoothedLevel = max(level, smoothedLevel * decay)
+        smoothedLevel = HudLifecycle.ballistic(previous: smoothedLevel, input: level)
         levels.append(level: smoothedLevel, peak: peak)
         lastMeterAt = CACurrentMediaTime()
     }

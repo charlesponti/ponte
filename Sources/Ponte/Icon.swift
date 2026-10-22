@@ -48,10 +48,14 @@ enum IconRenderer {
         // Not the dot sphere: at 18 pt the dots average into a fuzzy disc with no readable
         // silhouette. The menu bar gets the sphere's *outline* instead — a core and a ring, which
         // is what survives at menu bar size, and the same mark the app icon simplifies to.
-        let centre = CGPoint(x: pointSize / 2, y: pointSize / 2)
-        let ringRadius = pointSize * 0.42
-        let coreRadius = pointSize * 0.20
-        let stroke = max(1, pointSize * 0.078)
+        //
+        // This context is in *pixels* (the rep is 2x); rep.size only says how big it displays.
+        // Sizing from `pointSize` here drew the mark in the bottom-left quadrant at half size.
+        let side = CGFloat(pixels)
+        let centre = CGPoint(x: side / 2, y: side / 2)
+        let ringRadius = side * 0.42
+        let coreRadius = side * 0.20
+        let stroke = max(1, side * 0.078)
         ctx.setFillColor(NSColor.black.cgColor)
         ctx.fillEllipse(in: CGRect(x: centre.x - coreRadius, y: centre.y - coreRadius,
                                    width: coreRadius * 2, height: coreRadius * 2))

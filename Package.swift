@@ -21,6 +21,11 @@ let package = Package(
                 .linkedFramework("AVFoundation"),
                 .linkedFramework("ServiceManagement"),
             ]
+        ),
+        .testTarget(
+            name: "PonteTests",
+            dependencies: ["Ponte"],
+            path: "Tests/PonteTests"
         )
     ]
 )
