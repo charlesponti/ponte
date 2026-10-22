@@ -27,10 +27,33 @@ for bundle in .build/release/*.bundle; do
   cp -R "$bundle" "$APP/Contents/Resources/"
 done
 
-# Stable ad-hoc signature so macOS remembers the microphone grant between builds.
-codesign --force --sign - --identifier com.ponti.voicenote "$APP" >/dev/null 2>&1 \
-  || { echo "codesign failed"; exit 1; }
-codesign --verify --verbose=1 "$APP" 2>&1 | tail -2
+# Sign with a *stable* identity. An ad-hoc signature (--sign -) has a designated
+# requirement of `cdhash H"…"`, which changes on every rebuild — macOS then cannot
+# match the user's existing TCC grants (microphone, accessibility) and re-prompts
+# every single build. Signing with a certificate keys the requirement to the cert
+# and bundle id instead, so grants survive rebuilds.
+SIGN_ID="${VOICENOTE_SIGN_ID:-}"
+if [ -z "$SIGN_ID" ]; then
+  SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p' | head -1)"
+fi
+if [ -z "$SIGN_ID" ]; then
+  SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
+    | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+fi
+
+if [ -n "$SIGN_ID" ]; then
+  echo "==> signing as: $SIGN_ID"
+  codesign --force --sign "$SIGN_ID" --identifier com.ponti.voicenote "$APP" >/dev/null 2>&1 \
+    || { echo "codesign failed with '$SIGN_ID'"; exit 1; }
+else
+  echo "!! no code-signing identity found — ad-hoc signing."
+  echo "!! TCC grants (microphone, accessibility) will NOT survive rebuilds."
+  codesign --force --sign - --identifier com.ponti.voicenote "$APP" >/dev/null 2>&1 \
+    || { echo "codesign failed"; exit 1; }
+fi
+codesign --verify --verbose=1 "$APP" 2>&1 | tail -1
+echo "    requirement: $(codesign -d -r- "$APP" 2>&1 | grep '^# designated' | sed 's/# designated => //')"
 
 echo "==> built $APP"
 

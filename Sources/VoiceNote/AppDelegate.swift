@@ -213,8 +213,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             pasteAtCursor()
             hud.showDone("Pasted ✓  \(String(format: "%.1fs", took))")
         } else {
-            if Settings.autoPaste { promptAccessibility() }
+            // Never raise the system Accessibility dialog here: it fired at the end of
+            // every dictation. Fall back to the clipboard and say so quietly.
             hud.showDone("Copied to clipboard ✓")
+            if Settings.autoPaste { noteAccessibilityOnce() }
         }
 
         cleanUp(audio: audio)
@@ -244,6 +246,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
         let options = [key: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
+    }
+
+    /// Quiet, once-per-launch notice instead of a modal system prompt.
+    private var hasNotedAccessibility = false
+    private func noteAccessibilityOnce() {
+        guard !hasNotedAccessibility else { return }
+        hasNotedAccessibility = true
+        vlog("auto-paste unavailable — Accessibility not granted for this build")
+        Shell.notify("VoiceNote",
+                     "Auto-paste needs Accessibility: System Settings ▸ Privacy & Security ▸ Accessibility. Until then the text goes to the clipboard.")
     }
 
     private func updateIcon() {

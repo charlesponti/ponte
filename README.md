@@ -40,6 +40,33 @@ Installed at `/Applications/VoiceNote.app`. Lives in the menu bar (no Dock icon)
 ./scripts/build-app.sh --install  # → /Applications and launch
 ```
 
+### Signing (don't skip this)
+
+The script signs with your **Apple Development** identity, falling back to `Developer ID Application`,
+then ad-hoc. This matters more than it looks:
+
+- An ad-hoc signature (`codesign --sign -`) has a designated requirement of `cdhash H"…"`, which
+  changes on **every rebuild**. macOS then can't match your existing TCC grants and re-prompts for the
+  microphone and Accessibility after each build — the classic "why does it keep asking me?" loop.
+- Signing with a certificate keys the requirement to the cert + bundle id:
+
+  ```
+  identifier "com.ponti.voicenote" and anchor apple generic
+    and certificate leaf[subject.CN] = "Apple Development: …"
+  ```
+
+  Grants then survive rebuilds. Verified: two rebuilds after granting, zero
+  `Failed to match existing code requirement` lines in the TCC log, recording started with no prompt.
+
+Override the identity with `VOICENOTE_SIGN_ID="Developer ID Application: …" ./scripts/build-app.sh`.
+
+If you ever switch identity, the old grants are dead — clear them and re-grant once:
+
+```bash
+tccutil reset Accessibility com.ponti.voicenote
+tccutil reset Microphone com.ponti.voicenote
+```
+
 ## Requirements
 
 - FluidAudio 0.17.7 (Swift Package, resolved automatically) — runs Parakeet on the ANE
@@ -112,10 +139,17 @@ engine: parakeet-ultra
 
 ## Permissions
 
-- **Microphone** — required. Requested on first launch; also under **Permissions ▸ Microphone**.
+- **Microphone** — required. Prompted on first recording; also under **Permissions ▸ Microphone**.
 - **Accessibility** — only needed for auto-paste (sending ⌘V). Without it the transcript still lands
-  on the clipboard, and the HUD says "Copied to clipboard". Grant it via
-  **Permissions ▸ Accessibility**, then re-run.
+  on the clipboard and the HUD says "Copied to clipboard"; the app logs one quiet notice per launch
+  rather than raising the system dialog at the end of every dictation. Grant it in
+  **Permissions ▸ Accessibility**, restart, done.
+- **Documents folder** — macOS asks the first time a note is written to `~/Documents/VoiceNotes`.
+  One grant, then it sticks (as long as the signature is stable). Move `AppPaths.transcripts` into
+  `~/Library/Application Support/VoiceNote/` to avoid this prompt entirely.
+
+After granting Accessibility, the running process usually needs a restart before it takes effect —
+`AXIsProcessTrusted()` is cached per launch.
 
 ## Menu
 
