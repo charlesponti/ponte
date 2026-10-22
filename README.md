@@ -95,6 +95,37 @@ So Ponte has no recording engine, no orb maths and no dot-drawing of its own. Wh
 repo is what is Ponte's own: the HUD's lifecycle, the menu bar app, the hotkey, the pill, the notes,
 the icon's *use* of the orb, and the ASR engines (`FluidAudio`, whisper.cpp).
 
+## Releasing it
+
+```bash
+./scripts/make-dmg.sh              # dist/Ponte-1.0.dmg, signed with the Developer ID certificate
+./scripts/make-dmg.sh --notarize   # also submit to Apple, wait, and staple the ticket
+./scripts/make-dmg.sh --install    # replace /Applications/Ponte.app with this build
+```
+
+The image holds the app, an Applications symlink, the volume icon and a short read-me. The app inside
+is signed with **Developer ID Application: Charles Joseph Ponti (3QHJ2KN8AL)** and the **hardened
+runtime** notarization requires, with `com.apple.security.device.audio-input` declared.
+
+**Notarization is the step that stops a buyer seeing "Apple could not verify…".** It needs a
+credential profile, made once by you (the password never passes through a script):
+
+```bash
+xcrun notarytool store-credentials ponte-notary \
+  --apple-id "<your Apple ID>" --team-id 3QHJ2KN8AL --password "<an app-specific password>"
+```
+
+Then `./scripts/make-dmg.sh --notarize` submits, waits, staples and prints Gatekeeper's verdict.
+
+Checked on a hardened, Developer ID build: the app launches, registers the hotkey, and loads the
+Parakeet model **on the Neural Engine in 0.2 s** — the hardened runtime does not disturb CoreML — and
+a real 8.7 s dictation transcribed at confidence 1.00. Three things belong on the product page: it
+needs **macOS 15**, the first launch **downloads the speech model (about 600 MB)** so everything
+after runs on the buyer's Mac, and the first recording asks for the **microphone**.
+
+There is no licence check in the app. Selling with a key means adding one — Paddle, Lemon Squeezy and
+Gumroad all issue keys and handle VAT — or selling it unpoliced.
+
 ## Tests
 
 ```bash

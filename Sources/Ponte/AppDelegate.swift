@@ -168,6 +168,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateIcon()
             return
         }
+        // Nothing captured: the wrong input device, or one that is asleep (AirPods in their case),
+        // leaves a file with no audio in it. Transcribing that reports "invalid audio", which tells
+        // the person nothing about what to do — so say what actually happened.
+        guard elapsed >= 0.3 else {
+            vlog(String(format: "nothing recorded (%.2fs) — not transcribing", elapsed))
+            cleanUp(audio: url)
+            hud.showError("Nothing was recorded — check the microphone")
+            state = .idle
+            updateIcon()
+            return
+        }
         state = .working
         updateIcon()
         hud.showWorking()
