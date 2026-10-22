@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ponte — Push-to-talk dictation for macOS</title>
+<meta name="description" content="Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac — no network, no account, no subscription.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#07090d; --bg2:#0d1118; --fg:#e8ecf4; --muted:#8a93a6;
+    --accent:#3cffb5; --accent2:#7c9cff; --line:#1a2030; --card:#0f1420;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--fg);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+  /* nav */
+  nav{position:fixed;top:0;left:0;right:0;z-index:50;backdrop-filter:blur(14px);background:rgba(7,9,13,.6);border-bottom:1px solid var(--line)}
+  nav .inner{max-width:1120px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:600;letter-spacing:.02em}
+  .logo-mark{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 24px rgba(60,255,181,.35)}
+  .navlinks{display:flex;gap:22px;font-size:14px;color:var(--muted)}
+  .navlinks a:hover{color:var(--fg)}
+  /* hero */
+  .hero{padding:150px 0 90px;position:relative}
+  .hero-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:60px;align-items:center}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;color:var(--accent);text-transform:uppercase;margin-bottom:22px;display:flex;align-items:center;gap:10px}
+  .eyebrow::before{content:'';width:28px;height:1px;background:var(--accent)}
+  h1{font-size:clamp(44px,6.2vw,84px);font-weight:700;letter-spacing:-.04em;line-height:1.02;margin-bottom:22px}
+  h1 .grad{background:linear-gradient(120deg,var(--accent),#fff 60%,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{font-size:19px;color:var(--muted);max-width:520px;margin-bottom:34px}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:10px;padding:15px 26px;border-radius:12px;font-weight:600;font-size:15px;transition:transform .15s,box-shadow .15s}
+  .btn-primary{background:var(--accent);color:#04100a;box-shadow:0 8px 30px rgba(60,255,181,.25)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(60,255,181,.4)}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .hotkey{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px;margin-top:18px}
+  .key{padding:4px 9px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);font-size:12px}
+  /* orb */
+  .orb-wrap{position:relative;width:100%;aspect-ratio:1;display:grid;place-items:center}
+  .orb{position:relative;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle at 35% 30%, #1a2a3a, #05070b);box-shadow:0 0 80px rgba(60,255,181,.18), inset 0 0 40px rgba(0,0,0,.6);overflow:hidden}
+  .orb::before{content:'';position:absolute;inset:0;background:conic-gradient(from 0deg,transparent 0%,rgba(60,255,181,.5) 20%,transparent 40%,rgba(124,156,255,.4) 60%,transparent 80%);animation:spin 6s linear infinite;filter:blur(2px)}
+  .orb-core{position:absolute;inset:22%;border-radius:50%;background:radial-gradient(circle at 40% 35%,#3cffb5,#0a3a2a);box-shadow:0 0 40px rgba(60,255,181,.6);animation:pulse 2.4s ease-in-out infinite}
+  .orb-ring{position:absolute;inset:8%;border-radius:50%;border:1px solid rgba(60,255,181,.25);animation:ring 3s ease-in-out infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.08);opacity:1}}
+  @keyframes ring{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.12);opacity:.15}}
+  .orb-label{position:absolute;bottom:-14px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:.12em}
+  /* sections */
+  section{padding:100px 0;border-top:1px solid var(--line)}
+  .section-head{max-width:620px;margin-bottom:52px}
+  .section-head .eyebrow{margin-bottom:14px}
+  h2{font-size:clamp(30px,4vw,46px);font-weight:600;letter-spacing:-.03em;line-height:1.1;margin-bottom:14px}
+  .section-head p{color:var(--muted);font-size:17px}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px;transition:border-color .2s,transform .2s}
+  .card:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .card .icon{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,rgba(60,255,181,.15),rgba(124,156,255,.15));display:grid;place-items:center;margin-bottom:16px;font-size:18px}
+  .card h3{font-size:17px;margin-bottom:6px;font-weight:600}
+  .card p{color:var(--muted);font-size:14px}
+  /* steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;counter-reset:step}
+  .step{position:relative;padding-top:18px}
+  .step::before{counter-increment:step;content:counter(step,decimal-leading-zero);position:absolute;top:0;left:0;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);letter-spacing:.1em}
+  .step h4{font-size:18px;margin:18px 0 6px;font-weight:600}
+  .step p{color:var(--muted);font-size:14px}
+  /* engines table */
+  .engines{width:100%;border-collapse:collapse;margin-top:10px}
+  .engines th,.engines td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--line);font-size:14px}
+  .engines th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+  .engines td:first-child{font-weight:600}
+  .tag{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11px;font-family:'JetBrains Mono',monospace;background:rgba(60,255,181,.12);color:var(--accent)}
+  /* req */
+  .req{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .req div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .req div strong{display:block;margin-bottom:4px}
+  .req div span{color:var(--muted);font-size:14px}
+  /* footer */
+  footer{padding:60px 0;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+  footer .inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px}
+  footer a:hover{color:var(--fg)}
+  @media (max-width:820px){
+    .hero-grid{grid-template-columns:1fr}
+    .grid3{grid-template-columns:1fr}
+    .steps{grid-template-columns:1fr}
+    .req{grid-template-columns:1fr}
+    nav .navlinks{display:none}
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="inner">
+    <div class="logo"><div class="logo-mark"></div>Ponte</div>
+    <div class="navlinks">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#engines">Engines</a>
+      <a href="#requirements">Requirements</a>
+      <a href="https://github.com/charlesponti/ponte">GitHub ↗</a>
+    </div>
+    <a class="btn btn-primary" style="padding:9px 16px;font-size:13px" href="#download">Download</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section class="hero" style="border-top:none;padding-top:120px">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Push-to-talk dictation</div>
+        <h1>Talk.<br><span class="grad">It types.</span></h1>
+        <p class="lead">Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac — no network calls, no account, no subscription.</p>
+        <div class="cta-row" id="download">
+          <a class="btn btn-primary" href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg">↓ Download Ponte 1.0</a>
+          <a class="btn btn-ghost" href="https://github.com/charlesponti/ponte">View source</a>
+        </div>
+        <div class="hotkey">
+          <span class="key">⌥</span><span class="key">⌘</span><span class="key">Space</span>
+          <span>start / stop recording</span>
+        </div>
+      </div>
+      <div class="orb-wrap">
+        <div class="orb">
+          <div class="orb-ring"></div>
+          <div class="orb-core"></div>
+        </div>
+        <div class="orb-label">LISTENING</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="section-head">
+      <div class="eyebrow">Features</div>
+      <h2>Sick STT, zero cloud.</h2>
+      <p>Two interchangeable engines, a floating orb that tells you exactly what's happening, and text pasted wherever your cursor is.</p>
+    </div>
+    <div class="grid3">
+      <div class="card"><div class="icon">🔒</div><h3>100% local</h3><p>No network calls, no account, no subscription. Your voice never leaves the machine.</p></div>
+      <div class="card"><div class="icon">⚡</div><h3>Parakeet on the ANE</h3><p>FluidAudio → CoreML Parakeet Ultra on the Apple Neural Engine. Models stay resident for instant starts.</p></div>
+      <div class="card"><div class="icon">🧠</div><h3>whisper.cpp fallback</h3><p>CPU engine with large-v3-turbo. Switchable from the menu, no rebuild needed.</p></div>
+      <div class="card"><div class="icon">🎯</div><h3>Global hotkey</h3><p>Carbon hotkey — no Accessibility permission needed just to trigger. Works in any app.</p></div>
+      <div class="card"><div class="icon">🫧</div><h3>Orb HUD</h3><p>A 96px squircle that listens, thinks, and confirms. Mint while recording, green on done, red on error.</p></div>
+      <div class="card"><div class="icon">📋</div><h3>Paste anywhere</h3><p>Transcript is dropped straight into the focused app at your cursor.</p></div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="section-head">
+      <div class="eyebrow">How it works</div>
+      <h2>Three steps. One hotkey.</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><h4>Press</h4><p>⌥⌘Space starts recording. Press again to stop. The orb spins mint.</p></div>
+      <div class="step"><h4>Transcribe</h4><p>Parakeet (ANE) or whisper.cpp (CPU) turns speech into text on-device.</p></div>
+      <div class="step"><h4>Paste</h4><p>The orb turns green, collapses, and the text lands at your cursor.</p></div>
+    </div>
+  </section>
+
+  <section id="engines">
+    <div class="section-head">
+      <div class="eyebrow">Engines</div>
+      <h2>Pick your brain.</h2>
+      <p>Switchable live from the menu bar. No rebuild, no restart.</p>
+    </div>
+    <table class="engines">
+      <thead><tr><th>Engine</th><th>Runs on</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Parakeet (default) <span class="tag">ANE</span></td><td>Apple Neural Engine</td><td>FluidAudio 0.17.7 · CoreML Parakeet Ultra · models stay resident</td></tr>
+        <tr><td>whisper.cpp</td><td>CPU</td><td>large-v3-turbo · reloaded per recording · needs brew whisper-cpp</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="requirements">
+    <div class="section-head">
+      <div class="eyebrow">Requirements</div>
+      <h2>What you need.</h2>
+    </div>
+    <div class="req">
+      <div><strong>macOS 14+</strong><span>Apple Silicon recommended (Neural Engine for Parakeet)</span></div>
+      <div><strong>Microphone</strong><span>Granted on first launch</span></div>
+      <div><strong>whisper-cpp</strong><span>Only for the whisper engine: <code>brew install whisper-cpp</code></span></div>
+      <div><strong>Models</strong><span>Parakeet downloads on first use; whisper models in ~/Library/Application Support/Ponte/models</span></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap inner">
+    <span>Ponte · by Ponti Studios</span>
+    <a href="https://github.com/charlesponti/ponte">Source on GitHub ↗</a>
+  </div>
+</footer>
+</body>
+</html>
