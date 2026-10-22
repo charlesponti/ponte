@@ -128,7 +128,7 @@ func defaultHudText(for state: HudState) -> String {
     switch state {
     case .idle, .working: return "…"
     case .recording: return "0:07"
-    case .done: return "Pasted ✓ 0.2s"
+    case .done: return "Pasted ✓"
     case .error: return "Heard nothing"
     }
 }

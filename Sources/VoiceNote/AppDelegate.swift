@@ -214,7 +214,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if Settings.autoPaste, AXIsProcessTrusted() {
             pasteAtCursor()
-            hud.showDone("Pasted ✓ \(String(format: "%.1fs", elapsed)) → \(String(format: "%.1fs", took))")
+            // Just the outcome: the times are in the log and the note's frontmatter for anyone who
+            // wants them, and a pill that reports two numbers needs a legend to be readable.
+            hud.showDone("Pasted ✓")
         } else {
             // Never raise the system Accessibility dialog here: it fired at the end of
             // every dictation. Fall back to the clipboard and say so quietly.

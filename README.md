@@ -90,7 +90,7 @@ opacity `[0.18, 0.4, 0.7, 1.0]`, perspective `0.75 + 0.25·depth`, spin 0.35 rad
 |---|---|---|
 | Recording | mint, **4× spin**, label is a live `m:ss` clock, **dots answer your voice** | 96 × 96 |
 | Working / downloading | mint, calm spin, label `…` or `43%` | 96 × 96 |
-| Done | mint → green, shrinks to nothing, label `Pasted ✓ 9.3s → 0.2s` | 96 × 96 → **text + 16 px all round** |
+| Done | mint → green, shrinks to nothing, label `Pasted ✓` | 96 × 96 → **text + 16 px all round** |
 | Error | mint → red, shrinks to 82%, **three throbs**, then exits | 96 × 96 through the throbs, then collapses |
 
 ### The voice
@@ -118,10 +118,16 @@ Design decisions worth knowing before changing it:
   the orb talking, so the container holds still while they happen.
 - **The throb scales the object, not the dots.** Pushing dots outward is how this model expresses loudness;
   throbbing that way would be lying about the audio.
-- **The pill is measured from the rendered string**, so "Pasted ✓ 9.3s → 0.2s" sizes correctly.
-- **Numbers are measured, never captioned.** The recording label is a live clock (`HudLifecycle.clock`) driven by
-  the same display-link tick that turns the orb, and the done pill reports the real recorded length and the real
-  transcribe time. Parakeet transcribes in 0.2 s so consistently that a single number looks hardcoded — hence both.
+- **The pill is measured from the rendered string**, so whatever it ends up saying sizes correctly:
+  `Pasted ✓` collapses to 89 × 47, the same shape with times in it collapsed to 119 × 47.
+- **A glanceable pill carries one fact.** `Pasted ✓` says what happened; the recorded length and the transcribe
+  time go to the log and the note's frontmatter, where they can be read properly. An earlier version showed
+  `8.1s → 0.2s` in the pill, which needed a legend to mean anything.
+- **The recording clock is live** (`HudLifecycle.clock`, m:ss), driven by the same display-link tick that turns
+  the orb — a timer, not a caption.
+
+> Note: the board `design/hud-b-lifecycle-v2.html` was drawn with `Pasted ✓ 0.2s` in the pill, which is why it
+> measures 118 × 47. The mechanism is the same; only the string changed.
 - **The box sinks**: its bottom edge stays 96 px above the visible frame while the height shrinks.
 - Dot count stays at 1,100 as the orb shrinks — the whole object scales, so the dots scale with it.
 
