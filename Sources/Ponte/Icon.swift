@@ -58,10 +58,12 @@ enum IconRenderer {
         return NSImage(cgImage: cgImage, size: NSSize(width: size, height: size))
     }
 
-    /// The menu bar mark: not the dot sphere — at 18 pt the dots average into a fuzzy disc with no
-    /// readable silhouette — but the sphere's outline, a core and a ring, as a template image the
-    /// system tints for a light or a dark bar.
-    static func menuBarImage(pointSize: CGFloat = 18) -> NSImage {
+    /// The menu bar mark, drawn at 18 pt: not the dot sphere — at that size the dots average into a
+    /// fuzzy disc with no readable silhouette — but the sphere reduced to shapes that survive.
+    /// Template images are alpha only, so the system tints them for a light or a dark bar, and the
+    /// same property is what lets a state colour be applied with `contentTintColor`.
+    static func menuBarImage(_ mark: MenuBarMark = .coreRing, pointSize: CGFloat = 18,
+                             level: CGFloat = 0) -> NSImage {
         let pixels = Int((pointSize * 2).rounded())
         let image = NSImage(size: NSSize(width: pointSize, height: pointSize))
         guard let rep = NSBitmapImageRep(
@@ -76,18 +78,70 @@ enum IconRenderer {
         ctx.setShouldAntialias(true)
         // This context is in *pixels* (the rep is 2x); rep.size only says how big it displays.
         // Sizing from `pointSize` here once drew the mark in the bottom-left quadrant at half size.
+        // Everything below is in pixels: this context is 2x (36 px for an 18 pt mark).
         let side = CGFloat(pixels)
         let centre = CGPoint(x: side / 2, y: side / 2)
-        let ringRadius = side * 0.42
-        let coreRadius = side * 0.20
-        let stroke = max(1, side * 0.078)
-        ctx.setFillColor(NSColor.black.cgColor)
-        ctx.fillEllipse(in: CGRect(x: centre.x - coreRadius, y: centre.y - coreRadius,
-                                   width: coreRadius * 2, height: coreRadius * 2))
-        ctx.setStrokeColor(NSColor.black.cgColor)
-        ctx.setLineWidth(stroke)
-        ctx.strokeEllipse(in: CGRect(x: centre.x - ringRadius, y: centre.y - ringRadius,
-                                     width: ringRadius * 2, height: ringRadius * 2))
+        let ink = NSColor.black.cgColor
+        ctx.setFillColor(ink)
+        ctx.setStrokeColor(ink)
+
+        func dot(_ radius: CGFloat) {
+            ctx.fillEllipse(in: CGRect(x: centre.x - radius, y: centre.y - radius,
+                                       width: radius * 2, height: radius * 2))
+        }
+        func ring(_ radius: CGFloat, width: CGFloat, dash: [CGFloat] = []) {
+            ctx.setLineWidth(width)
+            ctx.setLineDash(phase: 0, lengths: dash)
+            ctx.strokeEllipse(in: CGRect(x: centre.x - radius, y: centre.y - radius,
+                                         width: radius * 2, height: radius * 2))
+            ctx.setLineDash(phase: 0, lengths: [])
+        }
+
+        switch mark {
+        case .coreRing:
+            dot(side * 0.20)
+            ring(side * 0.42, width: max(1, side * 0.078))
+        case .orbEdge:
+            dot(side * 0.42)
+            // Bite a disc out of it, off centre: what is left is the crescent of a lit sphere.
+            ctx.setBlendMode(.clear)
+            ctx.fillEllipse(in: CGRect(x: centre.x - side * 0.19, y: centre.y - side * 0.09,
+                                       width: side * 0.62, height: side * 0.62))
+            ctx.setBlendMode(.normal)
+        case .pulseCore:
+            // The core swells with the voice, so the menu bar itself is a level meter. It rests big
+            // enough not to read as an empty radio button.
+            ring(side * 0.42, width: max(1, side * 0.06))
+            dot(side * (0.17 + 0.16 * min(max(level, 0), 1)))
+        case .speechDot:
+            // Sized so the tail is a stroke of the same weight as the body once they touch, rather
+            // than a spike hanging off a circle.
+            dot(side * 0.29)
+            let tail = CGMutablePath()
+            tail.move(to: CGPoint(x: centre.x - side * 0.18, y: centre.y - side * 0.09))
+            tail.addLine(to: CGPoint(x: centre.x - side * 0.34, y: centre.y - side * 0.34))
+            tail.addLine(to: CGPoint(x: centre.x + side * 0.05, y: centre.y - side * 0.24))
+            tail.closeSubpath()
+            ctx.addPath(tail)
+            ctx.fillPath()
+        case .levelBars:
+            // Three bars, bottom-aligned, each answering the voice a little differently: a meter.
+            let width = side * 0.155
+            let gap = side * 0.115
+            let factors: [CGFloat] = [0.78, 1.0, 0.86]
+            let base = side * 0.26      // tall enough that the rest state is not a faint smudge
+            let span = side * 0.40 * min(max(level, 0), 1)
+            let total = width * 3 + gap * 2
+            let bottom = centre.y - (base + side * 0.40) / 2
+            for (index, factor) in factors.enumerated() {
+                let height = base + span * factor
+                let x = centre.x - total / 2 + CGFloat(index) * (width + gap)
+                let rect = CGRect(x: x, y: bottom, width: width, height: height)
+                ctx.addPath(CGPath(roundedRect: rect, cornerWidth: width / 2,
+                                   cornerHeight: width / 2, transform: nil))
+                ctx.fillPath()
+            }
+        }
         NSGraphicsContext.restoreGraphicsState()
         image.addRepresentation(rep)
         image.isTemplate = true
@@ -138,6 +192,37 @@ struct HalftoneSphere: View {
     /// Fewer dots on the rows near the poles, or they crowd together.
     private static func perRow(_ latitude: Double) -> Int {
         max(6, Int((26 * (max(0, 1 - latitude * latitude)).squareRoot()).rounded()))
+    }
+}
+
+/// The mark in the menu bar. All are template images: alpha only, tinted by the system for a light or
+/// a dark bar, and by `contentTintColor` to say what the app is doing.
+enum MenuBarMark: String, CaseIterable {
+    /// A core inside a ring — the orb reduced to two strokes.
+    case coreRing
+    /// The orb itself: a disc with a crescent bitten out of it, the way the sphere's shading reads.
+    case orbEdge
+    /// A ring whose core swells with the voice: the menu bar as a level meter.
+    case pulseCore
+    /// A dot with a tail: a speech mark.
+    case speechDot
+    /// Three bars that answer the voice, like a level meter in miniature.
+    case levelBars
+
+    /// Which mark the menu bar draws. Kept as a string so the choice changes without a rebuild:
+    /// `defaults write com.ponti.ponte menuBarMark levelBars` and relaunch.
+    static var chosen: MenuBarMark {
+        MenuBarMark(rawValue: UserDefaults.standard.string(forKey: "menuBarMark") ?? "") ?? .coreRing
+    }
+
+    var summary: String {
+        switch self {
+        case .coreRing: return "a core inside a ring — the current one"
+        case .orbEdge: return "the orb as a crescent: a disc with a bite out of it"
+        case .pulseCore: return "a ring whose core swells with your voice"
+        case .speechDot: return "a dot with a tail, like a speech mark"
+        case .levelBars: return "three bars that rise with your voice"
+        }
     }
 }
 

@@ -269,6 +269,69 @@ struct SheetRow {
     let cells: [SheetCell]
 }
 
+/// One strip of menu bar with a mark on it, tinted the way the system would tint it.
+func menuBarCell(_ mark: MenuBarMark, dark: Bool, tint: NSColor? = nil, level: CGFloat = 0,
+                 width: CGFloat = 176, height: CGFloat = 44) -> NSImage {
+    let scale: CGFloat = 2
+    let rep = NSBitmapImageRep(bitmapDataPlanes: nil,
+                               pixelsWide: Int(width * scale), pixelsHigh: Int(height * scale),
+                               bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                               colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    rep.size = NSSize(width: width, height: height)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    let bar = dark ? NSColor(srgbRed: 0.13, green: 0.13, blue: 0.14, alpha: 1)
+                   : NSColor(srgbRed: 0.94, green: 0.94, blue: 0.95, alpha: 1)
+    bar.setFill()
+    NSRect(x: 0, y: 0, width: width, height: height).fill()
+
+    let mark_ = IconRenderer.menuBarImage(mark, pointSize: 18, level: level)
+    // A template image carries no colour: the system paints it, white on a dark bar and black on a
+    // light one. That is what this reproduces, and how a state colour gets applied.
+    let ink = tint ?? (dark ? NSColor.white.withAlphaComponent(0.92) : NSColor.black.withAlphaComponent(0.82))
+    let tinted = NSImage(size: mark_.size)
+    tinted.lockFocus()
+    mark_.draw(in: NSRect(origin: .zero, size: mark_.size))
+    ink.setFill()
+    NSRect(origin: .zero, size: mark_.size).fill(using: .sourceIn)
+    tinted.unlockFocus()
+    tinted.draw(in: NSRect(x: (width - mark_.size.width) / 2, y: (height - mark_.size.height) / 2,
+                           width: mark_.size.width, height: mark_.size.height))
+    NSGraphicsContext.restoreGraphicsState()
+    return tinted
+}
+
+/// Every candidate mark, at the size the menu bar really draws it, on a light and a dark bar and in
+/// the two states that used to borrow SF Symbols.
+func writeMenuBarSheet(_ path: String) -> Int32 {
+    let states: [(String, Bool, NSColor?, CGFloat)] = [
+        ("light bar", false, nil, 0),
+        ("dark bar", true, nil, 0),
+        ("recording", true, NSColor(srgbRed: 1.0, green: 0.27, blue: 0.23, alpha: 1), 0),
+        ("working", true, NSColor(srgbRed: 1.0, green: 0.58, blue: 0.0, alpha: 1), 0),
+    ]
+    var rows: [SheetRow] = MenuBarMark.allCases.map { mark in
+        SheetRow(title: "\(mark.rawValue)  —  \(mark.summary)",
+                 cells: states.map { state in
+                     SheetCell(caption: state.0,
+                               image: menuBarCell(mark, dark: state.1, tint: state.2, level: state.3))
+                 })
+    }
+    // The two marks that answer the voice, which is the point of them: silence to full voice.
+    let levels: [CGFloat] = [0.0, 0.25, 0.5, 0.75, 1.0]
+    for mark in [MenuBarMark.pulseCore, .levelBars] {
+        rows.append(SheetRow(title: "\(mark.rawValue) with the voice, at five levels",
+                             cells: levels.map { level in
+                                 SheetCell(caption: String(format: "level %.2f", level),
+                                           image: menuBarCell(mark, dark: true, tint:
+                                               NSColor(srgbRed: 0.4, green: 0.83, blue: 0.81, alpha: 1),
+                                                              level: level))
+                             }))
+    }
+    return writeSheet(rows, to: path, cellW: 200, cellH: 64, pad: 30,
+                      titleH: 28, captionH: 24, rowGap: 12)
+}
+
 /// Draws a contact sheet of pre-rendered frames, two pixels per point.
 func writeSheet(_ rows: [SheetRow], to path: String,
                 cellW: CGFloat = 152, cellH: CGFloat = 124, pad: CGFloat = 26,
@@ -455,6 +518,21 @@ func runCLI() -> Int32? {
         return writePNG(MainActor.assumeIsolated { IconRenderer.image(mark, size: CGFloat(size)) },
                         to: argv[2])
 
+    case "--menubar-mark":
+        guard argv.count > 3 else {
+            print("usage: Ponte --menubar-mark <out.png> <\(MenuBarMark.allCases.map(\.rawValue).joined(separator: "|"))> [pt] [level]")
+            return 2
+        }
+        guard let mark = MenuBarMark(rawValue: argv[3]) else {
+            print("unknown mark: \(argv[3])"); return 2
+        }
+        let pt = argv.count > 4 ? (Double(argv[4]) ?? 18) : 18
+        let lvl = argv.count > 5 ? (Double(argv[5]) ?? 0) : 0
+        return writePNG(IconRenderer.menuBarImage(mark, pointSize: CGFloat(pt), level: CGFloat(lvl)),
+                        to: argv[2])
+    case "--menubar-sheet":
+        guard argv.count > 2 else { print("usage: Ponte --menubar-sheet <out.png>"); return 2 }
+        return writeMenuBarSheet(argv[2])
     case "--icon-sheet":
         guard argv.count > 2 else { print("usage: Ponte --icon-sheet <out.png>"); return 2 }
         return writeIconSheet(to: argv[2])

@@ -299,8 +299,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }()
         let image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: "Ponte") }
-            ?? IconRenderer.menuBarImage()
-        image.isTemplate = (tint == nil)
+            ?? IconRenderer.menuBarImage(MenuBarMark.chosen)
+        image.isTemplate = true      // contentTintColor does the colouring; a black glyph on a dark
+                                     // menu bar is what the other arrangement produces.
+
         statusItem?.button?.image = image
         statusItem?.button?.contentTintColor = tint
         statusItem?.button?.toolTip = "Ponte — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers))"
