@@ -266,6 +266,28 @@ PID=$(pgrep -f MacOS/Ponte | head -1)
 top -l 5 -s 3 -pid "$PID" -stats pid,cpu,mem,threads,time    # read the samples after the first
 ```
 
+### Long dictations
+
+Synthetic speech carrying a countable pattern — 120 repetitions of one sentence plus a closing marker —
+through the CLI, so the engine is the only variable:
+
+| audio | engine | time | realtime | repetitions kept | closing marker | peak RSS |
+|---|---|---|---|---|---|---|
+| 21 s | parakeet-ultra | 0.85 s | 24x | 6 of 6 | intact | 101 MB |
+| 76 s | parakeet-ultra | 0.86 s | 89x | 24 of 24 | intact | 123 MB |
+| 6.2 min | parakeet-ultra | 2.50 s | **149x** | 119 of 120 | intact | 149 MB |
+| 76 s | parakeet-v3 | 1.53 s | 50x | 24 of 24 | intact | 131 MB |
+| 76 s | whisper large-v3-turbo | 9.24 s | 8x | **6 of 24** | jumped to it | 1895 MB |
+
+Parakeet gets *faster* with length, because the model-load cost amortises, and its memory grows gently.
+Six minutes of speech in: 5397 characters against the source's 5444, 119 of 120 repetitions, no truncation
+and nothing duplicated at the seams.
+
+**whisper is not usable for long takes.** On a 76-second clip it returned the first 19 seconds and then the
+closing sentence, silently dropping everything between — 315 characters against Parakeet's 1125, and 1.9 GB
+resident. It also needs 9 s where Parakeet needs under 1. Until it is chunked, treat it as an engine for
+short takes only.
+
 ## The two numbers that matter
 
 - **First ANE load after install is ~23 s.** CoreML specialises the model programme for the Neural
