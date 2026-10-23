@@ -20,7 +20,17 @@ Ponte's requirement is deliberately team-anchored:
 identifier "com.ponti.ponte" and anchor apple generic and certificate leaf[subject.OU] = "3QHJ2KN8AL"
 ```
 
-Any build this team signs satisfies it. That single choice is what makes a grant survive the next rebuild.
+`3QHJ2KN8AL` is **Ponti & Co, LLC** — the company, which is also the seller of record. Any build this team signs
+satisfies the requirement, and that single choice is what makes a grant survive the next rebuild.
+
+Two traps in reading this, both encountered:
+
+- **The certificate's common name is not the team.** It reads `Developer ID Application: Charles Joseph Ponti
+  (3QHJ2KN8AL)` even though the team is the company, because the CN carries a person's name. The **OU** is the
+  team identifier, and reading the CN instead is how an investigation concluded this was a personal account.
+- **There is a second team on this machine** — `PTD68U64BX`, "Charles Joseph Ponti (Personal Team)". It must
+  never sign a build that ships. Switching between the two rewrites the designated requirement, and that is the
+  mechanism that silently invalidates grants in both directions.
 
 ## The two ways this has already broken
 
