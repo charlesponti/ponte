@@ -6,16 +6,16 @@ function fe(e, t, n = 0.025, a = 0.15) {
   let d = 0, w = 0;
   for (let m = 0; m < r; m++) {
     const c = Math.round((m + 1) * R / t);
-    let y = 1 / 0, b = -1 / 0, k = 0;
+    let y = 1 / 0, b = -1 / 0, S = 0;
     for (let M = d; M < c; M++) {
       const z = e[M];
-      z < y && (y = z), z > b && (b = z), k += z * z;
+      z < y && (y = z), z > b && (b = z), S += z * z;
     }
-    h[m % p] = k, g[m % p] = c - d;
-    let F = 0, N = 0;
+    h[m % p] = S, g[m % p] = c - d;
+    let P = 0, k = 0;
     for (let M = 0; M < p; M++)
-      F += h[M], N += g[M];
-    const v = Math.sqrt(F / Math.max(1, N));
+      P += h[M], k += g[M];
+    const v = Math.sqrt(P / Math.max(1, k));
     w = Math.max(v, w * x), i[m] = y, s[m] = b, l[m] = v, u[m] = w, d = c;
   }
   return { n: r, lo: i, hi: s, rms: l, level: u };
@@ -209,11 +209,11 @@ const de = () => new Float32Array(R * me), De = {
         for (let c = 1; c <= m; c++) s[c] = (r(w * c, x, 110) + 0.7 * r(w * c, d, 180)) / Math.sqrt(c);
         for (let c = l; c < Math.min(t, l + n); c++) {
           const y = c / R, b = 118 + 22 * Math.sin(H * 0.6 * y) + 8 * Math.sin(H * 3.1 * y);
-          let k = 0;
+          let S = 0;
           for (let v = 1; v <= m; v++)
-            i[v] += H * b * v / R, k += s[v] * Math.sin(i[v]);
-          const F = Math.pow(Math.max(0, Math.sin(H * 3.2 * y)), 1.2), N = 0.5 + 0.5 * Math.sin(H * 0.45 * y - 0.5);
-          e[c] = k * F * (N > 0.3 ? 1 : 0) * (0.5 + 0.5 * N);
+            i[v] += H * b * v / R, S += s[v] * Math.sin(i[v]);
+          const P = Math.pow(Math.max(0, Math.sin(H * 3.2 * y)), 1.2), k = 0.5 + 0.5 * Math.sin(H * 0.45 * y - 0.5);
+          e[c] = S * P * (k > 0.3 ? 1 : 0) * (0.5 + 0.5 * k);
         }
       }
       return ce(e);
@@ -398,11 +398,11 @@ function tt(e, t, n) {
 function Fe(e, t, n) {
   const { ctx: a, w: r, h: i } = ae(e);
   a.clearRect(0, 0, r, i);
-  const s = n.wrap ?? 1, l = n.gain ?? 0.5, u = n.analysis, p = (n.history ?? 0.8) * V, h = n.t * V - 0.5 + (n.mode === "spectrum" ? Ke : 0), g = (n.spin ?? 0.12) * n.t * s, x = _(0.55, 0.32, s), d = Math.sin(g), w = Math.cos(g), m = Math.sin(x), c = Math.cos(x), y = _(1.45, 1 + l, s) * 1.04, b = Math.min(r, i) / 2 / y, k = Math.min(r, i) / 360, F = r / 2, N = i / 2, v = [new Path2D(), new Path2D(), new Path2D(), new Path2D()];
+  const s = n.wrap ?? 1, l = n.gain ?? 0.5, u = n.analysis, p = (n.history ?? 0.8) * V, h = n.t * V - 0.5 + (n.mode === "spectrum" ? Ke : 0), g = (n.turning === !1 ? n.still ?? 0.6 : (n.spin ?? 0.12) * n.t) * s, x = _(0.55, 0.32, s), d = Math.sin(g), w = Math.cos(g), m = Math.sin(x), c = Math.cos(x), y = _(1.45, 1 + l, s) * 1.04, b = Math.min(r, i) / 2 / y, S = Math.min(r, i) / 360, P = r / 2, k = i / 2, v = [new Path2D(), new Path2D(), new Path2D(), new Path2D()];
   for (let M = 0; M < t.n; M++) {
     let z;
     n.mode === "spectrum" ? z = tt(u, h - t.age[M] * p, t.pitch[M] * (Y - 1)) : n.mode === "loudness" ? z = ge(u.lvl, h - t.age[M] * p, u.n) : z = n.value ?? 0;
-    const T = l * z, W = t.ux[M], $ = t.uy[M], C = t.uz[M], I = _(t.fx[M], W, s) + _(0, W, s) * T, P = _(t.fy[M], $, s) + _(0, $, s) * T, E = _(0, C, s) + _(1, C, s) * T, S = I * w + E * d, q = -I * d + E * w, j = P * c - q * m, X = P * m + q * c, G = Qe((X / (s > 0.5 ? 1 : 1.2) + 1) / 2, 0, 1), Ce = (n.mode === "naive" ? 1.3 : 1 + 2.8 * z) * (0.75 + 0.25 * G) * k * (n.dotScale ?? 1), Re = F + S * b, He = N - j * b;
+    const T = l * z, W = t.ux[M], $ = t.uy[M], C = t.uz[M], I = _(t.fx[M], W, s) + _(0, W, s) * T, N = _(t.fy[M], $, s) + _(0, $, s) * T, E = _(0, C, s) + _(1, C, s) * T, F = I * w + E * d, q = -I * d + E * w, j = N * c - q * m, X = N * m + q * c, G = Qe((X / (s > 0.5 ? 1 : 1.2) + 1) / 2, 0, 1), Ce = (n.mode === "naive" ? 1.3 : 1 + 2.8 * z) * (0.75 + 0.25 * G) * S * (n.dotScale ?? 1), Re = P + F * b, He = k - j * b;
     if (n.colorBy) {
       const ye = n.colorBy === "age" ? _(172, 275, t.age[M]) : _(28, 285, t.pitch[M]);
       a.fillStyle = `hsla(${ye},85%,${n.colorBy === "age" ? _(66, 60, t.age[M]) : 62}%,${0.25 + 0.75 * G})`, a.beginPath(), a.arc(Re, He, Ce, 0, H), a.fill();
@@ -425,9 +425,9 @@ function nt(e, t, n, a) {
   const r = Xe, i = r.data, { ctx: s, w: l, h: u } = ae(e), p = n * V - 0.5 + Ke, h = a * V;
   for (let y = 0; y < 72; y++) {
     const b = 1 - y / 71;
-    for (let k = 0; k < 120; k++) {
-      const F = Math.pow(tt(t, p - b * h, k / 119 * (Y - 1)), 1.15), N = (y * 120 + k) * 4;
-      i[N] = 6 + 88 * F, i[N + 1] = 11 + 223 * F, i[N + 2] = 11 + 201 * F, i[N + 3] = 255;
+    for (let S = 0; S < 120; S++) {
+      const P = Math.pow(tt(t, p - b * h, S / 119 * (Y - 1)), 1.15), k = (y * 120 + S) * 4;
+      i[k] = 6 + 88 * P, i[k + 1] = 11 + 223 * P, i[k + 2] = 11 + 201 * P, i[k + 3] = 255;
     }
   }
   ie.getContext("2d").putImageData(r, 0, 0), s.imageSmoothingEnabled = !0, s.imageSmoothingQuality = "high";
@@ -449,19 +449,21 @@ function xt({
   history: r = 0.8,
   wrap: i = 1,
   spin: s = 0.12,
-  colorBy: l = null,
-  tint: u,
-  dotScale: p,
-  transport: h = pe,
-  className: g,
-  style: x,
-  "aria-label": d = "An orb of dots that moves with the sound"
+  turning: l = !0,
+  still: u = 0.6,
+  colorBy: p = null,
+  tint: h,
+  dotScale: g,
+  transport: x = pe,
+  className: d,
+  style: w,
+  "aria-label": m = "An orb of dots that moves with the sound"
 }) {
-  const w = st(e, h), m = K({ analysis: w, mode: t, dots: n, gain: a, history: r, wrap: i, spin: s, colorBy: l, tint: u, dotScale: p }), c = U((y, b) => {
-    const k = m.current;
-    Fe(y, Pe(k.dots), { analysis: k.analysis, t: b, mode: k.mode, gain: k.gain, history: k.history, wrap: k.wrap, spin: k.spin, colorBy: k.colorBy, tint: k.tint, dotScale: k.dotScale });
-  }, h);
-  return /* @__PURE__ */ o("canvas", { ref: c, className: g, role: "img", "aria-label": d, style: { display: "block", width: "100%", aspectRatio: "1 / 1", ...x } });
+  const c = st(e, x), y = K({ analysis: c, mode: t, dots: n, gain: a, history: r, wrap: i, spin: s, turning: l, still: u, colorBy: p, tint: h, dotScale: g }), b = U((S, P) => {
+    const k = y.current;
+    Fe(S, Pe(k.dots), { analysis: k.analysis, t: P, mode: k.mode, gain: k.gain, history: k.history, wrap: k.wrap, spin: k.spin, turning: k.turning, still: k.still, colorBy: k.colorBy, tint: k.tint, dotScale: k.dotScale });
+  }, x);
+  return /* @__PURE__ */ o("canvas", { ref: b, className: d, role: "img", "aria-label": m, style: { display: "block", width: "100%", aspectRatio: "1 / 1", ...w } });
 }
 function Ot({ signal: e, history: t = 0.8, transport: n = pe, className: a, style: r }) {
   const i = st(e, n), s = K({ analysis: i, history: t }), l = U((u, p) => nt(u, s.current.analysis, p, s.current.history), n);
@@ -539,23 +541,23 @@ function St({ transport: e }) {
   const [t, n] = O(125), [a, r] = O(44100), i = K({ cps: t }), s = U((u, p) => {
     const { ctx: h, w: g, h: x } = ae(u);
     h.clearRect(0, 0, g, x);
-    const d = oe(e), w = i.current.cps, m = 800, c = Math.floor(B(p * R * 0.3, d.sig.length - m - 4e3)) + 2e3, y = (F) => (F - c) / m * g, b = x / 2, k = x * 0.42;
+    const d = oe(e), w = i.current.cps, m = 800, c = Math.floor(B(p * R * 0.3, d.sig.length - m - 4e3)) + 2e3, y = (P) => (P - c) / m * g, b = x / 2, S = x * 0.42;
     h.strokeStyle = "rgba(255,255,255,0.08)", h.beginPath(), h.moveTo(0, b), h.lineTo(g, b), h.stroke();
-    for (let F = Math.floor(c / (R / w)); ; F++) {
-      const N = Math.round(F * R / w), v = Math.round((F + 1) * R / w);
-      if (N > c + m) break;
+    for (let P = Math.floor(c / (R / w)); ; P++) {
+      const k = Math.round(P * R / w), v = Math.round((P + 1) * R / w);
+      if (k > c + m) break;
       let M = 1 / 0, z = -1 / 0, T = 0;
-      for (let I = N; I < v; I++) {
-        const P = d.sig[B(I, d.sig.length)];
-        P < M && (M = P), P > z && (z = P), T += P * P;
+      for (let I = k; I < v; I++) {
+        const N = d.sig[B(I, d.sig.length)];
+        N < M && (M = N), N > z && (z = N), T += N * N;
       }
-      const W = Math.sqrt(T / (v - N)), $ = y(N), C = y(v);
-      h.fillStyle = "rgba(94,234,212,0.16)", h.fillRect($ + 1, b - z * k, C - $ - 2, (z - M) * k), h.strokeStyle = A.amber, h.lineWidth = 1.5, h.beginPath(), h.moveTo($ + 1, b - W * k), h.lineTo(C - 1, b - W * k), h.moveTo($ + 1, b + W * k), h.lineTo(C - 1, b + W * k), h.stroke(), h.strokeStyle = "rgba(94,234,212,0.5)", h.lineWidth = 1, h.beginPath(), h.moveTo($, 0), h.lineTo($, x), h.stroke(), $ > 0 && $ < g - 50 && L(h, `${N}`, $ + 3, x - 6, A.dim, 10);
+      const W = Math.sqrt(T / (v - k)), $ = y(k), C = y(v);
+      h.fillStyle = "rgba(94,234,212,0.16)", h.fillRect($ + 1, b - z * S, C - $ - 2, (z - M) * S), h.strokeStyle = A.amber, h.lineWidth = 1.5, h.beginPath(), h.moveTo($ + 1, b - W * S), h.lineTo(C - 1, b - W * S), h.moveTo($ + 1, b + W * S), h.lineTo(C - 1, b + W * S), h.stroke(), h.strokeStyle = "rgba(94,234,212,0.5)", h.lineWidth = 1, h.beginPath(), h.moveTo($, 0), h.lineTo($, x), h.stroke(), $ > 0 && $ < g - 50 && L(h, `${k}`, $ + 3, x - 6, A.dim, 10);
     }
     h.strokeStyle = A.fg, h.lineWidth = 1.2, h.beginPath();
-    for (let F = 0; F < m; F++) {
-      const N = F / m * g, v = b - d.sig[c + F] * k;
-      F ? h.lineTo(N, v) : h.moveTo(N, v);
+    for (let P = 0; P < m; P++) {
+      const k = P / m * g, v = b - d.sig[c + P] * S;
+      P ? h.lineTo(k, v) : h.moveTo(k, v);
     }
     h.stroke(), L(h, `edges at round(k · 16000 / ${w})`, 8, 14, A.dim, 10);
   }, e), l = Ge(() => {
@@ -647,11 +649,11 @@ function Nt({ transport: e }) {
   }, [t]), s = K(i), l = K(a), u = se({ key: "", c: null }), p = U((g, x) => {
     const { ctx: d, w, h: m } = ae(g);
     d.clearRect(0, 0, w, m);
-    const c = 1.6, y = (v) => m - 18 - v / 0.8 * (m - 30), { cps: b, a: k, b: F } = s.current;
+    const c = 1.6, y = (v) => m - 18 - v / 0.8 * (m - 30), { cps: b, a: S, b: P } = s.current;
     d.strokeStyle = "rgba(255,255,255,0.07)", d.lineWidth = 1, [0, 0.2, 0.4, 0.6].forEach((v) => {
       d.beginPath(), d.moveTo(0, y(v)), d.lineTo(w, y(v)), d.stroke(), L(d, v.toFixed(1), 4, y(v) - 3, A.dim, 9);
     });
-    const N = (v, M, z) => {
+    const k = (v, M, z) => {
       d.strokeStyle = M, d.lineWidth = z, d.beginPath();
       for (let T = 0; T <= w; T++) {
         const W = y(v(x - c + T / w * c));
@@ -659,29 +661,29 @@ function Nt({ transport: e }) {
       }
       d.stroke();
     };
-    N((v) => (0.5 + 0.3 * Math.sin(H * 0.6 * v)) / Math.SQRT2, A.faint, 2), N((v) => k.rms[B(Math.floor(v * b), k.n)], A.amber, 1.5), N((v) => F.rms[B(Math.floor(v * b), F.n)], A.mint, 2), L(d, "a 120 Hz hum, one pitch period = 8.3 ms", 8, 12, A.dim, 10);
+    k((v) => (0.5 + 0.3 * Math.sin(H * 0.6 * v)) / Math.SQRT2, A.faint, 2), k((v) => S.rms[B(Math.floor(v * b), S.n)], A.amber, 1.5), k((v) => P.rms[B(Math.floor(v * b), P.n)], A.mint, 2), L(d, "a 120 Hz hum, one pitch period = 8.3 ms", 8, 12, A.dim, 10);
   }, e), h = U((g, x) => {
     const d = oe(e), w = `${d.name}:${l.current}`;
     u.current.key !== w && (u.current = { key: w, c: fe(d.sig, V, 0.025, l.current) });
     const m = u.current.c, { ctx: c, w: y, h: b } = ae(g);
     c.clearRect(0, 0, y, b);
-    const k = y * 0.34, F = 10, N = b - 28, v = (C) => F + C * (k - 2 * F), M = (C) => b - 18 - C * N;
-    c.strokeStyle = "rgba(255,255,255,0.15)", c.lineWidth = 1, c.strokeRect(F, M(1), k - 2 * F, N), c.lineWidth = 2, c.strokeStyle = A.amber, c.beginPath(), c.moveTo(v(0), M(0)), c.lineTo(v(1), M(1)), c.stroke(), c.strokeStyle = A.mint, c.beginPath();
+    const S = y * 0.34, P = 10, k = b - 28, v = (C) => P + C * (S - 2 * P), M = (C) => b - 18 - C * k;
+    c.strokeStyle = "rgba(255,255,255,0.15)", c.lineWidth = 1, c.strokeRect(P, M(1), S - 2 * P, k), c.lineWidth = 2, c.strokeStyle = A.amber, c.beginPath(), c.moveTo(v(0), M(0)), c.lineTo(v(1), M(1)), c.stroke(), c.strokeStyle = A.mint, c.beginPath();
     for (let C = 0; C <= 100; C++) {
-      const I = C / 100, P = v(I), E = M(ne(I, le));
-      C ? c.lineTo(P, E) : c.moveTo(P, E);
+      const I = C / 100, N = v(I), E = M(ne(I, le));
+      C ? c.lineTo(N, E) : c.moveTo(N, E);
     }
     c.stroke(), [0.01, 0.1].forEach((C) => {
       const I = M(ne(C, le));
       c.fillStyle = A.mint, c.beginPath(), c.arc(v(C), I, 3.5, 0, H), c.fill(), L(c, `${C} → ${Math.round(ne(C, le) * 100)}%`, v(C) + 6, I - 6, A.fg, 10);
-    }), L(c, "amplitude", F, b - 4, A.dim, 10), L(c, "height", F + 2, 12, A.dim, 10);
-    const z = 1.6, T = k + 12, W = y - T - 6;
-    c.strokeStyle = "rgba(255,255,255,0.15)", c.lineWidth = 1, c.strokeRect(T, M(1), W, N);
-    const $ = (C, I, P) => {
-      c.strokeStyle = I, c.lineWidth = P, c.beginPath();
+    }), L(c, "amplitude", P, b - 4, A.dim, 10), L(c, "height", P + 2, 12, A.dim, 10);
+    const z = 1.6, T = S + 12, W = y - T - 6;
+    c.strokeStyle = "rgba(255,255,255,0.15)", c.lineWidth = 1, c.strokeRect(T, M(1), W, k);
+    const $ = (C, I, N) => {
+      c.strokeStyle = I, c.lineWidth = N, c.beginPath();
       for (let E = 0; E <= W; E++) {
-        const S = M(ne(C[B(Math.floor((x - z + E / W * z) * V), m.n)], le));
-        E ? c.lineTo(T + E, S) : c.moveTo(T + E, S);
+        const F = M(ne(C[B(Math.floor((x - z + E / W * z) * V), m.n)], le));
+        E ? c.lineTo(T + E, F) : c.moveTo(T + E, F);
       }
       c.stroke();
     };
@@ -792,28 +794,28 @@ for dot in dots {
 }
 function Rt({ transport: e }) {
   const [t, n] = O(!0), [a, r] = O(3), [i, s] = O(24), [l, u] = O(null), p = K({ hann: t, tilt: a, nb: i }), h = se(new Float64Array(48)), g = U((d, w) => {
-    const m = oe(e), { ctx: c, w: y, h: b } = ae(d), k = p.current;
+    const m = oe(e), { ctx: c, w: y, h: b } = ae(d), S = p.current;
     c.clearRect(0, 0, y, b);
-    const F = Math.floor(w * R), N = b * 0.36, v = N / 2 + 4, M = N * 0.42;
+    const P = Math.floor(w * R), k = b * 0.36, v = k / 2 + 4, M = k * 0.42;
     c.strokeStyle = "rgba(255,255,255,0.08)", c.lineWidth = 1, c.beginPath(), c.moveTo(0, v), c.lineTo(y, v), c.stroke();
-    const z = (P) => m.sig[B(F - D + P, m.sig.length)], T = (P, E, S) => {
-      c.strokeStyle = E, c.lineWidth = S, c.beginPath();
+    const z = (N) => m.sig[B(P - D + N, m.sig.length)], T = (N, E, F) => {
+      c.strokeStyle = E, c.lineWidth = F, c.beginPath();
       for (let q = 0; q < y; q++) {
-        const j = v - P(Math.floor(q / y * D)) * M;
+        const j = v - N(Math.floor(q / y * D)) * M;
         q ? c.lineTo(q, j) : c.moveTo(q, j);
       }
       c.stroke();
     };
-    T(z, "rgba(214,229,224,0.3)", 1), k.hann && T((P) => z(P) * Be[P], A.mint, 1.4), L(c, `the last 64 ms${k.hann ? ", through a Hann window" : ", cut off square"}`, 8, 13, A.dim, 10);
-    const W = We(m.sig, F, k, h.current), $ = b - 22, C = $ - N - 16, I = y / k.nb;
+    T(z, "rgba(214,229,224,0.3)", 1), S.hann && T((N) => z(N) * Be[N], A.mint, 1.4), L(c, `the last 64 ms${S.hann ? ", through a Hann window" : ", cut off square"}`, 8, 13, A.dim, 10);
+    const W = We(m.sig, P, S, h.current), $ = b - 22, C = $ - k - 16, I = y / S.nb;
     c.strokeStyle = "rgba(255,255,255,0.07)";
-    for (let P = 0; P <= 1; P += 0.25)
-      c.beginPath(), c.moveTo(0, $ - P * C), c.lineTo(y, $ - P * C), c.stroke();
-    for (let P = 0; P < k.nb; P++) {
-      const E = ne(W[P], Je), S = E * C;
-      c.fillStyle = `rgba(94,234,212,${0.35 + 0.65 * E})`, c.fillRect(P * I + 1.5, $ - S, I - 3, S);
+    for (let N = 0; N <= 1; N += 0.25)
+      c.beginPath(), c.moveTo(0, $ - N * C), c.lineTo(y, $ - N * C), c.stroke();
+    for (let N = 0; N < S.nb; N++) {
+      const E = ne(W[N], Je), F = E * C;
+      c.fillStyle = `rgba(94,234,212,${0.35 + 0.65 * E})`, c.fillRect(N * I + 1.5, $ - F, I - 3, F);
     }
-    [100, 300, 1e3, 3e3].forEach((P) => L(c, P >= 1e3 ? `${P / 1e3}k` : `${P}`, Math.log(P / ue) / Math.log(Le / ue) * k.nb * I, b - 6, A.dim, 10, "center")), L(c, "Hz, log scale: every band the same musical width", y - 6, b - 6, A.dim, 10, "right");
+    [100, 300, 1e3, 3e3].forEach((N) => L(c, N >= 1e3 ? `${N / 1e3}k` : `${N}`, Math.log(N / ue) / Math.log(Le / ue) * S.nb * I, b - 6, A.dim, 10, "center")), L(c, "Hz, log scale: every band the same musical width", y - 6, b - 6, A.dim, 10, "right");
   }, e);
   return /* @__PURE__ */ o(Z, { id: "pitch", lead: "Part 6", eyebrow: "maths", title: "Pitch: a spectrum every column", children: /* @__PURE__ */ f(ee, { children: [
     /* @__PURE__ */ f("div", { children: [
@@ -849,7 +851,7 @@ band value = √(band power)         «a sine A gives A / √2»` }),
         /* @__PURE__ */ o(he, { label: "bands", value: i, onChange: s, min: 8, max: 48, step: 1 })
       ] }),
       /* @__PURE__ */ o(Q, { children: /* @__PURE__ */ o("button", { onClick: () => {
-        const w = Float32Array.from({ length: 4096 }, (b, k) => 0.5 * Math.sin(H * 1e3 * k / R)), m = new Float64Array(24);
+        const w = Float32Array.from({ length: 4096 }, (b, S) => 0.5 * Math.sin(H * 1e3 * S / R)), m = new Float64Array(24);
         We(w, 2048, { hann: !0, tilt: 0, nb: 24 }, m);
         let c = 0, y = 0;
         m.forEach((b) => {
@@ -892,13 +894,13 @@ function Ht({ transport: e }) {
     p.clearRect(0, 0, h, g);
     const x = h / 2, d = g / 2 - 4, w = Math.min(h, g) * 0.36, m = w * 0.62, c = (b) => -Math.PI / 2 + (b + 0.5) / te * H;
     for (let b = 0; b < te; b++) {
-      const k = s.w - 1 - Ie(s.w - 1 - b, te), F = c(b) - H / te / 2 + 0.02, N = c(b) + H / te / 2 - 0.02;
+      const S = s.w - 1 - Ie(s.w - 1 - b, te), P = c(b) - H / te / 2 + 0.02, k = c(b) + H / te / 2 - 0.02;
       let v = !1;
       if (s.phase !== "idle")
         for (let M = 0; M < s.real; M++) Ie(s.end - s.real + M, te) === b && (s.phase !== "copy" || M < s.p * s.real) && (v = !0);
-      if (p.beginPath(), p.arc(x, d, w, F, N), p.arc(x, d, m, N, F, !0), p.closePath(), p.fillStyle = k < 0 ? "#0c1b19" : v ? s.phase === "torn" ? "rgba(251,113,133,0.75)" : "rgba(94,234,212,0.85)" : "rgba(94,234,212,0.18)", p.fill(), k >= 0) {
+      if (p.beginPath(), p.arc(x, d, w, P, k), p.arc(x, d, m, k, P, !0), p.closePath(), p.fillStyle = S < 0 ? "#0c1b19" : v ? s.phase === "torn" ? "rgba(251,113,133,0.75)" : "rgba(94,234,212,0.85)" : "rgba(94,234,212,0.18)", p.fill(), S >= 0) {
         const M = (w + m) / 2;
-        L(p, `${k}`, x + Math.cos(c(b)) * M, d + Math.sin(c(b)) * M + 3, v ? "#04201c" : A.dim, 10, "center");
+        L(p, `${S}`, x + Math.cos(c(b)) * M, d + Math.sin(c(b)) * M + 3, v ? "#04201c" : A.dim, 10, "center");
       }
     }
     const y = c(Ie(s.w, te));
@@ -936,22 +938,22 @@ func snapshot(...) {                       // screen thread only
 const zt = [["latest", "newest column"], ["nearest", "nearest"], ["linear", "linear"], ["cubic", "cubic"]];
 function $t({ transport: e }) {
   const [t, n] = O("cubic"), [a, r] = O(40), [i, s] = O(!0), [l, u] = O(!0), p = K({ mode: t, cps: a, jit: i, pll: l }), h = se(null), g = se({ hist: [], phase: NaN, period: 1 / 60, key: "", L: null, rnd: qe(11), signal: "" }), x = U((d, w) => {
-    const m = g.current, c = oe(e), { mode: y, cps: b, jit: k, pll: F } = p.current;
+    const m = g.current, c = oe(e), { mode: y, cps: b, jit: S, pll: P } = p.current;
     m.signal !== c.name && (m.signal = c.name, m.hist.length = 0);
-    const N = `${c.name}:${b}`;
-    if (m.key !== N) {
-      m.key = N;
-      const S = fe(c.sig, b, 0.025, 0.15);
-      m.L = { n: S.n, d: Float32Array.from(S.level, (q) => ne(q, le)) };
+    const k = `${c.name}:${b}`;
+    if (m.key !== k) {
+      m.key = k;
+      const F = fe(c.sig, b, 0.025, 0.15);
+      m.L = { n: F.n, d: Float32Array.from(F.level, (q) => ne(q, le)) };
     }
     const v = m.L, M = 0.06;
     if (!e.getState().paused) {
-      const S = w + (k ? (m.rnd() - 0.5) * 8e-3 : 0);
-      let q = S;
-      if (F) {
-        if (Number.isNaN(m.phase) || S - m.phase >= 0.5) m.phase = S;
+      const F = w + (S ? (m.rnd() - 0.5) * 8e-3 : 0);
+      let q = F;
+      if (P) {
+        if (Number.isNaN(m.phase) || F - m.phase >= 0.5) m.phase = F;
         else {
-          const X = m.phase + m.period, G = Math.max(-m.period, Math.min(2 * m.period, S - X));
+          const X = m.phase + m.period, G = Math.max(-m.period, Math.min(2 * m.period, F - X));
           m.period += 0.01 * G, m.phase = X + 0.15 * G;
         }
         q = m.phase;
@@ -974,25 +976,25 @@ function $t({ transport: e }) {
     for (; m.hist.length && m.hist[0].t < w - z; ) m.hist.shift();
     const { ctx: T, w: W, h: $ } = ae(d);
     T.clearRect(0, 0, W, $);
-    const C = (S) => (S - (w - z)) / z * W, I = (S) => $ - 14 - S * ($ - 28);
+    const C = (F) => (F - (w - z)) / z * W, I = (F) => $ - 14 - F * ($ - 28);
     T.strokeStyle = "rgba(255,255,255,0.07)", T.lineWidth = 1;
-    for (let S = 0; S <= 1; S += 0.25)
-      T.beginPath(), T.moveTo(0, I(S)), T.lineTo(W, I(S)), T.stroke();
-    T.strokeStyle = A.faint, T.lineWidth = 3, T.beginPath(), m.hist.forEach((S, q) => {
-      q ? T.lineTo(C(S.t), I(S.truth)) : T.moveTo(C(S.t), I(S.truth));
-    }), T.stroke(), T.strokeStyle = A.mint, T.lineWidth = 1.6, T.beginPath(), m.hist.forEach((S, q) => {
-      q ? T.lineTo(C(S.t), I(S.v)) : T.moveTo(C(S.t), I(S.v));
-    }), T.stroke(), T.fillStyle = A.mint, m.hist.forEach((S) => {
-      T.beginPath(), T.arc(C(S.t), I(S.v), 1.8, 0, H), T.fill();
+    for (let F = 0; F <= 1; F += 0.25)
+      T.beginPath(), T.moveTo(0, I(F)), T.lineTo(W, I(F)), T.stroke();
+    T.strokeStyle = A.faint, T.lineWidth = 3, T.beginPath(), m.hist.forEach((F, q) => {
+      q ? T.lineTo(C(F.t), I(F.truth)) : T.moveTo(C(F.t), I(F.truth));
+    }), T.stroke(), T.strokeStyle = A.mint, T.lineWidth = 1.6, T.beginPath(), m.hist.forEach((F, q) => {
+      q ? T.lineTo(C(F.t), I(F.v)) : T.moveTo(C(F.t), I(F.v));
+    }), T.stroke(), T.fillStyle = A.mint, m.hist.forEach((F) => {
+      T.beginPath(), T.arc(C(F.t), I(F.v), 1.8, 0, H), T.fill();
     });
-    const P = m.hist, E = P.length;
+    const N = m.hist, E = N.length;
     if (E > 8) {
-      let S = 0;
+      let F = 0;
       for (let q = 2; q < E; q++) {
-        const j = P[q].v - 2 * P[q - 1].v + P[q - 2].v;
-        S += j * j;
+        const j = N[q].v - 2 * N[q - 1].v + N[q - 2].v;
+        F += j * j;
       }
-      et(h, `roughness <b>${(Math.sqrt(S / (E - 2)) * 100).toFixed(2)}</b> (lower is smoother). Each dot is one screen frame.`);
+      et(h, `roughness <b>${(Math.sqrt(F / (E - 2)) * 100).toFixed(2)}</b> (lower is smoother). Each dot is one screen frame.`);
     }
   }, e);
   return /* @__PURE__ */ o(Z, { id: "smooth", lead: "Part 5", eyebrow: "maths and engineering", title: "A playhead on the audio clock", children: /* @__PURE__ */ f(ee, { children: [
