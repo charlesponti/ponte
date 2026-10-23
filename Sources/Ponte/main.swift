@@ -547,7 +547,8 @@ func runCLI() -> Int32? {
 
     case "--status-icon":
         guard argv.count > 2 else { print("usage: Ponte --status-icon <out.png> [pt]"); return 2 }
-        let pt = argv.count > 3 ? (Double(argv[3]) ?? 18) : 18
+        // 16 pt is what the bar wears; a tool that defaults to a size the app never uses is a tool that lies.
+        let pt = argv.count > 3 ? (Double(argv[3]) ?? 16) : 16
         return writePNG(IconRenderer.menuBarImage(pointSize: CGFloat(pt)), to: argv[2])
 
     case "--icon":
@@ -576,7 +577,7 @@ func runCLI() -> Int32? {
         guard let mark = MenuBarMark(rawValue: argv[3]) else {
             print("unknown mark: \(argv[3])"); return 2
         }
-        let pt = argv.count > 4 ? (Double(argv[4]) ?? 18) : 18
+        let pt = argv.count > 4 ? (Double(argv[4]) ?? 16) : 16
         let lvl = argv.count > 5 ? (Double(argv[5]) ?? 0) : 0
         return writePNG(IconRenderer.menuBarImage(mark, pointSize: CGFloat(pt), level: CGFloat(lvl)),
                         to: argv[2])
