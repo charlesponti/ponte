@@ -8,7 +8,7 @@ import AppKit
 // the pill is measured, and the clock.
 
 enum HudState: String {
-    case idle, recording, working, done, error
+    case idle, recording, working, done, error, cancelled
 }
 
 /// Every colour and duration of the lifecycle, in one place. These are the numbers from
@@ -18,6 +18,8 @@ enum HudSpec {
     static let mint = NSColor(srgbRed: 102 / 255, green: 212 / 255, blue: 207 / 255, alpha: 1)
     static let green = NSColor(srgbRed: 50 / 255, green: 215 / 255, blue: 75 / 255, alpha: 1)
     static let red = NSColor(srgbRed: 255 / 255, green: 69 / 255, blue: 58 / 255, alpha: 1)
+    /// Cancelled is neither of those: it drains to grey, because nothing succeeded and nothing failed.
+    static let grey = NSColor(srgbRed: 142 / 255, green: 142 / 255, blue: 147 / 255, alpha: 1)
 
     // What the box is made of. Black, not the usual translucent `.hudWindow` material: the orb's
     // outer dots are drawn at 18 % and vanish against a grey blur. The face and the hairline are here
@@ -41,6 +43,11 @@ enum HudSpec {
     static let doneHold: TimeInterval = 0.15
     static let doneCollapse: TimeInterval = 0.55
     static let doneLife: TimeInterval = 1.40
+
+    // cancelled: the collapse of done without the ceremony — grey, and gone in a second
+    static let cancelHold: TimeInterval = 0.10
+    static let cancelCollapse: TimeInterval = 0.42
+    static let cancelLife: TimeInterval = 1.10
 
     // error: colour, shrink, three throbs, then collapse
     static let errorColour: TimeInterval = 0.18
@@ -128,6 +135,12 @@ enum HudLifecycle {
                              spin: HudSpec.baseSpin * HudSpec.recordingSpinMultiple * Float(1 - 0.85 * k),
                              orb: 1 - 0.95 * CGFloat(ease(k)),
                              alpha: 1 - CGFloat(ease(k)))
+        case .cancelled:
+            let k = clamp((t - HudSpec.cancelHold) / HudSpec.cancelCollapse, 0, 1)
+            return HudVisual(tint: mix(HudSpec.mint, HudSpec.grey, t / HudSpec.cancelHold),
+                             spin: HudSpec.baseSpin * HudSpec.recordingSpinMultiple * Float(1 - 0.85 * k),
+                             orb: 1 - 0.95 * CGFloat(ease(k)),
+                             alpha: 1 - CGFloat(ease(k)))
         case .error:
             let shrinkK = clamp((t - HudSpec.errorColour) / HudSpec.errorShrink, 0, 1)
             let shrink = 1 - 0.18 * ease(shrinkK)
@@ -162,6 +175,9 @@ enum HudLifecycle {
         case .done:
             k = clamp((t - HudSpec.doneHold) / HudSpec.doneCollapse, 0, 1)
             hudAlpha = 1 - clamp((t - (HudSpec.doneLife - HudSpec.fadeOut)) / HudSpec.fadeOut, 0, 1)
+        case .cancelled:
+            k = clamp((t - HudSpec.cancelHold) / HudSpec.cancelCollapse, 0, 1)
+            hudAlpha = 1 - clamp((t - (HudSpec.cancelLife - HudSpec.fadeOut)) / HudSpec.fadeOut, 0, 1)
         case .error:
             k = clamp((t - HudSpec.errorThrobEnd) / HudSpec.errorCollapse, 0, 1)
             hudAlpha = 1 - clamp((t - (HudSpec.errorLife - HudSpec.fadeOut)) / HudSpec.fadeOut, 0, 1)
@@ -187,6 +203,7 @@ enum HudLifecycle {
         switch state {
         case .done: return HudSpec.doneLife
         case .error: return HudSpec.errorLife
+        case .cancelled: return HudSpec.cancelLife
         default: return nil
         }
     }

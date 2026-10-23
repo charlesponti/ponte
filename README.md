@@ -313,6 +313,23 @@ After granting Accessibility, the running process usually needs a restart before
 - Auto-paste into frontmost app · Keep audio files · Launch at Login
 - **Permissions** — mic + accessibility status and shortcuts to Settings
 
+## Keys
+
+| key | what it does |
+|---|---|
+| ⌥⌘Space (or whatever you set) | start a dictation; press it again to finish and paste |
+| **Esc** | throw the take away — nothing is transcribed, no note is written, and the audio goes with it |
+| **Return**, or the keypad's Enter | finish now, exactly as pressing the hotkey again does |
+
+Esc and Return are heard **only while a dictation is in flight**. The HUD never takes focus — it must not, or
+the letters you dictate would land in the HUD instead of the app you are writing in — so a bare key can only be
+heard as a global hotkey: registered when recording starts, released the moment it ends. That window is deliberate.
+A Return held down while idle would eat every return you press, in every app.
+
+Cancelling shows a grey *Cancelled* pill — grey because nothing was pasted and nothing failed — and the
+recording is deleted even if you have Keep audio files turned on: that setting is about dictations, and a cancelled
+one is not going to become one.
+
 ## Setting the hotkey
 
 Two defaults, then restart the app (the hotkey is registered at launch):

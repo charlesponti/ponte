@@ -13,6 +13,12 @@ struct Ink {
     var peak: CGFloat = 0
     /// Tenth-percentile brightness: low on a shaded sphere, high on a flat disc.
     var p10: CGFloat = 0
+    /// Mint pixels holding full-strength ink. This is the robust way to tell a shaded sphere from a
+    /// flat disc: measured, 17 % of the big orb's ink is full strength against 84 % of the tiny one's,
+    /// while their tenth percentiles sit within a rounding error of each other and flip on whatever
+    /// antialiasing the surrounding tests leave behind.
+    var bright = 0
+    var brightShare: Double { Double(bright) / Double(max(1, count)) }
     var coverage: Double { Double(count) / Double(max(1, bounds.width * bounds.height)) }
 
     /// Ink in the top part of the image only, for shapes with a label underneath.
@@ -80,6 +86,7 @@ enum Probe {
                 guard g - r > 0.04 else { continue }
                 ink.count += 1
                 ink.peak = max(ink.peak, g)
+                if g >= 0.7 { ink.bright += 1 }
                 histogram[min(255, Int(g * 255))] += 1
                 minX = min(minX, x); maxX = max(maxX, x)
                 minY = min(minY, y); maxY = max(maxY, y)

@@ -103,8 +103,8 @@ final class IconTests: XCTestCase {
         XCTAssertGreaterThan(big.peak, 0.7, "the nearest dots are bright")
         XCTAssertLessThan(big.p10, 0.45, "the farthest dots are dim — that is the depth cue")
         let tiny = Probe.mint(IconRenderer.image(.orb, size: 16))
-        XCTAssertGreaterThan(tiny.p10, big.p10,
-                             "at 16 px the mark should read as one solid, even dot")
+        XCTAssertGreaterThan(tiny.brightShare, big.brightShare * 2,
+                             "at 16 px the mark should read as one flat, even disc — full-strength ink is \(Int(tiny.brightShare * 100))% of it against \(Int(big.brightShare * 100))% of the shaded sphere")
     }
 
     /// Every mark has to be centred in its tile: the menu bar glyph was once drawn in the

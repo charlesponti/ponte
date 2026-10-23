@@ -53,6 +53,11 @@ final class HUD {
         set(state: .error, text: text, colour: Color(nsColor: HudSpec.red))
     }
 
+    /// Esc, while a dictation is in flight. One fact, and it is not a success: nothing was pasted.
+    func showCancelled() {
+        set(state: .cancelled, text: "Cancelled", colour: Color(nsColor: HudSpec.grey))
+    }
+
     func hide() {
         hideWork?.cancel()
         hideWork = nil

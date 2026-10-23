@@ -30,7 +30,7 @@ func usage() {
       Ponte --download [ultra|v3|v2|redux|all]
       Ponte --selftest <seconds> [--engine …]
       Ponte --devices
-      Ponte --hud-render <out.png> <idle|recording|working|done|error> [t] [text]
+      Ponte --hud-render <out.png> <idle|recording|working|done|error|cancelled> [t] [text]
       Ponte --hud-strip <out.png>       render the lifecycle as a contact sheet
       Ponte --hud-voice <out.png>       render the orb answering a voice
       Ponte --icon <out.png> <mark> [px]  render the app icon (orb|halftone|ripple|core)
@@ -136,6 +136,7 @@ func defaultHudText(for state: HudState) -> String {
     case .recording: return "0:07"
     case .done: return "Pasted ✓"
     case .error: return "Heard nothing"
+    case .cancelled: return "Cancelled"
     }
 }
 
@@ -143,6 +144,7 @@ func hudColour(for state: HudState) -> NSColor {
     switch state {
     case .done: return HudSpec.green
     case .error: return HudSpec.red
+    case .cancelled: return HudSpec.grey
     default: return NSColor.white.withAlphaComponent(0.55)
     }
 }
@@ -494,7 +496,7 @@ func runCLI() -> Int32? {
 
     case "--hud-render":
         guard argv.count > 3, let state = HudState(rawValue: argv[3]) else {
-            print("usage: Ponte --hud-render <out.png> <idle|recording|working|done|error> [t] [text]")
+            print("usage: Ponte --hud-render <out.png> <idle|recording|working|done|error|cancelled> [t] [text]")
             return 2
         }
         let t = argv.count > 4 ? (Double(argv[4]) ?? 0) : 0

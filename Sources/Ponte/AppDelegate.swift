@@ -10,7 +10,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let downloader = ModelDownloader()
     private var hotKey: GlobalHotKey?
 
-    private var state: AppState = .idle
+    /// Esc and Return, held only while a dictation is in flight — see `DictationKey`.
+    private var dictationKeys: [GlobalHotKey] = []
+
+    /// Set when Esc lands while the transcript is being computed: the result is dropped rather than
+    /// pasted into whatever the person has since turned to.
+    private var discardResult = false
+
+    private var state: AppState = .idle {
+        didSet {
+            // The keys are grabbed for exactly as long as there is a dictation to cancel.
+            if state == .idle { releaseDictationKeys() } else { grabDictationKeys() }
+        }
+    }
 
     /// A single physical press can deliver two hotkey events (key down/up, or key
     /// repeat). Swallow the duplicate so one press never spawns two recorders.
@@ -121,6 +133,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // MARK: - Keys during a dictation
+
+    private func grabDictationKeys() {
+        guard dictationKeys.isEmpty else { return }
+        dictationKeys = DictationKey.allCases.compactMap { key in
+            GlobalHotKey(keyCode: key.keyCode, modifiers: 0) { [weak self] in
+                switch key.meaning {
+                case .cancel: self?.cancel()
+                case .commit: self?.commit()
+                }
+            }
+        }
+        vlog("dictation keys grabbed (\(DictationKey.hints)) — \(dictationKeys.count)/\(DictationKey.allCases.count) registered")
+    }
+
+    private func releaseDictationKeys() {
+        guard !dictationKeys.isEmpty else { return }
+        dictationKeys.removeAll()
+        vlog("dictation keys released")
+    }
+
+    /// Esc, while a dictation is in flight: throw the take away.
+    ///
+    /// Nothing is transcribed and no note is written, and the audio goes with it — cancelled means no
+    /// trace, whatever the keep-audio setting says, because that setting is about dictations and this
+    /// one is not going to become one.
+    private func cancel() {
+        switch state {
+        case .starting, .recording:
+            let elapsed = recorder.elapsed
+            let url = recorder.stop()
+            if let url { try? FileManager.default.removeItem(at: url) }
+            vlog(String(format: "cancelled after %.2fs — audio discarded, nothing transcribed", elapsed))
+            state = .idle
+            updateIcon()
+            hud.showCancelled()
+        case .working:
+            discardResult = true
+            vlog("cancelled while transcribing — the result will be dropped")
+            hud.showCancelled()
+        case .idle:
+            break
+        }
+    }
+
+    /// Return, while recording: finish now, exactly as pressing the hotkey again does.
+    private func commit() {
+        switch state {
+        case .starting: vlog("Return ignored — the microphone is still opening")
+        case .recording: stopAndTranscribe()
+        case .working, .idle: break
+        }
+    }
+
     private func startRecording() {
         // Set this synchronously: the permission callback is async, and a second
         // event landing in that window would otherwise start a second recorder.
@@ -189,12 +255,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     DispatchQueue.main.async { self.hudProgress(message) }
                 }
                 DispatchQueue.main.async {
+                    if self.discardResult {
+                        self.discardResult = false
+                        vlog("transcript dropped — cancelled while transcribing")
+                        self.state = .idle
+                        self.updateIcon()
+                        self.cleanUp(audio: url)
+                        return
+                    }
                     self.finish(text: result.text, took: result.seconds, audio: url,
                                 elapsed: elapsed, engine: result.engine)
                 }
             } catch {
                 vlog("transcribe failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
+                    if self.discardResult {
+                        self.discardResult = false
+                        self.state = .idle
+                        self.updateIcon()
+                        self.cleanUp(audio: url)
+                        return
+                    }
                     self.state = .idle
                     self.updateIcon()
                     self.hud.showError("Transcription failed")
@@ -291,7 +372,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // screen in the HUD at that point anyway).
         statusItem?.button?.image = StatusIcon.image(for: state)
         statusItem?.button?.contentTintColor = StatusIcon.tint(for: state)
-        statusItem?.button?.toolTip = "Ponte — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers))"
+        statusItem?.button?.toolTip = "Ponte — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers)) · \(DictationKey.hints)"
         // The item moves when the bar re-lays out — macOS adds its own microphone pill while we
         // record — so where it is has to be re-read per state, not remembered from launch.
         if let f = statusItem?.button?.window?.frame {
@@ -310,15 +391,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .idle:
             menu.addItem(item("Start Recording", #selector(toggle), shortcut))
         case .starting:
-            let i = item("Starting…", nil, nil)
-            i.isEnabled = false
-            menu.addItem(i)
+            menu.addItem(hint("Starting…"))
         case .recording:
             menu.addItem(item("Stop & Transcribe", #selector(toggle), shortcut))
+            menu.addItem(hint(DictationKey.hints))
         case .working:
-            let i = item("Transcribing…", nil, nil)
-            i.isEnabled = false
-            menu.addItem(i)
+            menu.addItem(hint("Transcribing…"))
+            menu.addItem(hint(DictationKey.hints))
         }
 
         let copy = item("Copy Last Transcript", #selector(copyLast), nil)
@@ -462,6 +541,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         i.representedObject = represented
         i.isEnabled = action != nil
         if let key, !key.isEmpty { i.keyEquivalentModifierMask = [.command, .shift] }
+        return i
+    }
+
+    /// A disabled line, for something worth reading but not clicking.
+    private func hint(_ title: String) -> NSMenuItem {
+        let i = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        i.isEnabled = false
         return i
     }
 
