@@ -131,9 +131,9 @@ echo
 if [ "$NOTARIZE" = "1" ]; then
   echo "    Notarized and stapled: it opens on any Mac with a double click."
 else
-  echo "    Not notarized yet. On another Mac this shows \"Apple could not verify...\", which the"
-  echo "    buyer can only get past by right-clicking and choosing Open — so run with --notarize"
-  echo "    before you sell it."
+  echo "    Not notarized yet. On another Mac this shows \"Apple could not verify...\", and recent"
+  echo "    macOS has removed the right-click bypass: the buyer has to find System Settings →"
+  echo "    Privacy & Security → Open Anyway, or give up. Run with --notarize before you sell it."
 fi
 
 if [ "$INSTALL" = "1" ]; then
