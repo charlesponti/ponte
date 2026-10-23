@@ -21,6 +21,17 @@ final class Recorder {
     /// Where the audio's time meets the screen's, so the orb's picture moves smoothly between buffers.
     var clock: StreamClock? { engine?.clock }
 
+    /// The microphone this take is coming from — logged, and part of explaining a quiet take.
+    private(set) var deviceName = "unknown"
+
+    /// The loudest sample in the newest column, in dBFS: what `InputWatch` reads.
+    var newestPeakDB: Float? {
+        guard let ring = engine?.columns else { return nil }
+        var column = Column.silent
+        let found = withUnsafeMutablePointer(to: &column) { ring.copyLast(1, into: $0) }
+        return found > 0 ? InputWatch.peakDB(column) : nil
+    }
+
     var isRecording: Bool { engine != nil }
 
     /// How much has been recorded, from the frames written rather than from a wall clock.
@@ -55,14 +66,15 @@ final class Recorder {
         try FileManager.default.createDirectory(at: AppPaths.audio, withIntermediateDirectories: true)
 
         // Which mic? Honour the system default input; log it so history is traceable.
-        let deviceName = AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown"
+        let device = AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown"
         let url = AppPaths.audio.appendingPathComponent("rec-\(AppPaths.stamp()).wav")
 
         let recorder = EngineRecorder(settings: .localTranscription)
         try recorder.start(to: url)
         engine = recorder
         currentURL = url
-        vlog("record start device=\(deviceName) file=\(url.lastPathComponent) format=16kHz-mono-wav")
+        deviceName = device
+        vlog("record start device=\(device) file=\(url.lastPathComponent) format=16kHz-mono-wav")
         return url
     }
 

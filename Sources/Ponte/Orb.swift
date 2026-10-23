@@ -18,6 +18,8 @@ enum HudSpec {
     static let mint = NSColor(srgbRed: 102 / 255, green: 212 / 255, blue: 207 / 255, alpha: 1)
     static let green = NSColor(srgbRed: 50 / 255, green: 215 / 255, blue: 75 / 255, alpha: 1)
     static let red = NSColor(srgbRed: 255 / 255, green: 69 / 255, blue: 58 / 255, alpha: 1)
+    /// The input watcher's colour: a warning rather than a failure — the recording carries on.
+    static let amber = NSColor(srgbRed: 255 / 255, green: 214 / 255, blue: 10 / 255, alpha: 1)
     /// Cancelled is neither of those: it drains to grey, because nothing succeeded and nothing failed.
     static let grey = NSColor(srgbRed: 142 / 255, green: 142 / 255, blue: 147 / 255, alpha: 1)
 

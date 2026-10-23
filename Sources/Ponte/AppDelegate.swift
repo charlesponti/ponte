@@ -10,6 +10,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let downloader = ModelDownloader()
     private var hotKey: GlobalHotKey?
 
+    /// Watches the input while recording, so a take producing nothing says so in time (see `InputWatch`).
+    private var inputWatch: InputWatch?
+    private var watchTimer: Timer?
+
     /// Esc and Return, held only while a dictation is in flight — see `DictationKey`.
     private var dictationKeys: [GlobalHotKey] = []
 
@@ -133,6 +137,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    // MARK: - Watching the input
+
+    private func startWatchingInput() {
+        inputWatch = InputWatch()
+        watchTimer?.invalidate()
+        let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in self?.sampleInput() }
+        // .common, not the default mode: the timer has to keep ticking while a menu is open.
+        RunLoop.main.add(timer, forMode: .common)
+        watchTimer = timer
+    }
+
+    private func stopWatchingInput() {
+        watchTimer?.invalidate()
+        watchTimer = nil
+        inputWatch = nil
+    }
+
+    /// One reading of the meter, four times a second. Only transitions are logged and drawn, so a
+    /// quiet take says its piece once rather than every quarter second.
+    private func sampleInput() {
+        guard case .recording = state, var watch = inputWatch else { return }
+        let before = watch.verdict
+        let after = watch.observe(peakDB: recorder.newestPeakDB, at: recorder.elapsed)
+        inputWatch = watch
+        guard after != before else { return }
+        hud.setHint(after.label)
+        switch after {
+        case .noSignal:
+            vlog(String(format: "input watch: no signal — loudest peak %.0f dBFS after %.1fs on %@",
+                        watch.loudestDB, recorder.elapsed, recorder.deviceName))
+        case .listening:
+            vlog(String(format: "input watch: the input is back (loudest peak %.0f dBFS)", watch.loudestDB))
+        }
+    }
+
     // MARK: - Keys during a dictation
 
     private func grabDictationKeys() {
@@ -162,6 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func cancel() {
         switch state {
         case .starting, .recording:
+            stopWatchingInput()
             let elapsed = recorder.elapsed
             let url = recorder.stop()
             if let url { try? FileManager.default.removeItem(at: url) }
@@ -223,10 +263,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                              columnsPerSecond: HudSpec.columnsPerSecond)
             }
             self.hud.beginRecording()
+            self.startWatchingInput()
         }
     }
 
     private func stopAndTranscribe() {
+        stopWatchingInput()
         let elapsed = recorder.elapsed
         guard let url = recorder.stop() else {
             state = .idle

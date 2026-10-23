@@ -53,6 +53,13 @@ final class HUD {
         set(state: .error, text: text, colour: Color(nsColor: HudSpec.red))
     }
 
+    /// A word from the input watcher, in place of the clock while it applies. Passing nil clears it.
+    /// This never changes the state: the recording carries on and the clock is still running.
+    func setHint(_ text: String?) {
+        guard model.hint != text else { return }
+        model.hint = text
+    }
+
     /// Esc, while a dictation is in flight. One fact, and it is not a success: nothing was pasted.
     func showCancelled() {
         set(state: .cancelled, text: "Cancelled", colour: Color(nsColor: HudSpec.grey))
@@ -69,6 +76,8 @@ final class HUD {
     private func set(state newState: HudState, text: String, colour: Color) {
         hideWork?.cancel()
         hideWork = nil
+        // A new state makes any standing warning obsolete.
+        model.hint = nil
         model.state = newState
         model.startedAt = Date()
         model.label = text
