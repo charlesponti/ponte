@@ -37,14 +37,20 @@ rather than stepping at buffer boundaries.
 | speed, 6 minutes | 2.1 s — **faster with length**, because the load cost amortises | not usable, see below |
 | resident memory | 99-147 MB | 1886-1895 MB |
 | model on disk | 603 MB (`ultra`), 461 MB (v3), 210 MB (redux), 98 MB (110m) | 1.5 GB (large-v3-turbo), 148 MB (base.en) |
-| long takes | 119 of 120 repetitions at six minutes, nothing truncated | **6 of 24 repetitions at 76 seconds** |
+| long takes, prose | 555 of 555 words at 160 s; parakeet also exact at six minutes | **566 of 555 words at 160 s** — whole, and within 2 % |
+| repeated speech | exact: 120 of 120 repetitions at six minutes | **6 of 24 repetitions** — collapses on repetition |
 | first use | one-time CoreML compile for the ANE: 46.4 s measured for v3, ~23 s noted earlier for ultra, cached afterwards | loads weights and runs |
 
 **Parakeet is the engine; whisper is a reference point.** Whisper is kept because it is the benchmark every
-other number is quoted against, and because a second engine is useful when a result looks wrong. It should not
-be the engine anyone dictates through until issue **#12** is fixed: on a 76-second recording it returns the
-first 19 seconds and the closing sentence, silently dropping everything between. The Engine menu offers it, so
-a user can hit this.
+other number is quoted against, and because a second engine is useful when a result looks wrong.
+
+**Whisper's weakness is repeated audio, not long audio.** Six minutes of ordinary speech come back whole,
+ending included. Hand it the same sentence eight times inside a 26-second window and it returns two — the
+decoder collapses on repetitive input, and no flag tried (`-mc 0`, `-nf`, `-bs`, `-et`, `-sns`) or a different
+WAV encoder changes it. So the risk is not the length of a dictation but its content: reading out a column of
+numbers, a list of part codes, or the same instruction five times can lose text, on a take of any length.
+Issue #12 misread this as a long-dictation bug; `docs/pitfalls.md` records why the test material was the
+problem, and the check script now carries a prose row alongside the repetition one.
 
 Set with `engine` (`parakeet`/`whisper`) and `parakeetModel` (`ultra`/`v3`/`ultra`-family). The CLI's flags are
 `--engine` and `--parakeet-model`, and **unknown values are refused** — they used to fall back silently, which

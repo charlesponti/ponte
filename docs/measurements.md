@@ -21,24 +21,39 @@ Reproduce with `./scripts/long-dictation-check.sh [work-dir]`. Synthetic speech:
 plus a closing marker, so a dropped region is countable. The script asserts the engine each run actually
 reported, and fails a row whose repetitions or marker are wrong.
 
+**Repetition material** — one sentence repeated N times plus a closing marker. A stress test for text going
+missing at a seam, not a typical dictation.
+
 | audio | engine | time | repetitions kept | closing marker | peak RSS | verdict |
-|---|---|---|---:|---|---|---|
-| 20 s | parakeet-ultra | 0.71 s | 6 of 6 | intact | 99 MB | PASS |
-| 76 s | parakeet-ultra | 0.69 s | 24 of 24 | intact | 119 MB | PASS |
-| 6 min | parakeet-ultra | 2.14 s | 119 of 120 | intact | 147 MB | FAIL: 119 of 120 |
-| 76 s | parakeet-tdt-v3 | 0.82 s | 24 of 24 | intact | 123 MB | PASS |
-| 76 s | whisper large-v3-turbo | 4.93 s | **6 of 24** | jumped to it | 1886 MB | FAIL: 6 of 24 |
+|---|---|---|---|---|---|---|
+| 20 s | parakeet-ultra | 0.91 s | 6 of 6 | intact | 105 MB | PASS |
+| 76 s | parakeet-ultra | 0.66 s | 24 of 24 | intact | 122 MB | PASS |
+| 6 min | parakeet-ultra | 1.85 s | **120 of 120** | intact | 149 MB | PASS |
+| 76 s | parakeet-tdt-v3 | 1.04 s | 24 of 24 | intact | 128 MB | PASS |
+| 76 s | whisper large-v3-turbo | 6.50 s | **6 of 24** | intact | 1895 MB | FAIL |
+
+**Prose material** — forty distinct sentences plus a unique closing marker, judged by word count. This is the
+material that resembles use, and the only one that can fairly judge an engine.
+
+| audio | engine | time | words returned | closing marker | peak RSS | verdict |
+|---|---|---|---|---|---|---|
+| 160 s | parakeet-ultra | 1.92 s | 555 of 555 | intact | 151 MB | PASS |
+| 160 s | whisper large-v3-turbo | 12.65 s | 566 of 555 (+2 %) | intact | 1950 MB | **PASS** |
 
 Reading it:
 
-- **Parakeet has no practical limit to six minutes.** 5397 characters against the source's 5444 — 0.9 % short —
-  with nothing truncated and nothing duplicated at the seams. The one missing repetition is a word-level miss
-  on synthetic repeated speech, not a structural drop.
-- **Times move by half from run to run** on this machine (the same 76 s row has measured 0.67 s and 1.53 s).
-  Read them as seconds, never as ratios; the counts are the part that must not move.
+- **Parakeet has no practical limit to six minutes**, and gets faster with length because the load cost
+  amortises. Nothing truncated, nothing duplicated at the seams.
 - **The boundary past six minutes is unknown.** Nothing has been tried beyond 371 s.
-- **whisper silently drops most of a long take** — issue #12. It returns the opening ~19 s and the closing
-  sentence.
+- **whisper is fine on long speech and fragile on repeated speech.** Six minutes of prose come back whole,
+  ending included, within 2 % of the source word count. The same sentence twenty-four times in 76 seconds
+  returns six of them, and a 26-second window holding eight repetitions returns two — so it is the repetition,
+  not the length, and not the file: a second WAV encoder changed nothing, and neither did `-mc 0`, `-nf`,
+  `-bs 1`, `-et 1.0`, `-et 0.0` or `-sns`. This was filed as "drops most of a long dictation" (#12) on the
+  strength of the repetition rows alone, which was wrong about the cause.
+- **Times are not ratios.** The same 6-minute row has measured 1.85 s, 2.14 s and 10.30 s; the same 76 s
+  whisper row 4.29 s, 6.50 s and 17.77 s. Under load, it is a factor of five, not the "half" an earlier version
+  of this paragraph claimed. Read them as seconds; the counts are what must not move.
 
 ## Idle cost
 

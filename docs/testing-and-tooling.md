@@ -108,7 +108,7 @@ device, duration, engine, character count, confidence, and every state change.
 | `make-dmg.sh` | builds the DMG, signs it with Developer ID; `--notarize` submits it, `--install` copies the app to `/Applications` |
 | `check-signature.sh` | fails unless a signed app carries a team-anchored requirement |
 | `make-icon.sh` | renders every icon size through the CLI and assembles the `.icns` |
-| `long-dictation-check.sh` | builds synthetic speech, runs each engine over it, and fails any row that loses text or ran the wrong engine |
+| `long-dictation-check.sh` | builds two synthetic materials — repeated sentences (seam-loss stress) and forty distinct sentences (the realistic case) — runs each engine over them, and fails any row that loses text, duplicates it, or ran the wrong engine |
 
 ## Verifying a change
 

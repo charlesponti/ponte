@@ -21,7 +21,11 @@ enum Transcriber {
         }
 
         let started = Date()
-        let outBase = wav.deletingPathExtension()
+        // The sidecar goes somewhere disposable. It used to sit beside the input — `foo.txt` next to `foo.wav` —
+        // and this code removes it after reading, so transcribing a wav could delete a user's text file of the
+        // same name. Found while checking long dictations: a measurement script's source text vanished mid-table.
+        let outBase = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ponte-whisper-\(UUID().uuidString)")
         var args = [
             "-m", model.path,
             "-f", wav.path,

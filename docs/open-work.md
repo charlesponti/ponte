@@ -22,7 +22,7 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 
 | | what | notes |
 |---|---|---|
-| **#12** | whisper silently drops most of a long dictation | 6 of 24 repetitions on a 76 s clip. Highest severity: it is in the Engine menu and the failure is silent. Fix by chunking with overlap and dedup, and prove it with `long-dictation-check.sh` |
+| **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
 | #7 | notarize the DMG | blocked: needs the account holder to create the `ponte-notary` credential profile |
 | #6 | ship an update path | an appcast is a network call on a schedule — a product decision, not a technical one |
 | #5 | show the transcript in the HUD while speaking | party trick that costs the watch-the-orb honesty |

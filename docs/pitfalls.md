@@ -81,6 +81,28 @@ doing what it said it would.
 **Rule.** Anchor the pattern — `(?<!\d)(\d{1,3})%` — and let the test be the spec. The test caught this bug in
 the code that was written to fix the previous one.
 
+## The test material can be the bug
+
+**Symptom.** Whisper returns 6 of 24 repetitions from a 76-second recording, and an issue is filed saying it
+silently drops most of a long dictation. Two subsequent controls contradict it: 27 seconds of prose come back
+65 of 66 words, and six minutes of prose come back whole with the closing sentence intact.
+**Cause.** The material was one sentence repeated 120 times. Long stretches of identical audio are a known
+weakness of Whisper's decoder — it decodes a few repetitions and gives up on the window. The measurement was
+correct and the conclusion drawn from it was wrong: the variable that mattered was repetition, not length.
+**Rule.** Before concluding "it fails at long input", vary the content and hold the length fixed. A synthetic
+material that is easy to count is not the same as a realistic one, and the countable property can be the thing
+being measured. The check script now carries both materials, labelled.
+
+## A tool that deletes beside its input
+
+**Symptom.** A measurement script's source text disappears part-way through its own table, and the row that
+needs it fails with "No such file or directory".
+**Cause.** The app's whisper path ran `whisper-cli -otxt -of <wav-without-extension>` and then deleted that
+sidecar after reading it. The script's `prose.txt` sat beside `prose.wav` and was collateral damage.
+**Rule.** Write temporary files somewhere disposable — `FileManager.default.temporaryDirectory` — never beside
+an input whose name you did not choose. A CLI that can delete a file in the user's directory because of what
+the *input* is called is a bug whatever the file is for.
+
 ## Editing this codebase
 
 **Symptom.** A one-line addition to the CLI's usage text fails the build with *"insufficient indentation of
