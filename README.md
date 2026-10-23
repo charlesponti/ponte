@@ -95,6 +95,12 @@ So Ponte has no recording engine, no orb maths and no dot-drawing of its own. Wh
 repo is what is Ponte's own: the HUD's lifecycle, the menu bar app, the hotkey, the pill, the notes,
 the icon's *use* of the orb, and the ASR engines (`FluidAudio`, whisper.cpp).
 
+## Documentation
+
+The engineering notes live in [`docs/`](docs/README.md) — architecture, the engines and their measurements,
+the HUD's lifecycle and geometry, the menu bar and icon rules, permissions and signing, the test and
+measurement workflow, the pitfalls, and the open work. Start with [docs/README.md](docs/README.md).
+
 ## Releasing it
 
 ```bash

@@ -35,7 +35,9 @@ func usage() {
       Ponte --hud-strip <out.png>       render the lifecycle as a contact sheet
       Ponte --hud-voice <out.png>       render the orb answering a voice
       Ponte --icon <out.png> <mark> [px]  render the app icon (orb|halftone|ripple|core)
-      Ponte --status-icon <out.png> [pt]  render the menu bar mark
+      Ponte --status-icon <out.png> [pt]  render the menu bar mark (16 pt is what the bar wears)
+      Ponte --status-image <out.png> <idle|starting|recording|working>
+                                        render what the menu bar shows in that state, tint and all
       Ponte --icon-sheet <out.png>      every mark at every size
       Ponte --help
 
@@ -319,7 +321,7 @@ func menuBarCell(_ mark: MenuBarMark, dark: Bool, tint: NSColor? = nil, level: C
     bar.setFill()
     NSRect(x: 0, y: 0, width: width, height: height).fill()
 
-    let mark_ = IconRenderer.menuBarImage(mark, pointSize: 18, level: level)
+    let mark_ = IconRenderer.menuBarImage(mark, pointSize: 16, level: level)  // the size the bar actually wears
     // A template image carries no colour: the system paints it, white on a dark bar and black on a
     // light one. That is what this reproduces, and how a state colour gets applied.
     let ink = tint ?? (dark ? NSColor.white.withAlphaComponent(0.92) : NSColor.black.withAlphaComponent(0.82))

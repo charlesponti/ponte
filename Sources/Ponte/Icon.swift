@@ -62,7 +62,7 @@ enum IconRenderer {
     /// fuzzy disc with no readable silhouette — but the sphere reduced to shapes that survive.
     /// Template images are alpha only, so the system tints them for a light or a dark bar, and the
     /// same property is what lets a state colour be applied with `contentTintColor`.
-    static func menuBarImage(_ mark: MenuBarMark = .coreRing, pointSize: CGFloat = 18,
+    static func menuBarImage(_ mark: MenuBarMark = .coreRing, pointSize: CGFloat = 16,
                              level: CGFloat = 0) -> NSImage {
         let pixels = Int((pointSize * 2).rounded())
         let image = NSImage(size: NSSize(width: pointSize, height: pointSize))
