@@ -248,6 +248,24 @@ Through the app, hotkey to clipboard:
 Both produced the same transcript on the benchmark clip. Parakeet reports a per-utterance
 confidence score, which is logged.
 
+### Idle cost, and the way to measure it
+
+Ponte sits at **0.0 % CPU, 22 MB and 4 threads** with nothing happening, over three consecutive
+three-second intervals, and macOS shows **no microphone-in-use pill** — the audio engine is stopped and
+released when a recording ends. The opening word is not clipped either: a hotkey press with speech
+starting immediately recorded 6.89 s and transcribed all 52 characters of the sentence, first word included.
+
+Measure this with **interval samples**, never with `ps %CPU` or the first line of `top -l`: both report an
+average *since the process started*, so a session that has been transcribing reads as several percent and
+looks like an idle cost. The "2.7 % at idle" that started issue #9 was exactly that — a lifetime mean on a
+process that had just done dictations. Three idle threads are Core Animation and friends; four is a quiet
+Cocoa app.
+
+```
+PID=$(pgrep -f MacOS/Ponte | head -1)
+top -l 5 -s 3 -pid "$PID" -stats pid,cpu,mem,threads,time    # read the samples after the first
+```
+
 ## The two numbers that matter
 
 - **First ANE load after install is ~23 s.** CoreML specialises the model programme for the Neural
