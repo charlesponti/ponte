@@ -98,6 +98,17 @@
     nav .navlinks{display:none}
   }
 </style>
+<link rel="stylesheet" href="vendor/waveform-react/waveform-react.css">
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "@thecharlesponti/waveform-react": "./vendor/waveform-react/index.js"
+  }
+}
+</script>
 </head>
 <body>
 <nav>
@@ -131,7 +142,7 @@
         </div>
       </div>
       <div class="orb-frame">
-        <voice-orb dots="1800" gain="0.5" spin="0.12" style="width:100%;height:100%"></voice-orb>
+        <div id="hero-orb" style="width:100%;height:100%"></div>
         <div class="orb-caption">the <span>orb</span> · live</div>
       </div>
     </div>
@@ -160,12 +171,18 @@
       <p>Mint and spinning while it listens. Green and collapsing when done. Red and throbbing on error.</p>
     </div>
     <div class="shots">
-      <div class="shot"><img src="hud-listening.png" alt="Ponte listening"><div class="cap">Listening — mint, spinning fast</div></div>
-      <div class="shot"><img src="hud-done.png" alt="Ponte done"><div class="cap">Done — green, collapses to text</div></div>
-      <div class="shot"><img src="hud-error.png" alt="Ponte error"><div class="cap">Error — red, throbs three times</div></div>
-    </div>
-    <div class="video-wrap">
-      <video src="ponte-hud.mp4" autoplay muted loop playsinline></video>
+      <div class="shot" style="display:grid;place-items:center;padding:24px;min-height:220px">
+        <voice-orb mood="listening" style="width:180px;height:180px"></voice-orb>
+        <div class="cap" style="width:100%">Listening — mint, spinning fast</div>
+      </div>
+      <div class="shot" style="display:grid;place-items:center;padding:24px;min-height:220px">
+        <voice-orb mood="done" style="width:180px;height:180px"></voice-orb>
+        <div class="cap" style="width:100%">Done — green, settles</div>
+      </div>
+      <div class="shot" style="display:grid;place-items:center;padding:24px;min-height:220px">
+        <voice-orb mood="error" style="width:180px;height:180px"></voice-orb>
+        <div class="cap" style="width:100%">Error — red, throbs three times</div>
+      </div>
     </div>
   </section>
 
@@ -219,6 +236,13 @@
     <a href="https://github.com/charlesponti/ponte">Source on GitHub ↗</a>
   </div>
 </footer>
-<script src="https://charlesponti.github.io/voice-orb/voice-orb.js" type="module"></script>
+<script src="voice-orb.js" type="module"></script>
+<script type="module">
+  import { createElement } from 'react';
+  import { createRoot } from 'react-dom/client';
+  import { VoiceOrb } from '@thecharlesponti/waveform-react';
+  const el = document.getElementById('hero-orb');
+  if (el) createRoot(el).render(createElement(VoiceOrb, { dots: 1800, gain: 0.5, spin: 0.12, tint: '#5eead4' }));
+</script>
 </body>
 </html>
