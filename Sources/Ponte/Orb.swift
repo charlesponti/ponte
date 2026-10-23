@@ -8,7 +8,7 @@ import AppKit
 // the pill is measured, and the clock.
 
 enum HudState: String {
-    case idle, recording, working, done, error, cancelled
+    case idle, recording, working, done, error, cancelled, loading
 }
 
 /// Every colour and duration of the lifecycle, in one place. These are the numbers from
@@ -20,6 +20,8 @@ enum HudSpec {
     static let red = NSColor(srgbRed: 255 / 255, green: 69 / 255, blue: 58 / 255, alpha: 1)
     /// The input watcher's colour: a warning rather than a failure — the recording carries on.
     static let amber = NSColor(srgbRed: 255 / 255, green: 214 / 255, blue: 10 / 255, alpha: 1)
+    /// The loading state's text: blue-grey, so a wait reads as neither a warning nor a success.
+    static let blueGrey = NSColor(srgbRed: 139 / 255, green: 154 / 255, blue: 168 / 255, alpha: 1)
     /// Cancelled is neither of those: it drains to grey, because nothing succeeded and nothing failed.
     static let grey = NSColor(srgbRed: 142 / 255, green: 142 / 255, blue: 147 / 255, alpha: 1)
 
@@ -33,6 +35,29 @@ enum HudSpec {
     static let baseSpin: Float = 0.35                // rad/s, the model's own rate
     static let recordingSpinMultiple: Float = 4      // "spins fast" while recording
     static let workingSpin: Float = 0.35             // calm
+    /// Loading: grey, and the calm rate, so the wait reads as a clock — steady and unhurried.
+    ///
+    /// Which way `spin` actually turns the surface is not obvious from the name, so: `OrbProjection`
+    /// places a dot at `x1 = u.x·cos + u.z·sin`, so a dot on the front equator (u = (0, 0, 1)) lands at
+    /// `sin(spin)`. A positive rate therefore carries the visible surface to the right — the direction a
+    /// clock's hand travels across the top of its dial — and that is the way this turns. It is also the
+    /// way the app already turned, so what changes here is the grey and the steadiness, not the sense of
+    /// the rotation. (The sphere spins about its vertical axis like a globe, so there is no in-plane
+    /// rotation to reverse; a whole-sphere rotation in the screen plane would be a different motion.)
+    static let loadingSpinDefault: Float = 0.9
+    /// Tunable by eye, because the right speed is a matter of looking at it:
+    /// `defaults write com.ponti.ponte hudLoadingSpin -float 1.2` then start a dictation.
+    ///
+    /// Why 0.9: the dots are a golden spiral, deliberately free of features, so a still pair of frames
+    /// differs by the same amount at *any* rate — the metric cannot rank speeds, only the eye can. 0.35
+    /// (the resting rate) reads as a faint shimmer rather than a turn, and 1.4 is what the app uses to
+    /// say "spins fast" while recording. This sits between: plainly turning, and unhurried.
+    static var loadingSpin: Float {
+        let key = "hudLoadingSpin"
+        return UserDefaults.standard.object(forKey: key) == nil
+            ? loadingSpinDefault
+            : Float(UserDefaults.standard.double(forKey: key))
+    }
 
     /// The squircle while recording or working. Sized from its contents — a 64 pt orb, a 5 pt gap and a
     /// 12.5 pt label frame — plus enough room that the *visible* text is not crowded at the bottom.
@@ -144,6 +169,9 @@ enum HudLifecycle {
                              spin: HudSpec.baseSpin * HudSpec.recordingSpinMultiple, orb: 1, alpha: 1)
         case .working:
             return HudVisual(tint: HudSpec.mint, spin: HudSpec.workingSpin, orb: 1, alpha: 1)
+        case .loading:
+            // Grey, steady, and the other way round: a wait, not a state of the voice.
+            return HudVisual(tint: HudSpec.grey, spin: HudSpec.loadingSpin, orb: 1, alpha: 1)
         case .done:
             let k = clamp((t - HudSpec.doneHold) / HudSpec.doneCollapse, 0, 1)
             return HudVisual(tint: mix(HudSpec.mint, HudSpec.green, t / HudSpec.doneHold),

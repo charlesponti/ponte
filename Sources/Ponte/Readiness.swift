@@ -37,7 +37,7 @@ enum Readiness: Equatable {
     var refusalLabel: String {
         switch self {
         case .ready: return ""
-        case .preparing(let percent, _): return percent.map { "Not ready — \($0)%" } ?? "Not yet ready"
+        case .preparing(let percent, _): return percent.map { "Loading — \($0)%" } ?? "Loading"
         case .failed: return "Not ready"
         }
     }

@@ -30,7 +30,8 @@ func usage() {
       Ponte --download [ultra|v3|v2|redux|all]
       Ponte --selftest <seconds> [--engine …]
       Ponte --devices
-      Ponte --hud-render <out.png> <idle|recording|working|done|error|cancelled> [t] [text] [amber|red|green|grey|dim]
+      Ponte --hud-render <out.png> <idle|recording|working|loading|done|error|cancelled> [t] [text]
+                                        [amber|red|green|grey|blue-grey|dim] [--turning]
       Ponte --hud-strip <out.png>       render the lifecycle as a contact sheet
       Ponte --hud-voice <out.png>       render the orb answering a voice
       Ponte --icon <out.png> <mark> [px]  render the app icon (orb|halftone|ripple|core)
@@ -137,6 +138,7 @@ func defaultHudText(for state: HudState) -> String {
     case .done: return "Pasted ✓"
     case .error: return "Heard nothing"
     case .cancelled: return "Cancelled"
+    case .loading: return "Loading — 43%"
     }
 }
 
@@ -147,6 +149,7 @@ func hudNamedColour(_ name: String) -> NSColor? {
     case "red": return HudSpec.red
     case "green": return HudSpec.green
     case "grey": return HudSpec.grey
+    case "blue-grey": return HudSpec.blueGrey
     case "dim": return NSColor.white.withAlphaComponent(0.55)
     default: return nil
     }
@@ -157,6 +160,7 @@ func hudColour(for state: HudState) -> NSColor {
     case .done: return HudSpec.green
     case .error: return HudSpec.red
     case .cancelled: return HudSpec.grey
+    case .loading: return HudSpec.blueGrey
     default: return NSColor.white.withAlphaComponent(0.55)
     }
 }
@@ -517,9 +521,11 @@ func runCLI() -> Int32? {
         // An optional colour name, so a state that passes its own colour (the input watcher's amber, the
         // first run's amber) can be proofed as it will really look rather than in the state's default.
         let colour = argv.count > 6 ? hudNamedColour(argv[6]) ?? hudColour(for: state) : hudColour(for: state)
+        // --turning renders the orb at `t` as a moving frame, which the CLI otherwise holds still.
+        let turning = argv.contains("--turning")
         return writePNG(hudImage(state: state, t: t, text: text,
                                  colour: Color(nsColor: colour),
-                                 ring: IconRenderer.silentRing), to: argv[2])
+                                 ring: IconRenderer.silentRing, turning: turning), to: argv[2])
 
     case "--status-icon":
         guard argv.count > 2 else { print("usage: Ponte --status-icon <out.png> [pt]"); return 2 }

@@ -39,10 +39,10 @@ final class HUD {
         set(state: .working, text: "…", colour: labelDim)
     }
 
-    /// A long operation with one number worth showing: the orb plus a percentage.
+    /// A wait with one number worth showing: a grey orb turning like a clock, and the percentage.
     func showDownload(percent: Int) {
-        model.spinRate = HudSpec.workingSpin
-        set(state: .working, text: "\(percent)%", colour: labelDim)
+        model.spinRate = HudSpec.loadingSpin
+        set(state: .loading, text: "\(percent)%", colour: Color(nsColor: HudSpec.blueGrey))
     }
 
     func showDone(_ text: String) {
@@ -53,12 +53,13 @@ final class HUD {
         set(state: .error, text: text, colour: Color(nsColor: HudSpec.red))
     }
 
-    /// The first run: the model is being fetched and a dictation cannot be honoured yet. Amber, in the
-    /// calm working state — this is the app doing what it said it would, not an error.
-    func showGettingReady(percent: Int?) {
-        set(state: .working,
-            text: percent.map { "Not ready — \($0)%" } ?? "Not yet ready",
-            colour: Color(nsColor: HudSpec.amber))
+    /// The first run: the model is being fetched and a dictation cannot be honoured yet. Grey and
+    /// steady rather than red: this is the app doing what it said it would, not a fault.
+    func showLoading(percent: Int?) {
+        model.spinRate = HudSpec.loadingSpin
+        set(state: .loading,
+            text: percent.map { "Loading — \($0)%" } ?? "Loading",
+            colour: Color(nsColor: HudSpec.blueGrey))
     }
 
     /// A word from the input watcher, in place of the clock while it applies. Passing nil clears it.

@@ -27,8 +27,8 @@ final class ReadinessTests: XCTestCase {
 
     /// What the pill says when someone dictates too early — the press the app used to swallow.
     func testDecliningSaysSo() {
-        XCTAssertEqual(Readiness.preparing(percent: 43, note: "x").refusalLabel, "Not ready — 43%")
-        XCTAssertEqual(Readiness.preparing(percent: nil, note: "x").refusalLabel, "Not yet ready")
+        XCTAssertEqual(Readiness.preparing(percent: 43, note: "x").refusalLabel, "Loading — 43%")
+        XCTAssertEqual(Readiness.preparing(percent: nil, note: "x").refusalLabel, "Loading")
         XCTAssertEqual(Readiness.failed("x").refusalLabel, "Not ready")
     }
 
@@ -36,7 +36,7 @@ final class ReadinessTests: XCTestCase {
     /// longer draws outside the squircle. This is the second time that limit has bitten.
     func testTheRefusalFitsUnderTheOrb() {
         for label in [Readiness.preparing(percent: nil, note: "x").refusalLabel,
-                      Readiness.preparing(percent: 43, note: "x").refusalLabel,
+                      Readiness.preparing(percent: 100, note: "x").refusalLabel,
                       Readiness.failed("x").refusalLabel] {
             XCTAssertLessThanOrEqual(label.count, 16, "\"\(label)\" would overflow the box")
         }

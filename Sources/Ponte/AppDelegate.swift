@@ -238,7 +238,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if !wasReady { hud.showDone("Ready ✓") }
             vlog("readiness: ready")
         case .preparing(let percent, let note):
-            if let percent { hud.showDownload(percent: percent) } else { hud.showWorking() }
+            if let percent { hud.showDownload(percent: percent) } else { hud.showLoading(percent: nil) }
             vlog("readiness: preparing\(percent.map { " \($0)%" } ?? "") (\(note))")
         case .failed(let message):
             hud.showError(message)
@@ -252,8 +252,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hud.setHint(nil)
         switch readiness {
         case .preparing(let percent, _):
-            // Amber and calm: this is a download in progress, not a fault.
-            hud.showGettingReady(percent: percent)
+            // Grey and steady: a download in progress, not a fault.
+            hud.showLoading(percent: percent)
             vlog("dictation declined — still getting ready\(percent.map { " (\($0)%)" } ?? "")")
         case .failed(let message):
             hud.showError(message)
