@@ -23,7 +23,7 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 | | what | notes |
 |---|---|---|
 | **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like, and whisper itself removed.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
-| #7 | notarize the DMG | blocked: needs the account holder to create the `ponte-notary` credential profile |
+| #7 | notarize the DMG | done: two submissions, both Accepted and stapled. The build was signing only the app, so the *image* was rejected by Gatekeeper until it was signed too — see [pitfalls.md](pitfalls.md) |
 | #6 | ship an update path | an appcast is a network call on a schedule — a product decision, not a technical one |
 | #5 | show the transcript in the HUD while speaking | party trick that costs the watch-the-orb honesty |
 | #4 | local history window | search and re-copy past dictations |
@@ -34,9 +34,6 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 
 ## Waiting on a human
 
-- **Notary credentials.** `xcrun notarytool store-credentials ponte-notary --apple-id … --team-id 3QHJ2KN8AL
-  --password …` has to be run by the account holder once. The password should not pass through a script or an
-  agent, which is why it is not automated.
 - **The licence question.** Ponte currently makes **zero network calls**; that is the product's pitch. Any
   commerce integration is either offline (a signed licence file, verified locally) or it breaks the pitch.
   The licence candidates named so far — Paddle, Lemon Squeezy, Gumroad — were *not* assessed.

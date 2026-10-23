@@ -104,6 +104,19 @@ has since been removed along with whisper; the rule outlives it.)
 an input whose name you did not choose. A CLI that can delete a file in the user's directory because of what
 the *input* is called is a bug whatever the file is for.
 
+## A release can pass its own check and fail a buyer's
+
+**Symptom.** Notarization is Accepted, the staple validates, the build prints `accepted, source=Notarized
+Developer ID` — and `spctl -a -t open --context context:primary-signature` on the **DMG** says `rejected, source=no
+usable signature`. The app inside has no staple either.
+**Cause.** The build signed the *app* and submitted the *image*, which is enough to be accepted and not enough to
+ship. Gatekeeper assesses the disk image when a buyer opens the download, and an unsigned image fails on its own
+signature; stapling only the image leaves the app inside without a ticket of its own.
+**Rule.** Assess the artifact the buyer touches, and not the one you built. Sign the disk image as well as the
+app, notarize and staple both, and run the check against the DMG — ideally against a quarantine-tagged copy,
+which is what a browser download actually is. A build that reports its own success in its own words is not
+evidence.
+
 ## Editing this codebase
 
 **Symptom.** A one-line addition to the CLI's usage text fails the build with *"insufficient indentation of

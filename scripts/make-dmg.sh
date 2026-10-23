@@ -6,12 +6,18 @@
 #   ./scripts/make-dmg.sh --notarize      → also submit to Apple, wait, and staple the ticket
 #   ./scripts/make-dmg.sh --install       → also replace /Applications/Ponte.app with this build
 #
-# Notarization needs a stored credential profile (the password is entered by you, never here):
+# Notarization needs a stored credential profile, created once by you and kept in your keychain:
 #
+#   # either an App Store Connect team key — belongs to the team, no password anywhere
 #   xcrun notarytool store-credentials ponte-notary \
-#     --apple-id "<your Apple ID>" --team-id 3QHJ2KN8AL --password "<an app-specific password>"
+#     --key AuthKey_XXXX.p8 --key-id XXXX --issuer <issuer id>
 #
-# Apple-specific passwords: appleid.apple.com → Sign-In and Security → App-Specific Passwords.
+#   # or an Apple ID with an app-specific password (appleid.apple.com → Sign-In and Security)
+#   xcrun notarytool store-credentials ponte-notary \
+#     --apple-id "<your Apple ID>" --team-id 3QHJ2KN8AL --password "<app-specific>"
+#
+# Both notarize the *app* and then the *disk image*, and staple each, so the copy a buyer drags to
+# /Applications carries its own ticket and does not need Apple to be reachable on first launch.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -77,6 +83,21 @@ echo "    hardened:  $(codesign -dv --verbose=4 "$APP" 2>&1 | grep -c 'flags=.*r
 # on the next update — with the toggle still showing on. Never ship one.
 ./scripts/check-signature.sh "$APP" "$TEAM_ID"
 
+# MARK: - Notarize the app itself
+
+# Order matters. Submitting only the disk image notarizes the app but staples nothing to it, so the copy that
+# ends up in /Applications has no ticket of its own and Gatekeeper must reach Apple the first time it launches.
+# Stapling is offline insurance, and it has to happen before the app is sealed inside the image.
+if [ "$NOTARIZE" = "1" ]; then
+  APPZIP="$ROOT/dist/$APP_NAME-$VERSION.zip"
+  rm -f "$APPZIP"
+  echo "==> notarizing the app (submission 1 of 2)"
+  ditto -c -k --sequesterRsrc --keepParent "$APP" "$APPZIP"
+  xcrun notarytool submit "$APPZIP" --keychain-profile "$DEVID_PROFILE" --wait 2>&1 | tail -4
+  rm -f "$APPZIP"
+  xcrun stapler staple "$APP" 2>&1 | tail -1
+fi
+
 # MARK: - The disk image
 
 echo "==> building the disk image"
@@ -107,6 +128,13 @@ rm -f "$DMG"
 hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
 echo "==> wrote $DMG ($(du -h "$DMG" | cut -f1))"
 
+# The disk image needs a signature of its own, not just its contents. That is what Gatekeeper assesses when a
+# buyer double-clicks the download, and an unsigned image is rejected outright however well signed the app
+# inside may be: "rejected, source=no usable signature". Found by assessing the DMG rather than the app.
+echo "==> signing the disk image"
+codesign --force --timestamp --sign "$DEVID" "$DMG" 2>&1 | tail -1
+codesign --verify --verbose=2 "$DMG" 2>&1 | tail -1
+
 # MARK: - Notarization
 
 if [ "$NOTARIZE" = "1" ]; then
@@ -116,7 +144,7 @@ if [ "$NOTARIZE" = "1" ]; then
     echo "!!   xcrun notarytool store-credentials $DEVID_PROFILE --apple-id <id> --team-id 3QHJ2KN8AL --password <app-specific>"
     exit 1
   fi
-  echo "==> submitting to Apple (this takes a few minutes)"
+  echo "==> notarizing the disk image (submission 2 of 2)"
   xcrun notarytool submit "$DMG" --keychain-profile "$DEVID_PROFILE" --wait 2>&1 | tail -6
   echo "==> stapling the ticket to the DMG"
   xcrun stapler staple "$DMG" 2>&1 | tail -2
@@ -125,8 +153,10 @@ fi
 
 # MARK: - What Gatekeeper will say
 
-echo "==> Gatekeeper's verdict on this copy:"
-if spctl -a -vvv -t install "$APP" 2>&1 | head -3; then :; fi
+echo "==> Gatekeeper's verdict, as a buyer's Mac sees it:"
+spctl -a -t open --context context:primary-signature -vvv "$DMG" 2>&1 | head -4
+echo "    and the app inside:"
+spctl -a -vvv -t install "$APP" 2>&1 | head -3
 echo
 if [ "$NOTARIZE" = "1" ]; then
   echo "    Notarized and stapled: it opens on any Mac with a double click."

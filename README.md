@@ -109,19 +109,43 @@ measurement workflow, the pitfalls, and the open work. Start with [docs/README.m
 ./scripts/make-dmg.sh --install    # replace /Applications/Ponte.app with this build
 ```
 
-The image holds the app, an Applications symlink, the volume icon and a short read-me. The app inside
-is signed with **Developer ID Application: Charles Joseph Ponti (3QHJ2KN8AL)** and the **hardened
-runtime** notarization requires, with `com.apple.security.device.audio-input` declared.
+The image holds the app, an Applications symlink, the volume icon and a short read-me. The app inside is signed
+with **Developer ID Application: Charles Joseph Ponti (3QHJ2KN8AL)** — team `3QHJ2KN8AL`, which is
+**Ponti & Co, LLC** — and the **hardened runtime** notarization requires, with
+`com.apple.security.device.audio-input` declared.
 
-**Notarization is the step that stops a buyer seeing "Apple could not verify…".** It needs a
-credential profile, made once by you (the password never passes through a script):
+**Notarized, and stapled, as of 1.0.** `--notarize` submits twice: the app first, then the disk image, stapling
+each as it is accepted. Both matter, and only one of them was obvious:
+
+- The **app's** staple is what lets it launch without reaching Apple.
+- The **image's own signature and staple** are what Gatekeeper assesses when a buyer double-clicks the
+  download. An unsigned image is rejected outright — `rejected, source=no usable signature` — however well
+  signed the app inside it is.
+
+The build prints Gatekeeper's verdict for both, and each should read:
+
+```
+accepted
+source=Notarized Developer ID
+origin=Developer ID Application: Charles Joseph Ponti (3QHJ2KN8AL)
+```
+
+It needs a credential profile, created once and stored in your keychain. Either an App Store Connect team key —
+which belongs to the team, involves no password anywhere, and is what Apple recommends for automation:
 
 ```bash
 xcrun notarytool store-credentials ponte-notary \
-  --apple-id "<your Apple ID>" --team-id 3QHJ2KN8AL --password "<an app-specific password>"
+  --key AuthKey_XXXX.p8 --key-id XXXX --issuer <the issuer ID on that page>
 ```
 
-Then `./scripts/make-dmg.sh --notarize` submits, waits, staples and prints Gatekeeper's verdict.
+or an Apple ID with an app-specific password, entered by you and never passed through a script:
+
+```bash
+xcrun notarytool store-credentials ponte-notary \
+  --apple-id "<your Apple ID>" --team-id 3QHJ2KN8AL
+```
+
+Then `./scripts/make-dmg.sh --notarize` submits, waits, staples and prints the verdicts.
 
 Checked on a hardened, Developer ID build: the app launches, registers the hotkey, and loads the
 Parakeet model **on the Neural Engine in 0.2 s** — the hardened runtime does not disturb CoreML — and

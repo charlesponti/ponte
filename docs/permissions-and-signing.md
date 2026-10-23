@@ -79,11 +79,18 @@ an entitlement the app does not need is a reason for a notary to look harder at 
 
 ## Notarization
 
-Unsigned-but-notarized is not a thing, and signed-but-not-notarized is what a buyer sees as *"Apple could not
-verify Ponte is free of malware"*. The DMG is signed and verified (Developer ID Application → Developer ID
-Certification Authority → Apple Root CA), and notarization is the remaining step. It needs a credential profile
-which **the account holder creates, not a script** — the app-specific password should never pass through a
-build log or an agent:
+Signed-but-not-notarized is what a buyer sees as *"Apple could not verify Ponte is free of malware"*, and on
+recent macOS there is no longer a right-click bypass — they would have to find System Settings → Privacy &
+Security → Open Anyway. 1.0 is notarized: two submissions, both Accepted, both stapled.
+
+**Sign both things.** The app is signed (Developer ID Application → Developer ID Certification Authority →
+Apple Root CA) *and* so is the disk image, which is the part that is easy to miss: Gatekeeper assesses the
+*image* when the download is opened, and an unsigned image is rejected with `rejected, source=no usable
+signature` no matter how well signed the app inside is. Likewise, submitting only the image notarizes the app
+without stapling anything to it, so the copy that lands in `/Applications` has to reach Apple on first launch.
+
+The credential profile is **created by the account holder, not a script** — neither an app-specific password nor
+a team key should pass through a build log or an agent:
 
 ```
 xcrun notarytool store-credentials ponte-notary --apple-id "<Apple ID>" --team-id 3QHJ2KN8AL --password "<app-specific password>"
@@ -93,3 +100,19 @@ xcrun notarytool store-credentials ponte-notary --apple-id "<Apple ID>" --team-i
 Notarization does **not** change the designated requirement, so it does not disturb existing TCC grants. If a
 future build ever re-signs with a different certificate, though, it will: the requirement is the thing to keep
 stable, and the notary ticket is not.
+
+**Verify it the way a buyer's Mac does**, not the way the build machine does. The build prints the verdict, and
+the check worth trusting is the one against the disk image:
+
+```
+spctl -a -t open --context context:primary-signature -vvv dist/Ponte-1.0.dmg
+xcrun stapler validate dist/Ponte-1.0.dmg
+```
+
+For the closest thing to a real download, copy the DMG, add a quarantine attribute the way a browser would, and
+assess that copy:
+
+```
+xattr -w com.apple.quarantine "0083;$(printf '%x' $(date +%s));Safari;$(uuidgen)" /tmp/Ponte-1.0.dmg
+spctl -a -t open --context context:primary-signature -vvv /tmp/Ponte-1.0.dmg
+```
