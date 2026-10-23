@@ -34,7 +34,20 @@ enum HudSpec {
     static let recordingSpinMultiple: Float = 4      // "spins fast" while recording
     static let workingSpin: Float = 0.35             // calm
 
-    static let fullBox: CGFloat = 96                 // the squircle
+    /// The squircle while recording or working. Sized from its contents — a 64 pt orb, a 5 pt gap and a
+    /// 12.5 pt label frame — plus enough room that the *visible* text is not crowded at the bottom.
+    ///
+    /// It used to be 96, which left the text ink 10 pt above the bottom edge against 15 pt above the
+    /// orb: the block was centred as frames, and a label's frame carries descender space the glyphs do
+    /// not use, so the type looked like it was falling out of the box. At 104 with the block lifted 4,
+    /// the orb does not move (15 pt above it, as before) and the text gets 18 pt below it.
+    static let fullBox: CGFloat = 104
+    /// Lifts the orb-and-label block inside the square. Tunable without a rebuild:
+    /// `defaults write com.ponti.ponte hudBlockLift -float 8` then relaunch.
+    static var blockLift: CGFloat {
+        let key = "hudBlockLift"
+        return UserDefaults.standard.object(forKey: key) == nil ? 4 : CGFloat(UserDefaults.standard.double(forKey: key))
+    }
     static let fullRadius: CGFloat = 26
     static let finalRadius: CGFloat = 18
     static let boxPadding: CGFloat = 16              // 16 px top, bottom, left, right

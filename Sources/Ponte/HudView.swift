@@ -79,6 +79,8 @@ struct HudBox: View {
                     .fixedSize()
             }
             .fixedSize()
+            // The lift is what gives the text its bottom clearance without moving the orb's top edge.
+            .offset(y: -HudSpec.blockLift * (1 - geometry.collapse))
         }
         .frame(width: geometry.box.width, height: geometry.box.height)
         .opacity(geometry.hudAlpha)

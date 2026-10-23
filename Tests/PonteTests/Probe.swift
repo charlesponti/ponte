@@ -104,6 +104,36 @@ enum Probe {
         return ink
     }
 
+    /// Rows of ink grouped into the things that drew them: for the HUD, the orb's dots and the label are
+    /// two separate bands of ink with a gap between them, which is what lets a test ask how much room
+    /// the type actually has below it. Rows are pixels of the render, so a 2x render doubles them.
+    static func inkGroups(_ image: NSImage, above luminance: CGFloat = 0.27) -> [(Int, Int)] {
+        guard let rep = bitmap(image), let data = rep.bitmapData else { return [] }
+        let height = rep.pixelsHigh, width = rep.pixelsWide
+        let step = rep.samplesPerPixel, stride = rep.bytesPerRow
+        var rows = [Int](repeating: 0, count: height)
+        for y in 0..<height {
+            let row = data + y * stride
+            for x in 0..<width {
+                let p = row + x * step
+                guard CGFloat(p[3]) / 255 > 0.16 else { continue }        // inside the box
+                let lum = (CGFloat(p[0]) + CGFloat(p[1]) + CGFloat(p[2])) / (3 * 255)
+                if lum > luminance { rows[y] += 1 }
+            }
+        }
+        var groups: [(Int, Int)] = []
+        var start: Int?
+        for y in 0..<height {
+            if rows[y] > 0 {
+                if start == nil { start = y }
+            } else if let s = start {
+                groups.append((s, y - 1)); start = nil
+            }
+        }
+        if let s = start { groups.append((s, height - 1)) }
+        return groups
+    }
+
     /// Any ink at all, whatever the colour: for template images, which are black.
     static func anyInk(_ image: NSImage, alphaAbove: CGFloat = 0.2) -> Ink {
         guard let rep = bitmap(image), let data = rep.bitmapData else { return Ink() }

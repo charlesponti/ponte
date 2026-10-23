@@ -30,17 +30,29 @@ final class IconTests: XCTestCase {
         }
     }
 
-    /// A dotted sphere smears into a grey disc as the tile shrinks. The renderer answers by growing
-    /// the dots relative to the sphere, so the small sizes get *denser*, not dimmer.
+    /// A dotted sphere smears into a grey disc as the tile shrinks. The renderer answers by growing the
+    /// dots relative to the sphere, so a small tile stays full-strength ink rather than turning to shade.
+    ///
+    /// The comparison this used to make — small coverage greater than large coverage — was never true of
+    /// the orb (measured 0.73-0.78 against 0.74-0.79), because `coverage` normalises by each mark's own
+    /// bounding box and the two are not comparable. It passed or failed on the ambient noise of the
+    /// render, which is how it flipped the moment another test started rendering images before it.
     func testTheMarkStaysReadableAtSixteenPixels() {
         for mark in IconMark.allCases {
             let tiny = Probe.mint(IconRenderer.image(mark, size: 16))
             XCTAssertGreaterThan(tiny.peak, 0.7, "\(mark) at 16 px is a smudge: peak \(tiny.peak)")
             XCTAssertGreaterThan(tiny.coverage, 0.10, "\(mark) at 16 px barely covers its tile")
-            let big = Probe.mint(IconRenderer.image(mark, size: 512))
-            XCTAssertGreaterThan(tiny.coverage, big.coverage,
-                                 "\(mark): the dot hint should make small tiles denser, not sparser")
         }
+        // Nothing here compares the two sizes' brightness. In-process the orb's render is not stable
+        // enough to carry it: the 512 px sphere's full-strength share has been measured anywhere from
+        // 0.17 to 0.70 depending on which tests ran before it, which overlaps the 16 px tile's 0.71-0.85.
+        // The shading is real and worth checking, but it has to be checked from the command line, whose
+        // output is byte-identical every run:
+        //
+        //     Ponte --icon /tmp/orb.png orb 512      # 16 % of its ink at full strength
+        //     Ponte --icon /tmp/orb.png orb 16       # 84 % — a flat, dense disc
+        //
+        // Making this measurable in-process is waveform-ios#2.
     }
 
     /// The dots are an absolute point size in `WaveformUI`, so the multiplier must fall as the tile
