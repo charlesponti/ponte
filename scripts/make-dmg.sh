@@ -95,8 +95,11 @@ $APP_NAME $VERSION
 Drag $APP_NAME to Applications, then open it from there.
 
 The first time you record, macOS asks for the microphone — allow it.
-The first launch downloads the speech model (about 600 MB) so that everything after
-that runs on your Mac. Nothing you say is sent anywhere.
+
+On its first launch Ponte fetches its speech model (about 600 MB) and warms it up. The menu
+bar icon says "Getting the speech model — 43%" while that is happening, and it declines to
+start a dictation until it has finished, rather than recording one for you to wait on. After
+that everything runs on your Mac. Nothing you say is sent anywhere.
 TXT
 
 mkdir -p "$ROOT/dist"

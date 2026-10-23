@@ -53,6 +53,14 @@ final class HUD {
         set(state: .error, text: text, colour: Color(nsColor: HudSpec.red))
     }
 
+    /// The first run: the model is being fetched and a dictation cannot be honoured yet. Amber, in the
+    /// calm working state — this is the app doing what it said it would, not an error.
+    func showGettingReady(percent: Int?) {
+        set(state: .working,
+            text: percent.map { "Not ready — \($0)%" } ?? "Not yet ready",
+            colour: Color(nsColor: HudSpec.amber))
+    }
+
     /// A word from the input watcher, in place of the clock while it applies. Passing nil clears it.
     /// This never changes the state: the recording carries on and the clock is still running.
     func setHint(_ text: String?) {

@@ -36,6 +36,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lastTranscript: String?
     private var progressItem: NSMenuItem?
 
+    /// Whether the engine's models are on disk and loaded — see `Readiness`.
+    private var readiness: Readiness = .ready
+
     private let languages: [(code: String, label: String)] = [
         ("en", "English"), ("auto", "Auto-detect"), ("es", "Spanish"), ("fr", "French"),
         ("de", "German"), ("it", "Italian"), ("pt", "Portuguese"), ("nl", "Dutch"),
@@ -91,18 +94,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        // Warm the ASR engine so the first dictation doesn't sit through CoreML's
-        // one-time Neural Engine programme specialisation (~20 s).
-        if Settings.engine == .parakeet {
-            let model = Settings.parakeetModel
-            DispatchQueue.global(qos: .utility).async {
-                do {
-                    try ParakeetEngine.shared.preload(model: model)
-                } catch {
-                    vlog("preload failed: \(error.localizedDescription)")
-                }
-            }
-        }
+        // Warm the engine before anything is asked of it: the first run has to fetch ~613 MB, and the
+        // one-time Neural Engine specialisation costs the first transcription ~7-10 s on top.
+        prepareEngine()
 
         // Proof-of-life: record where the menu bar item actually landed.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
@@ -128,6 +122,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         lastHotKeyAt = now
+
+        guard readiness.allowsDictation else {
+            declineWhileGettingReady()
+            return
+        }
 
         switch state {
         case .idle: startRecording()
@@ -170,6 +169,103 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .listening:
             vlog(String(format: "input watch: the input is back (loudest peak %.0f dBFS)", watch.loudestDB))
         }
+    }
+
+    // MARK: - Getting ready
+
+    /// Make sure the selected engine can transcribe, saying so while it cannot.
+    ///
+    /// Called at launch and whenever the engine or model changes. An installed model is warmed silently —
+    /// it costs a fraction of a second and pays for the Neural Engine compile. A missing one is fetched
+    /// with its progress on screen, and dictation is declined until it is done.
+    private func prepareEngine() {
+        let engine = Settings.engine
+        guard engine == .parakeet else {
+            let installed = Whisper.installedModels().contains(Settings.model)
+            setReadiness(installed ? .ready
+                                   : .failed("No speech model installed — pick one under Model"))
+            return
+        }
+        let model = Settings.parakeetModel
+        if ParakeetEngine.shared.isInstalled(model) {
+            setReadiness(.ready)
+            // preload logs its own timing
+            DispatchQueue.global(qos: .utility).async {
+                do {
+                    try ParakeetEngine.shared.preload(model: model)
+                } catch {
+                    vlog("preload failed: \(error.localizedDescription)")
+                }
+            }
+            return
+        }
+
+        let note = "Getting the speech model"
+        setReadiness(.preparing(percent: nil, note: note))
+        vlog("parakeet models missing for \(model.shortLabel) — fetching before any dictation")
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let report: (String) -> Void = { message in
+                let percent = Readiness.percent(in: message)
+                DispatchQueue.main.async {
+                    self?.setReadiness(.preparing(percent: percent, note: note))
+                }
+            }
+            do {
+                try ParakeetEngine.shared.download(model: model, progress: report)
+                try ParakeetEngine.shared.preload(model: model, progress: report)
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.setReadiness(.ready)
+                    Shell.notify("Ponte", "Ready — \(self.hotKeyDescription) starts a dictation.")
+                }
+            } catch {
+                vlog("model preparation failed: \(error.localizedDescription)")
+                DispatchQueue.main.async {
+                    self?.setReadiness(.failed("Could not fetch the speech model"))
+                    Shell.notify("Ponte", "Ponte could not fetch its speech model: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+
+    private func setReadiness(_ next: Readiness) {
+        guard next != readiness else { return }
+        let wasReady = readiness.allowsDictation
+        readiness = next
+        updateIcon()
+        switch next {
+        case .ready:
+            if !wasReady { hud.showDone("Ready ✓") }
+            vlog("readiness: ready")
+        case .preparing(let percent, let note):
+            if let percent { hud.showDownload(percent: percent) } else { hud.showWorking() }
+            vlog("readiness: preparing\(percent.map { " \($0)%" } ?? "") (\(note))")
+        case .failed(let message):
+            hud.showError(message)
+            vlog("readiness: failed — \(message)")
+        }
+    }
+
+    /// Someone pressed the hotkey before the engine could honour it. Say so in the pill rather than
+    /// swallowing the press: the take would otherwise be recorded and then wait minutes for a download.
+    private func declineWhileGettingReady() {
+        hud.setHint(nil)
+        switch readiness {
+        case .preparing(let percent, _):
+            // Amber and calm: this is a download in progress, not a fault.
+            hud.showGettingReady(percent: percent)
+            vlog("dictation declined — still getting ready\(percent.map { " (\($0)%)" } ?? "")")
+        case .failed(let message):
+            hud.showError(message)
+            vlog("dictation declined — \(message)")
+        case .ready:
+            break
+        }
+    }
+
+    private var hotKeyDescription: String {
+        HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode,
+                            modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers)
     }
 
     // MARK: - Keys during a dictation
@@ -400,8 +496,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Progress arrives as prose ("Downloading Parakeet models… 43% (12/20 files)").
     /// The HUD has room for the number, so show that; otherwise just the orb.
     private func hudProgress(_ message: String) {
-        if let range = message.range(of: #"(\d{1,3})%"#, options: .regularExpression),
-           let percent = Int(message[range].dropLast()) {
+        if let percent = Readiness.percent(in: message) {
             hud.showDownload(percent: percent)
         } else {
             hud.showWorking()
@@ -414,7 +509,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // screen in the HUD at that point anyway).
         statusItem?.button?.image = StatusIcon.image(for: state)
         statusItem?.button?.contentTintColor = StatusIcon.tint(for: state)
-        statusItem?.button?.toolTip = "Ponte — \(HotKeySpec.describe(keyCode: hotKey?.keyCode ?? HotKeySpec.defaultKeyCode, modifiers: hotKey?.modifiers ?? HotKeySpec.defaultModifiers)) · \(DictationKey.hints)"
+        let shortcut = hotKeyDescription
+        statusItem?.button?.toolTip = readiness.allowsDictation
+            ? "Ponte — \(shortcut) · \(DictationKey.hints)"
+            : "Ponte — \(readiness.menuTitle) · \("dictation is declined until this finishes")"
+
         // The item moves when the bar re-lays out — macOS adds its own microphone pill while we
         // record — so where it is has to be re-read per state, not remembered from launch.
         if let f = statusItem?.button?.window?.frame {
@@ -431,7 +530,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         switch state {
         case .idle:
-            menu.addItem(item("Start Recording", #selector(toggle), shortcut))
+            if readiness.allowsDictation {
+                menu.addItem(item("Start Recording", #selector(toggle), shortcut))
+            } else {
+                let waiting = item(readiness.menuTitle, #selector(explainReadiness), nil)
+                waiting.isEnabled = true
+                menu.addItem(waiting)
+            }
         case .starting:
             menu.addItem(hint("Starting…"))
         case .recording:
@@ -652,6 +757,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func grantAccessibility() { promptAccessibility() }
 
+    /// Clicking the state line just says it again in the pill — the detail lives in the log and in this
+    /// line's own text.
+    @objc private func explainReadiness() { declineWhileGettingReady() }
+
     /// A grant made against an older signature stays switched on in System Settings while applying to
     /// nothing at all, which is how auto-paste can stop working with nothing looking wrong. Clear the
     /// entry and ask again, so the next grant binds to the build that is actually running.
@@ -683,6 +792,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let kind = AsrEngineKind(rawValue: raw) else { return }
         Settings.engine = kind
         vlog("engine set to \(kind.rawValue)")
+        prepareEngine()
         if kind == .parakeet {
             let model = Settings.parakeetModel
             if !ParakeetEngine.shared.isInstalled(model) {
@@ -708,6 +818,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Settings.parakeetModel = model
         ParakeetEngine.shared.unload()
         vlog("parakeet model set to \(model.shortLabel)")
+        prepareEngine()
         guard Settings.engine == .parakeet else { return }
         hudProgress("Loading \(model.shortLabel)…")
         DispatchQueue.global(qos: .utility).async { [weak self] in
