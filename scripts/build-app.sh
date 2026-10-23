@@ -32,14 +32,18 @@ done
 # match the user's existing TCC grants (microphone, accessibility) and re-prompts
 # every single build. Signing with a certificate keys the requirement to the cert
 # and bundle id instead, so grants survive rebuilds.
+# Developer ID first, deliberately. The development and distribution certificates carry different
+# designated requirements (the development one adds …100.6.2.12), so alternating between them clears
+# every TCC grant Ponte holds each time it flips — and System Settings goes on showing the toggle as
+# on. One identity, every build.
 SIGN_ID="${PONTE_SIGN_ID:-}"
 if [ -z "$SIGN_ID" ]; then
   SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p' | head -1)"
+    | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
 fi
 if [ -z "$SIGN_ID" ]; then
   SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+    | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p' | head -1)"
 fi
 
 if [ -n "$SIGN_ID" ]; then
@@ -53,7 +57,10 @@ else
     || { echo "codesign failed"; exit 1; }
 fi
 codesign --verify --verbose=1 "$APP" 2>&1 | tail -1
-echo "    requirement: $(codesign -d -r- "$APP" 2>&1 | grep '^# designated' | sed 's/# designated => //')"
+if ! ./scripts/check-signature.sh "$APP"; then
+  echo "!! For a local build that is only a nuisance. Before shipping, sign with the identity you"
+  echo "!! always use: PONTE_SIGN_ID=\"Developer ID Application: … (TEAMID)\" ./scripts/build-app.sh"
+fi
 
 echo "==> built $APP"
 

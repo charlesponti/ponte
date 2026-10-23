@@ -43,7 +43,10 @@ if [ -z "$DEVID" ]; then
   echo "!! Certificates (Developer ID Application), or accept that for a personal copy."
   exit 1
 fi
+TEAM_ID="${PONTE_TEAM_ID:-$(sed -n 's/.*(\([A-Z0-9]\{10\}\))".*/\1/p' <<<"$DEVID")}"
+TEAM_ID="${TEAM_ID:-3QHJ2KN8AL}"
 echo "==> signing identity: $DEVID"
+echo "==> team: $TEAM_ID"
 
 # MARK: - Build and sign for distribution
 
@@ -70,6 +73,9 @@ codesign --force --options runtime --timestamp \
 codesign --verify --strict --verbose=2 "$APP" 2>&1 | tail -1
 echo "    authority: $(codesign -dv --verbose=4 "$APP" 2>&1 | grep '^Authority=' | head -1 | cut -d= -f2-)"
 echo "    hardened:  $(codesign -dv --verbose=4 "$APP" 2>&1 | grep -c 'flags=.*runtime') (1 means yes)"
+# A release whose requirement is not the team's would invalidate every customer's Accessibility grant
+# on the next update — with the toggle still showing on. Never ship one.
+./scripts/check-signature.sh "$APP" "$TEAM_ID"
 
 # MARK: - The disk image
 

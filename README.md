@@ -300,8 +300,29 @@ engine: parakeet-ultra
   One grant, then it sticks (as long as the signature is stable). Move `AppPaths.transcripts` into
   `~/Library/Application Support/Ponte/` to avoid this prompt entirely.
 
-After granting Accessibility, the running process usually needs a restart before it takes effect —
-`AXIsProcessTrusted()` is cached per launch.
+After granting Accessibility, a restart usually makes it take effect — `AXIsProcessTrusted()` is cached
+per launch. Not always: a fresh grant was picked up mid-session here, so try dictating before restarting.
+
+### If the toggle is on but Ponte says it isn't granted
+
+Grants are bound to the app's **code signature**, not to its name or its path, and an entry can sit
+switched on in System Settings while applying to nothing at all. There is no prompt and no error in that
+state — auto-paste just quietly becomes "Copied — press ⌘V".
+
+Two things create it, and both are a change of signature:
+
+- an **ad-hoc** signature (`--sign -`), whose requirement is a per-build hash that changes every build;
+- alternating between an **Apple Development** and a **Developer ID** certificate, whose requirements
+  differ by a field that the other does not carry — so grants die on every flip, each way.
+
+**Fix:** Ponte icon ▸ **Permissions** ▸ **Repair permissions (clear a stale grant)**. It clears the dead
+entry and asks macOS again, so the new grant binds to the build that is actually running. If that still
+does not take, remove Ponte from the list with **−** and add `/Applications/Ponte.app` with **+**.
+
+**For whoever builds this:** one identity, always. `scripts/build-app.sh` prefers the Developer ID
+certificate for exactly this reason, `scripts/check-signature.sh` fails loudly when a requirement is not
+team-anchored, and `make-dmg.sh` refuses to build a DMG that carries a per-build requirement. With a
+single identity, every grant survives every future update — the requirement names the team, not the build.
 
 ## Menu
 

@@ -312,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             // Never raise the system Accessibility dialog here: it fired at the end of
             // every dictation. Fall back to the clipboard and say so quietly.
-            hud.showDone("Copied to clipboard ✓")
+            hud.showDone("Copied — press ⌘V")
             if Settings.autoPaste { noteAccessibilityOnce() }
         }
 
@@ -352,7 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hasNotedAccessibility = true
         vlog("auto-paste unavailable — Accessibility not granted for this build")
         Shell.notify("Ponte",
-                     "Auto-paste needs Accessibility: System Settings ▸ Privacy & Security ▸ Accessibility. Until then the text goes to the clipboard.")
+                     "Auto-paste needs Accessibility. Ponte icon ▸ Permissions ▸ Repair permissions (clear a stale grant) fixes the usual cause — a grant left over from an earlier build. Until then the text goes to the clipboard.")
     }
 
     /// Progress arrives as prose ("Downloading Parakeet models… 43% (12/20 files)").
@@ -523,9 +523,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sub.addItem(item("Open Microphone Settings", #selector(openMicSettings), nil))
         }
 
-        let ax = item(AXIsProcessTrusted() ? "Accessibility (paste): granted ✓" : "Accessibility (paste): grant to enable auto-paste",
-                      #selector(grantAccessibility), nil)
-        sub.addItem(ax)
+        let trusted = AXIsProcessTrusted()
+        sub.addItem(item(trusted ? "Accessibility (paste): granted ✓"
+                                 : "Accessibility (paste): not granted — click to grant",
+                         #selector(grantAccessibility), nil))
+        if !trusted {
+            sub.addItem(item("Repair permissions (clear a stale grant)", #selector(repairAccessibility), nil))
+        }
         parent.submenu = sub
         return parent
     }
@@ -605,6 +609,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func grantAccessibility() { promptAccessibility() }
+
+    /// A grant made against an older signature stays switched on in System Settings while applying to
+    /// nothing at all, which is how auto-paste can stop working with nothing looking wrong. Clear the
+    /// entry and ask again, so the next grant binds to the build that is actually running.
+    @objc private func repairAccessibility() {
+        let id = Bundle.main.bundleIdentifier ?? "com.ponti.ponte"
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/tccutil")
+        task.arguments = ["reset", "Accessibility", id]
+        do {
+            try task.run()
+            task.waitUntilExit()
+            vlog("reset the accessibility entry for \(id) status=\(task.terminationStatus)")
+        } catch {
+            vlog("could not reset the accessibility entry: \(error.localizedDescription)")
+            Shell.notify("Ponte", "Could not clear the old permission. Open System Settings ▸ Privacy & Security ▸ Accessibility and remove Ponte with the − button.")
+            return
+        }
+        hasPromptedAccessibility = false
+        promptAccessibility()
+    }
 
     @objc private func selectModel(_ sender: NSMenuItem) {
         guard let name = sender.representedObject as? String else { return }
