@@ -22,7 +22,7 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 
 | | what | notes |
 |---|---|---|
-| **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
+| **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like, and whisper itself removed.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
 | #7 | notarize the DMG | blocked: needs the account holder to create the `ponte-notary` credential profile |
 | #6 | ship an update path | an appcast is a network call on a schedule — a product decision, not a technical one |
 | #5 | show the transcript in the HUD while speaking | party trick that costs the watch-the-orb honesty |
@@ -64,8 +64,12 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 Recorded so they are not rediscovered as good ideas:
 
 - **Cloud sync, accounts, telemetry.** Out on principle, and the pitch depends on it.
-- **Making whisper an automatic fallback.** It is slower *and* was no more accurate on the files measured, and
-  it currently loses long takes. A fallback that silently produces a worse answer is worse than an error.
+- **Adding another engine, or a fallback between them.** Parakeet is faster than realtime by an order of
+  magnitude and accurate; a second engine means a second install path, a second model download and a second set
+  of failure modes, for a comparison nobody using the app needs. If one is ever added, it has to earn its place
+  through `long-dictation-check.sh`, which measures both materials and checks which engine ran.
+- **Shipping whisper.cpp as an option.** Removed in this change; it needed a Homebrew install, so the menu item
+  was broken on any machine without one. Its numbers stay in the docs as the reason Parakeet is the default.
 - **Per-app paste rules, silence auto-stop, audio ducking.** Each adds a state the user has to understand, to
   solve a problem the HUD and the hotkey mostly solve.
 - **Payment handling.** Use a merchant of record, preferring offline verification.

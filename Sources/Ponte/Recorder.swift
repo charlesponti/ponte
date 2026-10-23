@@ -4,7 +4,7 @@ import WaveformCapture
 import WaveformCore
 
 /// Ponte's capture: the shared engine in `WaveformCapture`, in the configuration on-device
-/// transcription wants — a 16 kHz mono 16-bit WAV, exactly what whisper.cpp and Parakeet read, so no
+/// transcription wants — a 16 kHz mono 16-bit WAV, exactly what the engine reads, so no
 /// conversion step is ever needed.
 ///
 /// This used to be `AVAudioRecorder` plus a 30 Hz dB meter. The engine does both better: real RMS at

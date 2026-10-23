@@ -13,7 +13,7 @@ ground does not have to be walked twice.
 | document | what it covers |
 |---|---|
 | [architecture.md](architecture.md) | the pipeline end to end, the modules, the settings and paths, and the shape of a dictation |
-| [capture-and-engines.md](capture-and-engines.md) | recording, the two engines, what is shared with Waveform and Thames, and how to choose |
+| [capture-and-engines.md](capture-and-engines.md) | recording, the engine, what is shared with Waveform and Thames, and why there is only one |
 | [hud.md](hud.md) | the HUD's lifecycle, geometry, colours, and the orb's maths |
 | [menu-bar-and-icons.md](menu-bar-and-icons.md) | the menu bar mark, the app icon, and the rules that keep both legible at 16 px |
 | [permissions-and-signing.md](permissions-and-signing.md) | TCC, why grants die, the one-identity rule, and notarization |

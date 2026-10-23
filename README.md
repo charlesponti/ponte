@@ -6,18 +6,19 @@ Everything runs on your Mac — no network calls, no account, no subscription.
 ```
 ⌥⌘Space   start recording  (press again to stop)
           → a 96 px squircle holding the orb, mint and spinning fast while it listens
-          → Parakeet on the Neural Engine (default) or whisper.cpp on the CPU
+          → Parakeet on the Neural Engine, in-process, no model reload
           → done: the orb turns green and the box collapses to the text + 16 px padding
           → error: the orb shrinks, turns red, throbs three times, then the box follows
           → text is pasted into whatever app is focused
 ```
 
-Two interchangeable engines, switchable from the menu (**Engine**):
+One engine, on the Neural Engine: FluidAudio 0.17.7 → CoreML Parakeet Ultra via `AsrManager`, models held
+resident in-process. The **Speech model** submenu picks between Ultra (default), v3, v2 and Redux.
 
-| Engine | What runs | Where |
-|---|---|---|
-| **Parakeet on the ANE** (default) | FluidAudio 0.17.7 → CoreML Parakeet Ultra via `AsrManager` | Apple Neural Engine, models stay resident |
-| whisper.cpp | `whisper-cli` subprocess, `large-v3-turbo` | CPU, model reloaded per recording |
+whisper.cpp was the original engine and was removed in 1.0: it needed a separate `brew install whisper-cpp`, so
+the menu item was broken on any machine without one, and it cost 1.9 GB resident and a 1.5 GB model download to
+be slower than Parakeet by an order of magnitude. The measurements that made it the incumbent, and then lost it
+the job, are in [`docs/measurements.md`](docs/measurements.md).
 
 Installed at `/Applications/Ponte.app`. Lives in the menu bar (no Dock icon).
 
@@ -27,9 +28,9 @@ Installed at `/Applications/Ponte.app`. Lives in the menu bar (no Dock icon).
 |---|---|
 | `Sources/Ponte/main.swift` | entry point + CLI modes (`--record`, `--transcribe`, `--bench`, `--download`, `--selftest`, `--devices`) |
 | `Sources/Ponte/AppDelegate.swift` | menu bar item, menu, hotkey → record → transcribe → paste flow |
-| `Sources/Ponte/Recorder.swift` | mic capture straight to 16 kHz mono 16-bit WAV (what both engines want) |
-| `Sources/Ponte/ParakeetEngine.swift` | FluidAudio/CoreML engine + `AsrEngine` router that picks the engine |
-| `Sources/Ponte/Transcriber.swift` | whisper.cpp subprocess, transcript saving, model downloads |
+| `Sources/Ponte/Recorder.swift` | mic capture straight to 16 kHz mono 16-bit WAV (what the engine wants) |
+| `Sources/Ponte/ParakeetEngine.swift` | the FluidAudio/CoreML engine, plus `AsrEngine`, the single entry point |
+| `Sources/Ponte/Transcriber.swift` | `Result`, and the note format — markdown whose frontmatter carries engine, timings and confidence |
 | `Sources/Ponte/Orb.swift` | the orb: lattice, projection, depth layers, and the whole lifecycle spec (`HudSpec`) |
 | `Sources/Ponte/HUD.swift` | the floating squircle, its collapse animation, and the offscreen renderer |
 | `Sources/Ponte/HotKey.swift` | Carbon global hotkey (no Accessibility permission needed to *trigger*) |
@@ -73,10 +74,9 @@ tccutil reset Microphone com.ponti.ponte
 ## Requirements
 
 - FluidAudio 0.17.7 (Swift Package, resolved automatically) — runs Parakeet on the ANE
-- `brew install whisper-cpp` (v1.9.5) — only needed for the whisper.cpp engine
-- whisper models in `~/Library/Application Support/Ponte/models/`
-  - `ggml-large-v3-turbo.bin` — default, most accurate
-  - `ggml-base.en.bin` — fallback, fast but noticeably worse punctuation
+- Parakeet models, fetched on first run into `~/Library/Application Support/FluidAudio/Models/`
+  - `parakeet-ultra` — default, 603 MB, most accurate
+  - `parakeet-tdt-0.6b-v3` — 461 MB; `redux` 210 MB and `v2` are also selectable
 - Parakeet models in `~/Library/Application Support/FluidAudio/Models/`. They download on first use,
   or up front with `Ponte --download ultra`. Ultra's encoder is 595 MB (int8, ANE).
 
@@ -93,7 +93,7 @@ Ponte and Thames share three products from the same package
 
 So Ponte has no recording engine, no orb maths and no dot-drawing of its own. What is left in this
 repo is what is Ponte's own: the HUD's lifecycle, the menu bar app, the hotkey, the pill, the notes,
-the icon's *use* of the orb, and the ASR engines (`FluidAudio`, whisper.cpp).
+the icon's *use* of the orb, and the engine (`FluidAudio`).
 
 ## Documentation
 
@@ -244,6 +244,9 @@ Same WAV file, same machine, three runs each, best warm run:
 | whisper.cpp `large-v3-turbo` (7.98 s clip) | 2.56 s | **1.76 s** | 4.5× realtime |
 | Parakeet Ultra (7.98 s clip) | 0.52 s | **0.14 s** | **56.8× realtime** |
 
+whisper.cpp was removed in 1.0. It stays in this table because it is what "Parakeet is fast" is fast *compared
+to* — without a second number, the first one means nothing.
+
 Through the app, hotkey to clipboard:
 
 | Engine | Audio | Transcription | Stop → note on disk |
@@ -277,28 +280,21 @@ top -l 5 -s 3 -pid "$PID" -stats pid,cpu,mem,threads,time    # read the samples 
 Synthetic speech carrying a countable pattern — 120 repetitions of one sentence plus a closing marker —
 through the CLI, so the engine is the only variable:
 
-| audio | engine | time | repetitions kept | closing marker | peak RSS |
-|---|---|---|---|---|---|
-| 20 s | parakeet-ultra | 0.7 s | 6 of 6 | intact | 99 MB |
-| 76 s | parakeet-ultra | 0.7 s | 24 of 24 | intact | 119 MB |
-| 6 min | parakeet-ultra | 2.1 s | 119 of 120 | intact | 147 MB |
-| 76 s | parakeet-tdt-v3 | 0.8 s | 24 of 24 | intact | 123 MB |
-| 76 s | whisper large-v3-turbo | 4.9 s | **6 of 24** | jumped to it | 1886 MB |
+Measured to six minutes, and reproduced by `./scripts/long-dictation-check.sh`:
 
-Roughly 50-150x realtime, and it improves with length because the model-load cost amortises. Memory grows
-gently. Six minutes of speech in: 119 of 120 repetitions, 5397 characters against the source's 5444, nothing
-truncated and nothing duplicated at the seams.
+| audio | model | time | repetitions kept | peak RSS |
+|---|---|---|---|---|
+| 20 s | ultra | 0.7-1.2 s | 6 of 6 | ~100 MB |
+| 76 s | ultra | 0.7-1.7 s | 24 of 24 | ~120 MB |
+| 6 min | ultra | 1.9-10.3 s | 120 of 120 | ~150 MB |
+| 160 s | ultra | 1.2-1.9 s | 555 of 555 words of prose | ~150 MB |
+| 76 s | tdt-v3 | 0.8-2.2 s | 24 of 24 | ~125 MB |
 
-Read the times as seconds, not as ratios: they move by half from run to run on this machine. The repetition
-counts are the part that must not move. Both are reproduced by `./scripts/long-dictation-check.sh`, which
-also asserts that each run used the engine it asked for — the first version of this table had a
-`parakeet-v3` row that had silently run ultra, because `--engine parakeet-v3` is not a thing (v3 is a model:
-`--parakeet-model v3`) and the unknown value fell back to the default without a word. The CLI now refuses
-unknown values.
-
-**whisper is not usable for long takes.** On a 76-second clip it returned the first 19 seconds and then the
-closing sentence, silently dropping everything between — 6 of 24 repetitions. Until it is chunked, treat it
-as an engine for short takes only. (`#12`.)
+**Read the times as seconds, and not as ratios.** They move by a factor of five depending on what else the
+machine is doing, which is why every verdict the script prints is about content rather than speed. Memory is
+steady at 100-160 MB whatever the take's length, because the model lives on the Neural Engine rather than in the
+app. Full tables, including the whisper numbers that justified removing it, are in
+[`docs/measurements.md`](docs/measurements.md).
 
 ## The two numbers that matter
 
@@ -380,9 +376,8 @@ single identity, every grant survives every future update — the requirement na
 
 - Start / Stop recording (shows the current hotkey)
 - Copy last transcript · Open notes folder · Open audio folder
-- **Model** — whisper.cpp models, plus downloads for ones that aren't
 - **Language** — 15 languages incl. auto-detect (mapped onto Parakeet's language hint)
-- **Engine** — whisper.cpp vs Parakeet; Parakeet Ultra / v3 / v2 / Redux; download or unload
+- **Speech model** — Parakeet Ultra (default) / v3 / v2 / Redux; download, or unload it from memory
 - Auto-paste into frontmost app · Keep audio files · Launch at Login
 - **Permissions** — mic + accessibility status and shortcuts to Settings
 
@@ -466,12 +461,12 @@ Key code `0` is the **A** key — a real value, not "unset" (the app reads the d
 ## CLI
 
 ```bash
-Ponte --devices                              # list audio inputs, whisper path, models
+Ponte --devices                              # list audio inputs, and where the speech model is
 Ponte --download ultra                       # fetch + ANE-compile a Parakeet model
-Ponte --bench take.wav                       # every installed engine, 3 runs each, same file
-Ponte --transcribe take.wav                  # uses the default engine
-Ponte --transcribe take.wav --engine whisper --model ggml-base.en.bin
-Ponte --transcribe take.wav --engine parakeet --parakeet-model ultra
+Ponte --bench take.wav                       # every installed model, 3 runs each, same file
+Ponte --transcribe take.wav                  # uses the selected model (Ultra by default)
+Ponte --transcribe take.wav --parakeet-model v3
+Ponte --transcribe take.wav --engine whisper   # exits 2: there is one engine, and this says so
 Ponte --selftest 5                           # record 5 s from the mic and transcribe it
 Ponte --hud-strip hud.png                    # the HUD lifecycle as a contact sheet
 Ponte --hud-render hud.png error 0.64        # one HUD frame at a moment in a state

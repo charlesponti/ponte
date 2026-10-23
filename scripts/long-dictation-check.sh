@@ -15,8 +15,12 @@
 #
 # WHY IT CHECKS ENGINE ATTRIBUTION: an earlier table of these timings carried a "parakeet-v3" row that had
 # actually run ultra, because `--engine parakeet-v3` fell back to the default in silence. v3 is a *model*,
-# chosen with `--parakeet-model v3`. The CLI now refuses unknown values, and this script checks the engine
-# line of every run as well, so a mislabelled row cannot get through twice.
+# chosen with `--parakeet-model v3`. The CLI now refuses unknown flags entirely, and this script checks the
+# engine line of every run as well, so a mislabelled row cannot get through twice.
+#
+# ONE ENGINE: whisper.cpp was removed, along with the `--engine` flag and the model downloader that fetched
+# its weights. It needed a separate Homebrew install, which made the Engine menu a support ticket on a machine
+# without one. The engine column below stays as a check — it is what caught the mislabelled row.
 #
 #   ./scripts/long-dictation-check.sh [work-dir]
 #
@@ -160,18 +164,17 @@ printf "  prose      %-5s %ss\n" "prose" "$(build_audio prose prose 0)"
 echo
 echo "REPETITION material: a stress test for losing text at a seam, not a typical dictation."
 printf "%-15s %-30s %6s %8s %10s %-5s %-9s %s\n" "run" "engine" "audio" "time" "kept" "tail" "peak RSS" "verdict"
-check "ultra-20s" "20s" 6 ultra --engine parakeet --parakeet-model ultra
-check "ultra-76s" "76s" 24 ultra --engine parakeet --parakeet-model ultra
-check "ultra-6min" "6min" 120 ultra --engine parakeet --parakeet-model ultra
-check "v3-76s" "76s" 24 v3 --engine parakeet --parakeet-model v3
-check "whisper-76s" "76s" 24 whisper --engine whisper
+check "ultra-20s" "20s" 6 ultra --parakeet-model ultra
+check "ultra-76s" "76s" 24 ultra --parakeet-model ultra
+check "ultra-6min" "6min" 120 ultra --parakeet-model ultra
+check "v3-76s" "76s" 24 v3 --parakeet-model v3
 
 echo
 echo "PROSE material: forty distinct sentences, judged by word count. This is the case that resembles use."
 printf "%-15s %-30s %6s %8s %10s %-5s %-9s %s\n" "run" "engine" "audio" "time" "words" "tail" "peak RSS" "verdict"
-check "ultra-prose" "prose" words ultra --engine parakeet --parakeet-model ultra
-check "whisper-prose" "prose" words whisper --engine whisper
+check "ultra-prose" "prose" words ultra --parakeet-model ultra
 
 echo
-echo "Read the repetition rows for text going missing and the prose rows for whether an engine is usable at"
-echo "length. Whisper's weakness is repeated audio, not long audio: six minutes of prose come back whole."
+echo "Read the repetition rows for text going missing at a seam, and the prose row for whether a long take is"
+echo "transcribed whole. Both materials are kept even though there is now one engine: they measure different"
+echo "failure modes, and a future engine — or a model swap — should be judged on both."

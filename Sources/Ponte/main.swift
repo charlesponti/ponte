@@ -16,6 +16,31 @@ import Foundation
 
 let argv = CommandLine.arguments
 
+/// Every flag and command this CLI accepts, so anything else can be refused rather than ignored.
+///
+/// The refusal is the point. A script passing `--engine whisper` used to get a parakeet transcription and no
+/// complaint at all, which is the same silent fallback that once put a mislabelled row in a table of timings:
+/// a tool that guesses at what it does not understand produces confident, wrong measurements. Removing an
+/// option should be loud.
+let knownFlags: Set<String> = [
+    // commands
+    "--record", "--transcribe", "--bench", "--download", "--selftest", "--devices",
+    "--hud-render", "--hud-strip", "--hud-voice", "--icon", "--icon-sheet",
+    "--status-icon", "--status-image", "--menubar-mark", "--menubar-sheet", "--help",
+    // flags, as opposed to commands
+    "--out", "--parakeet-model", "--language", "--turning",
+]
+
+for argument in argv.dropFirst() where argument.hasPrefix("--") {
+    if knownFlags.contains(argument) { continue }
+    if argument == "--engine" {
+        print("error: --engine was removed — parakeet is the only engine; use --parakeet-model to choose one")
+    } else {
+        print("error: unknown flag \(argument) — known: \(knownFlags.sorted().joined(separator: " "))")
+    }
+    exit(2)
+}
+
 func usage() {
     print("""
     Ponte — local push-to-talk dictation
@@ -23,12 +48,10 @@ func usage() {
     USAGE
       Ponte                      run the menu bar app
       Ponte --record <seconds> [--out <file.wav>]
-      Ponte --transcribe <file.wav> [--engine whisper|parakeet]
-                                        [--parakeet-model ultra|v3|v2|redux]
-                                        [--model <whisper model>] [--language <code>]
-      Ponte --bench <file.wav>    run every installed engine on one file and compare
+      Ponte --transcribe <file.wav> [--parakeet-model ultra|v3|v2|redux] [--language <code>]
+      Ponte --bench <file.wav>    run the speech model over one file and report
       Ponte --download [ultra|v3|v2|redux|all]
-      Ponte --selftest <seconds> [--engine …]
+      Ponte --selftest <seconds>
       Ponte --devices
       Ponte --hud-render <out.png> <idle|recording|working|loading|done|error|cancelled> [t] [text]
                                         [amber|red|green|grey|blue-grey|dim] [--turning]
@@ -41,7 +64,6 @@ func usage() {
       Ponte --icon-sheet <out.png>      every mark at every size
       Ponte --help
 
-    whisper models live in \(AppPaths.models.path)
     Parakeet (CoreML/ANE) models live in \(ParakeetEngine.shared.installPath(.ultra).path)
     Notes are written to \(AppPaths.transcripts.path)
     """)
@@ -57,8 +79,7 @@ func listDevices() {
         let isDefault = d.uniqueID == AVCaptureDevice.default(for: .audio)?.uniqueID
         print("  [\(i)] \(d.localizedName)\(isDefault ? "   (system default)" : "")")
     }
-    print("whisper binary: \(Whisper.binary()?.path ?? "NOT FOUND")")
-    print("models: \(Whisper.installedModels().isEmpty ? "none" : Whisper.installedModels().joined(separator: ", "))")
+    print("speech model: \(ParakeetEngine.shared.installPath(Settings.parakeetModel).path)")
 }
 
 /// Record synchronously, spinning a run loop so AVAudioRecorder can do its work.
@@ -119,9 +140,8 @@ where T.RawValue == String {
     return parsed
 }
 
-func engineFlags() -> (AsrEngineKind, ParakeetModel, String) {
-    (checkedFlag("--engine", Settings.engine),
-     checkedFlag("--parakeet-model", Settings.parakeetModel),
+func engineFlags() -> (ParakeetModel, String) {
+    (checkedFlag("--parakeet-model", Settings.parakeetModel),
      value(of: "--language") ?? Settings.language)
 }
 
@@ -464,9 +484,9 @@ func runCLI() -> Int32? {
             print("no such file: \(file.path)"); return 2
         }
         let language = value(of: "--language") ?? Settings.language
-        let (kind, parakeetModel, lang) = engineFlags()
+        let (parakeetModel, lang) = engineFlags()
         do {
-            let result = try AsrEngine.transcribe(wav: file, engine: kind, parakeetModel: parakeetModel,
+            let result = try AsrEngine.transcribe(wav: file, parakeetModel: parakeetModel,
                                                   language: lang) { message in
                 FileHandle.standardError.write("  \(message)\n".data(using: .utf8)!)
             }
@@ -507,12 +527,8 @@ func runCLI() -> Int32? {
         let seconds = audioDuration(file)
         let attrs = try? FileManager.default.attributesOfItem(atPath: file.path)
         let bytes = (attrs?[.size] as? Int) ?? 0
-        let (_, benchModel, benchLang) = engineFlags()
+        let (benchModel, benchLang) = engineFlags()
         print("file: \(file.lastPathComponent)  \(String(format: "%.2f", seconds))s  \(bytes / 1024) KB  language=\(benchLang)")
-        print("whisper:")
-        bench("whisper.cpp \(Settings.model)", runs: 3, audioSeconds: seconds) {
-            try Transcriber.transcribe(wav: file, modelName: Settings.model, language: benchLang)
-        }
         print("parakeet (Neural Engine):")
         for model in ParakeetModel.allCases {
             let installed = ParakeetEngine.shared.isInstalled(model)

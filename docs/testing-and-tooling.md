@@ -53,16 +53,17 @@ Ponte --icon-sheet <out.png>      every mark at every size
 Ponte --status-icon <out.png> [pt]
 Ponte --status-image <out.png> <idle|starting|recording|working>
 Ponte --bench <file.wav>          every installed engine on one file
-Ponte --transcribe <file.wav> [--engine …] [--parakeet-model …]
+Ponte --transcribe <file.wav> [--parakeet-model ultra|v3|v2|redux]
 Ponte --record <seconds> [--out …] · --devices · --selftest · --download
 ```
 
 Three things about it are deliberate. **It renders the real thing**, through the same code the app uses, so a
 render and a screen capture can be compared. **It takes a colour and a `--turning` frame**, so a state can be
 proofed in its true tint rather than the default one — the loading state's amber-versus-red mistake was only
-visible once that was possible. And **its flags are checked**: an unknown `--engine` used to fall back to the
-default in silence, which is how a table of timings came to carry a row that had run a different model. It now
-exits with the list of valid values.
+visible once that was possible. And **its flags are refused when unknown**: anything the CLI does not recognise — a command, a flag, or a value
+— exits 2 with an explanation rather than being ignored. A typo used to fall back to the default in silence,
+which is how a table of timings came to carry a row that had run a different model. Removing an option is loud
+for the same reason: `--engine whisper` now says so, instead of quietly transcribing with the only engine left.
 
 ## Measurement, in the right order
 

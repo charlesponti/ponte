@@ -17,6 +17,10 @@ otherwise.
 
 ## Long dictations
 
+whisper.cpp was the second engine until 1.0 and is gone; its rows below are kept because they are the numbers
+that made Parakeet the default and then removed the alternative — see
+[capture-and-engines.md](capture-and-engines.md) for why it went.
+
 Reproduce with `./scripts/long-dictation-check.sh [work-dir]`. Synthetic speech: a sentence repeated N times
 plus a closing marker, so a dropped region is countable. The script asserts the engine each run actually
 reported, and fails a row whose repetitions or marker are wrong.

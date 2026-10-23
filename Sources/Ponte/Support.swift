@@ -54,19 +54,13 @@ enum SettingKey {
 enum Settings {
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
-            SettingKey.model: "ggml-large-v3-turbo.bin",
             SettingKey.language: "en",
             SettingKey.autoPaste: true,
             SettingKey.keepAudio: false,
-            SettingKey.engine: AsrEngineKind.parakeet.rawValue,
             SettingKey.parakeetModel: ParakeetModel.ultra.rawValue,
         ])
     }
 
-    static var model: String {
-        get { UserDefaults.standard.string(forKey: SettingKey.model) ?? "ggml-large-v3-turbo.bin" }
-        set { UserDefaults.standard.set(newValue, forKey: SettingKey.model) }
-    }
     static var language: String {
         get { UserDefaults.standard.string(forKey: SettingKey.language) ?? "en" }
         set { UserDefaults.standard.set(newValue, forKey: SettingKey.language) }
@@ -78,12 +72,6 @@ enum Settings {
     static var keepAudio: Bool {
         get { UserDefaults.standard.bool(forKey: SettingKey.keepAudio) }
         set { UserDefaults.standard.set(newValue, forKey: SettingKey.keepAudio) }
-    }
-
-    /// Which ASR engine does the work. Default: Parakeet on the Neural Engine.
-    static var engine: AsrEngineKind {
-        get { AsrEngineKind(rawValue: UserDefaults.standard.string(forKey: SettingKey.engine) ?? "") ?? .parakeet }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: SettingKey.engine) }
     }
 
     static var parakeetModel: ParakeetModel {
@@ -114,52 +102,17 @@ enum Settings {
 // MARK: - Errors
 
 enum PonteError: LocalizedError {
-    case whisperMissing
-    case modelMissing(String)
     case recordFailed
     case micDenied
     case transcriptionFailed(String)
 
     var errorDescription: String? {
         switch self {
-        case .whisperMissing: return "whisper-cli not found (brew install whisper-cpp)"
-        case .modelMissing(let m): return "model \(m) not found in \(AppPaths.models.path)"
         case .recordFailed: return "could not start recording"
         case .micDenied: return "microphone access denied"
         case .transcriptionFailed(let s): return "transcription failed: \(s)"
         }
     }
-}
-
-// MARK: - Whisper binary + models
-
-enum Whisper {
-    static func binary() -> URL? {
-        let candidates = [
-            "/opt/homebrew/bin/whisper-cli",
-            "/usr/local/bin/whisper-cli",
-            "/opt/homebrew/bin/whisper-cpp",
-            "/usr/local/bin/whisper-cpp",
-        ]
-        for c in candidates where FileManager.default.isExecutableFile(atPath: c) {
-            return URL(fileURLWithPath: c)
-        }
-        return Shell.which("whisper-cli") ?? Shell.which("whisper-cpp")
-    }
-
-    static func installedModels() -> [String] {
-        let items = (try? FileManager.default.contentsOfDirectory(atPath: AppPaths.models.path)) ?? []
-        return items.filter { $0.hasSuffix(".bin") }.sorted()
-    }
-
-    static func modelURL(_ name: String) -> URL { AppPaths.models.appendingPathComponent(name) }
-
-    /// Known models offered in the menu when not present locally.
-    static let downloadable: [(name: String, label: String)] = [
-        ("ggml-large-v3-turbo.bin", "large-v3-turbo (best, 1.6 GB)"),
-        ("ggml-small.en.bin", "small.en (fast, 466 MB)"),
-        ("ggml-base.en.bin", "base.en (tiny, 142 MB)"),
-    ]
 }
 
 // MARK: - Shell

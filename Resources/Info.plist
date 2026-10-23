@@ -31,6 +31,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Local-only dictation. No network calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Ponte records your voice and transcribes it on-device with whisper.cpp. Audio never leaves your Mac.</string>
+	<string>Ponte records your voice and transcribes it on-device, on the Neural Engine. Audio never leaves your Mac.</string>
 </dict>
 </plist>

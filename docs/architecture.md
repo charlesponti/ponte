@@ -18,7 +18,6 @@
         │
         ├─ AsrEngine.transcribe(wav:) on a background queue                  [ParakeetEngine.swift]
         │       parakeet → FluidAudio → CoreML, on the Neural Engine
-        │       whisper  → whisper.cpp CLI, a reference point only
         │
         └─ finish()                                                          [AppDelegate.swift]
                 write the note (~/Documents/Ponte, frontmatter carries engine + timings)
@@ -39,11 +38,11 @@ is the only time the app touches the network at all — see `Readiness`).
 |---|---:|---|
 | `AppDelegate.swift` | 870 | the app's spine: menu bar, hotkey handling, the recording lifecycle, the menu, permissions, the model and engine switches |
 | `main.swift` | 644 | the CLI — flag parsing, the renderers, and the helpers the tests use (`hudImage`, `voiceRing`) |
-| `ParakeetEngine.swift` | 346 | FluidAudio's `AsrManager` kept resident, model download/load, `AsrEngine` dispatch, `Whisper` discovery |
+| `ParakeetEngine.swift` | ~320 | FluidAudio's `AsrManager` kept resident, model download/load, and `AsrEngine`, the single entry point |
 | `Icon.swift` | 318 | the app icon's four marks and the menu bar's five, drawn from maths rather than borrowed from SF Symbols |
 | `Orb.swift` | 259 | `HudSpec` (every colour and duration), `HudLifecycle` (geometry and colour per frame), `HudState` |
-| `Support.swift` | 215 | `AppPaths`, `Settings`, `SettingKey`, logging, notifications, the whisper model list |
-| `Transcriber.swift` | 185 | the note format (markdown with frontmatter), `ModelDownloader` for whisper models |
+| `Support.swift` | ~190 | `AppPaths`, `Settings`, `SettingKey`, logging, notifications, the shell helper |
+| `Transcriber.swift` | ~130 | `Result`, and the note format: markdown with frontmatter carrying engine, timings and confidence |
 | `HUD.swift` | 136 | the panel, `show*` entry points, the hide timer |
 | `HudView.swift` | 105 | the SwiftUI box and the live view that ticks it |
 | `Recorder.swift` | 99 | Ponte's façade over `WaveformCapture.EngineRecorder` |
@@ -83,9 +82,7 @@ Read through `Settings`, backed by `UserDefaults`, registered in `Support.regist
 
 | key | default | meaning |
 |---|---|---|
-| `engine` | `parakeet` | which engine transcribes |
 | `parakeetModel` | `ultra` | `ultra`, `v3`, `v2`, `redux` |
-| `model` | `ggml-large-v3-turbo.bin` | the whisper model, only used by the whisper engine |
 | `language` | `en` | passed to the engine as a hint |
 | `autoPaste` | `true` | paste at the cursor, or leave it on the clipboard |
 | `keepAudio` | `false` | keep the WAV after a successful dictation |
@@ -109,7 +106,6 @@ defaults write com.ponti.ponte hudLoadingSpin -float 1.2     # then start a dict
 |---|---|
 | notes | `~/Documents/Ponte` — one markdown file per dictation, frontmatter carries engine, elapsed audio and transcription time |
 | audio | `~/Library/Application Support/Ponte/audio` — kept only when `keepAudio` is on, and after a failed or empty take so it can be diagnosed |
-| whisper models | `~/Library/Application Support/Ponte/models` |
 | parakeet models | `~/Library/Application Support/FluidAudio/Models` |
 | log | `~/Library/Application Support/Ponte/ponte.log` — every state change, and the numbers behind each |
 

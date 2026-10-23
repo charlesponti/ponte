@@ -39,24 +39,17 @@ enum ParakeetModel: String, CaseIterable {
 
 // MARK: - Engine selection
 
-enum AsrEngineKind: String, CaseIterable {
-    case whisper
-    case parakeet
-
-    var label: String {
-        switch self {
-        case .whisper: return "whisper.cpp (CPU, large-v3-turbo)"
-        case .parakeet: return "Parakeet on the Neural Engine (CoreML)"
-        }
-    }
-}
-
-/// Single entry point used by the app and the CLI. Keeps the whisper.cpp path
-/// untouched as a fallback, so switching engines is one setting.
+/// Single entry point used by the app and the CLI.
+///
+/// Parakeet is the only engine. whisper.cpp used to sit beside it as an alternative in the Engine menu, and was
+/// removed because it needed a separate Homebrew install: on any machine without one, the menu item answered
+/// `whisper-cli not found (brew install whisper-cpp)`, which is a support ticket rather than a feature. It also
+/// cost a 1.5 GB model download and 1.9 GB resident to be slower and no more accurate on the material that was
+/// measured. The numbers that made Parakeet the default are kept in docs/measurements.md, and
+/// scripts/long-dictation-check.sh still measures the behaviour that mattered.
 enum AsrEngine {
     static func transcribe(wav: URL, progress: ((String) -> Void)? = nil) throws -> Transcriber.Result {
         try transcribe(wav: wav,
-                       engine: Settings.engine,
                        parakeetModel: Settings.parakeetModel,
                        language: Settings.language,
                        progress: progress)
@@ -64,21 +57,15 @@ enum AsrEngine {
 
     /// Explicit form used by the CLI so flags don't have to mutate app settings.
     static func transcribe(wav: URL,
-                           engine: AsrEngineKind,
                            parakeetModel: ParakeetModel,
                            language: String,
                            progress: ((String) -> Void)? = nil) throws -> Transcriber.Result {
-        switch engine {
-        case .whisper:
-            return try Transcriber.transcribe(wav: wav, language: language)
-        case .parakeet:
-            return try ParakeetEngine.shared.transcribe(
-                wav: wav,
-                model: parakeetModel,
-                language: ParakeetEngine.languageHint(language),
-                progress: progress
-            )
-        }
+        try ParakeetEngine.shared.transcribe(
+            wav: wav,
+            model: parakeetModel,
+            language: ParakeetEngine.languageHint(language),
+            progress: progress
+        )
     }
 }
 

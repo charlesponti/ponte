@@ -101,22 +101,19 @@ final class SupportTests: XCTestCase {
         XCTAssertEqual(HotKeySpec.name(for: 199), "key199", "an unknown key still says something")
     }
 
-    // MARK: - Engines
-
-    func testEngineNamesRoundTrip() {
-        for kind in AsrEngineKind.allCases {
-            XCTAssertEqual(AsrEngineKind(rawValue: kind.rawValue), kind,
-                           "a stored engine name must load back as itself")
-        }
-        XCTAssertEqual(AsrEngineKind.allCases.count, 2)
-        XCTAssertTrue(AsrEngineKind.parakeet.label.contains("Parakeet"))
-        XCTAssertTrue(AsrEngineKind.whisper.label.contains("whisper.cpp"))
-        XCTAssertNotEqual(AsrEngineKind.whisper.label, AsrEngineKind.parakeet.label)
-    }
+    // MARK: - Speech models
+    //
+    // A test here used to round-trip engine names, because `engine` was a stored setting with two values.
+    // whisper.cpp was removed and the engine dimension with it, so what is worth asserting is that the model
+    // names are distinct and that a stored one loads back as itself.
 
     func testParakeetModelsAreLabelled() {
-        XCTAssertFalse(ParakeetModel.ultra.shortLabel.isEmpty)
+        for model in ParakeetModel.allCases {
+            XCTAssertEqual(ParakeetModel(rawValue: model.rawValue), model,
+                           "a stored model name must load back as itself")
+            XCTAssertFalse(model.shortLabel.isEmpty)
+        }
+        XCTAssertEqual(ParakeetModel.allCases.count, 4, "ultra, v3, v2, redux")
         XCTAssertNotEqual(ParakeetModel.ultra.shortLabel, ParakeetModel.v3.shortLabel)
-        XCTAssertEqual(ParakeetModel(rawValue: ParakeetModel.ultra.rawValue), .ultra)
     }
 }

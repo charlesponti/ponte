@@ -98,7 +98,8 @@ being measured. The check script now carries both materials, labelled.
 **Symptom.** A measurement script's source text disappears part-way through its own table, and the row that
 needs it fails with "No such file or directory".
 **Cause.** The app's whisper path ran `whisper-cli -otxt -of <wav-without-extension>` and then deleted that
-sidecar after reading it. The script's `prose.txt` sat beside `prose.wav` and was collateral damage.
+sidecar after reading it. The script's `prose.txt` sat beside `prose.wav` and was collateral damage. (That path
+has since been removed along with whisper; the rule outlives it.)
 **Rule.** Write temporary files somewhere disposable — `FileManager.default.temporaryDirectory` — never beside
 an input whose name you did not choose. A CLI that can delete a file in the user's directory because of what
 the *input* is called is a bug whatever the file is for.
@@ -134,8 +135,10 @@ exists, and it is the most common way a dictation produces nothing: 35 % of the 
 **Symptom.** A row in a table of engine timings claims a model that never ran.
 **Cause.** `--engine parakeet-v3` is not an engine — v3 is a *model* — and the CLI silently fell back to the
 default. The measurement was of ultra wearing v3's name.
-**Rule.** A tool must refuse a value it does not understand. The CLI now exits with the list of valid ones, and
-`long-dictation-check.sh` asserts the engine each run reported.
+**Rule.** A tool must refuse what it does not understand, flags included. The CLI now exits 2 on an unknown flag
+or value, with the list of what it does accept, and `long-dictation-check.sh` asserts the engine each run
+reported. Removing the `--engine` option entirely was done the same way: loudly, with an error that says what to
+use instead. A silently ignored option turns into a confidently wrong measurement.
 
 ## Saying what happened
 

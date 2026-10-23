@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let recorder = Recorder()
     private let hud = HUD()
-    private let downloader = ModelDownloader()
     private var hotKey: GlobalHotKey?
 
     /// Watches the input while recording, so a take producing nothing says so in time (see `InputWatch`).
@@ -34,7 +33,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let hotKeyDebounce: TimeInterval = 0.25
 
     private var lastTranscript: String?
-    private var progressItem: NSMenuItem?
 
     /// Whether the engine's models are on disk and loaded — see `Readiness`.
     private var readiness: Readiness = .ready
@@ -49,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        vlog("--- launch pid=\(ProcessInfo.processInfo.processIdentifier) model=\(Settings.model) whisper=\(Whisper.binary()?.path ?? "MISSING") models=\(Whisper.installedModels())")
+        vlog("--- launch pid=\(ProcessInfo.processInfo.processIdentifier) model=\(Settings.parakeetModel.rawValue)")
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateIcon()
@@ -65,24 +63,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotKey = GlobalHotKey(keyCode: code, modifiers: mods) { [weak self] in self?.toggle() }
         if hotKey == nil {
             Shell.notify("Ponte", "Hotkey \(HotKeySpec.describe(keyCode: code, modifiers: mods)) is taken — use the menu icon.")
-        }
-
-        downloader.onProgress = { [weak self] text in
-            self?.progressItem?.title = text
-            self?.hudProgress(text)
-        }
-        downloader.onFinish = { result in
-            switch result {
-            case .success(let url):
-                Settings.model = url.lastPathComponent
-                Shell.notify("Ponte", "Model ready: \(url.lastPathComponent)")
-            case .failure(let error):
-                Shell.notify("Ponte", "Download failed: \(error.localizedDescription)")
-            }
-        }
-
-        if Whisper.binary() == nil {
-            Shell.notify("Ponte", "whisper-cli not found — run: brew install whisper-cpp")
         }
 
         // Ask for the microphone once at first launch instead of surprising you
@@ -173,19 +153,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Getting ready
 
-    /// Make sure the selected engine can transcribe, saying so while it cannot.
+    /// Make sure the selected speech model can transcribe, saying so while it cannot.
     ///
-    /// Called at launch and whenever the engine or model changes. An installed model is warmed silently —
+    /// Called at launch and whenever the model changes. An installed model is warmed silently —
     /// it costs a fraction of a second and pays for the Neural Engine compile. A missing one is fetched
     /// with its progress on screen, and dictation is declined until it is done.
     private func prepareEngine() {
-        let engine = Settings.engine
-        guard engine == .parakeet else {
-            let installed = Whisper.installedModels().contains(Settings.model)
-            setReadiness(installed ? .ready
-                                   : .failed("No speech model installed — pick one under Model"))
-            return
-        }
         let model = Settings.parakeetModel
         if ParakeetEngine.shared.isInstalled(model) {
             setReadiness(.ready)
@@ -556,9 +529,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Open Audio Folder", #selector(openAudio), nil))
 
         menu.addItem(.separator())
-        menu.addItem(modelMenu())
         menu.addItem(languageMenu())
-        menu.addItem(engineMenu())
+        menu.addItem(speechModelMenu())
 
         menu.addItem(.separator())
         menu.addItem(check("Auto-paste into frontmost app", Settings.autoPaste, #selector(toggleAutoPaste)))
@@ -577,56 +549,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(quit)
     }
 
-    private func modelMenu() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
+    /// Which speech model does the work. This used to be one of two submenus, the other choosing between
+    /// Parakeet and whisper.cpp; with one engine the model is the only choice worth offering.
+    private func speechModelMenu() -> NSMenuItem {
+        let parent = NSMenuItem(title: "Speech model", action: nil, keyEquivalent: "")
         let sub = NSMenu()
         sub.autoenablesItems = false
 
-        if let progress = downloader.activeName, downloader.isBusy {
-            let p = NSMenuItem(title: "downloading \(progress)…", action: nil, keyEquivalent: "")
-            p.isEnabled = false
-            sub.addItem(p)
-            progressItem = p
-            sub.addItem(.separator())
-        } else {
-            progressItem = nil
-        }
-
-        let installed = Whisper.installedModels()
-        for name in installed {
-            sub.addItem(check(name, Settings.model == name, #selector(selectModel(_:)), represented: name))
-        }
-        if installed.isEmpty {
-            let i = NSMenuItem(title: "no models downloaded yet", action: nil, keyEquivalent: "")
-            i.isEnabled = false
-            sub.addItem(i)
-        }
-
-        let missing = Whisper.downloadable.filter { !installed.contains($0.name) }
-        if !missing.isEmpty {
-            sub.addItem(.separator())
-            for m in missing {
-                sub.addItem(item("Download \(m.label)", #selector(downloadModel(_:)), nil, represented: m.name))
-            }
-        }
-        sub.addItem(.separator())
-        sub.addItem(item("Reveal Models Folder", #selector(openModels), nil))
-
-        parent.submenu = sub
-        return parent
-    }
-
-    private func engineMenu() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Engine", action: nil, keyEquivalent: "")
-        let sub = NSMenu()
-        sub.autoenablesItems = false
-
-        for kind in AsrEngineKind.allCases {
-            sub.addItem(check(kind.label, Settings.engine == kind,
-                              #selector(selectEngine(_:)), represented: kind.rawValue))
-        }
-
-        sub.addItem(.separator())
         for model in ParakeetModel.allCases {
             let installed = ParakeetEngine.shared.isInstalled(model)
             let title = installed ? model.label : "\(model.label) — not downloaded"
@@ -719,7 +648,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openNotes() { NSWorkspace.shared.open(AppPaths.transcripts) }
     @objc private func openAudio() { NSWorkspace.shared.open(AppPaths.audio) }
-    @objc private func openModels() { NSWorkspace.shared.open(AppPaths.models) }
 
     @objc private func toggleAutoPaste() {
         Settings.autoPaste.toggle()
@@ -782,36 +710,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         promptAccessibility()
     }
 
-    @objc private func selectModel(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        Settings.model = name
-    }
-
-    @objc private func selectEngine(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String,
-              let kind = AsrEngineKind(rawValue: raw) else { return }
-        Settings.engine = kind
-        vlog("engine set to \(kind.rawValue)")
-        prepareEngine()
-        if kind == .parakeet {
-            let model = Settings.parakeetModel
-            if !ParakeetEngine.shared.isInstalled(model) {
-                Shell.notify("Ponte", "Parakeet models download on first use — the next recording will pause while they fetch.")
-            }
-            DispatchQueue.global(qos: .utility).async { [weak self] in
-                do {
-                    try ParakeetEngine.shared.preload(model: model) { message in
-                        DispatchQueue.main.async { self?.hudProgress(message) }
-                    }
-                    DispatchQueue.main.async { self?.hud.showDone("parakeet ready ✓") }
-                } catch {
-                    vlog("preload failed: \(error.localizedDescription)")
-                    DispatchQueue.main.async { self?.hud.showError("Parakeet unavailable") }
-                }
-            }
-        }
-    }
-
     @objc private func selectParakeetModel(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
               let model = ParakeetModel(rawValue: raw) else { return }
@@ -819,7 +717,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ParakeetEngine.shared.unload()
         vlog("parakeet model set to \(model.shortLabel)")
         prepareEngine()
-        guard Settings.engine == .parakeet else { return }
         hudProgress("Loading \(model.shortLabel)…")
         DispatchQueue.global(qos: .utility).async { [weak self] in
             do {
@@ -863,8 +760,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Settings.language = code
     }
 
-    @objc private func downloadModel(_ sender: NSMenuItem) {
-        guard let name = sender.representedObject as? String else { return }
-        downloader.download(name)
-    }
 }
