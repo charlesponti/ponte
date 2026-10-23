@@ -100,11 +100,27 @@ func audioDuration(_ url: URL) -> Double {
     return Double(file.length) / file.processingFormat.sampleRate
 }
 
+/// Reads the engine flags, refusing a value it does not recognise.
+///
+/// The fallback used to be silent: `--engine parakeet-v3` is not an engine name — v3 is a *model*, chosen
+/// with `--parakeet-model v3` — so it quietly transcribed with the default. A script that believes it is
+/// testing one engine while running another is worse than one that fails, and that is exactly how a table
+/// of engine timings came to carry a mislabelled row.
+func checkedFlag<T: RawRepresentable & CaseIterable>(_ flag: String, _ fallback: T) -> T
+where T.RawValue == String {
+    guard let raw = value(of: flag), !raw.isEmpty else { return fallback }
+    guard let parsed = T(rawValue: raw) else {
+        let names = T.allCases.map(\.rawValue).joined(separator: ", ")
+        FileHandle.standardError.write("error: \(flag) \(raw) is not recognised — expected one of: \(names)\n".data(using: .utf8)!)
+        exit(2)
+    }
+    return parsed
+}
+
 func engineFlags() -> (AsrEngineKind, ParakeetModel, String) {
-    let kind = AsrEngineKind(rawValue: value(of: "--engine") ?? "") ?? Settings.engine
-    let model = ParakeetModel(rawValue: value(of: "--parakeet-model") ?? "") ?? Settings.parakeetModel
-    let language = value(of: "--language") ?? Settings.language
-    return (kind, model, language)
+    (checkedFlag("--engine", Settings.engine),
+     checkedFlag("--parakeet-model", Settings.parakeetModel),
+     value(of: "--language") ?? Settings.language)
 }
 
 /// Run one engine a few times over the same file and report first/warm timings plus the text.

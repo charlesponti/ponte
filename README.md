@@ -271,22 +271,28 @@ top -l 5 -s 3 -pid "$PID" -stats pid,cpu,mem,threads,time    # read the samples 
 Synthetic speech carrying a countable pattern — 120 repetitions of one sentence plus a closing marker —
 through the CLI, so the engine is the only variable:
 
-| audio | engine | time | realtime | repetitions kept | closing marker | peak RSS |
-|---|---|---|---|---|---|---|
-| 21 s | parakeet-ultra | 0.85 s | 24x | 6 of 6 | intact | 101 MB |
-| 76 s | parakeet-ultra | 0.86 s | 89x | 24 of 24 | intact | 123 MB |
-| 6.2 min | parakeet-ultra | 2.50 s | **149x** | 119 of 120 | intact | 149 MB |
-| 76 s | parakeet-v3 | 1.53 s | 50x | 24 of 24 | intact | 131 MB |
-| 76 s | whisper large-v3-turbo | 9.24 s | 8x | **6 of 24** | jumped to it | 1895 MB |
+| audio | engine | time | repetitions kept | closing marker | peak RSS |
+|---|---|---|---|---|---|
+| 20 s | parakeet-ultra | 0.7 s | 6 of 6 | intact | 99 MB |
+| 76 s | parakeet-ultra | 0.7 s | 24 of 24 | intact | 119 MB |
+| 6 min | parakeet-ultra | 2.1 s | 119 of 120 | intact | 147 MB |
+| 76 s | parakeet-tdt-v3 | 0.8 s | 24 of 24 | intact | 123 MB |
+| 76 s | whisper large-v3-turbo | 4.9 s | **6 of 24** | jumped to it | 1886 MB |
 
-Parakeet gets *faster* with length, because the model-load cost amortises, and its memory grows gently.
-Six minutes of speech in: 5397 characters against the source's 5444, 119 of 120 repetitions, no truncation
-and nothing duplicated at the seams.
+Roughly 50-150x realtime, and it improves with length because the model-load cost amortises. Memory grows
+gently. Six minutes of speech in: 119 of 120 repetitions, 5397 characters against the source's 5444, nothing
+truncated and nothing duplicated at the seams.
+
+Read the times as seconds, not as ratios: they move by half from run to run on this machine. The repetition
+counts are the part that must not move. Both are reproduced by `./scripts/long-dictation-check.sh`, which
+also asserts that each run used the engine it asked for — the first version of this table had a
+`parakeet-v3` row that had silently run ultra, because `--engine parakeet-v3` is not a thing (v3 is a model:
+`--parakeet-model v3`) and the unknown value fell back to the default without a word. The CLI now refuses
+unknown values.
 
 **whisper is not usable for long takes.** On a 76-second clip it returned the first 19 seconds and then the
-closing sentence, silently dropping everything between — 315 characters against Parakeet's 1125, and 1.9 GB
-resident. It also needs 9 s where Parakeet needs under 1. Until it is chunked, treat it as an engine for
-short takes only.
+closing sentence, silently dropping everything between — 6 of 24 repetitions. Until it is chunked, treat it
+as an engine for short takes only. (`#12`.)
 
 ## The two numbers that matter
 
