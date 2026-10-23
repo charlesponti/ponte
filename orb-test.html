@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Orb Test</title>
+<style>body{margin:0;background:#05070b;display:grid;place-items:center;height:100vh}#root{width:360px;height:360px}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module">
+import React from 'https://esm.sh/react@19';
+import { createRoot } from 'https://esm.sh/react-dom@19/client';
+import { VoiceOrb } from 'https://esm.sh/@thecharlesponti/waveform-react';
+const root = createRoot(document.getElementById('root'));
+root.render(React.createElement(VoiceOrb, { dots: 1800, gain: 0.5, spin: 0.12, style: { width: 360, height: 360 } }));
+</script>
+</body>
+</html>
