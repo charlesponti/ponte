@@ -26,7 +26,7 @@ work.
 One engine, on the Neural Engine: FluidAudio 0.17.7 → CoreML Parakeet Ultra via `AsrManager`, models held
 resident in-process. The **Speech model** submenu picks between Ultra (default), v3, v2 and Redux.
 
-whisper.cpp was the original engine and was removed in 1.0: it needed a separate `brew install whisper-cpp`, so
+whisper.cpp was the original engine and was removed in 0.1.0: it needed a separate `brew install whisper-cpp`, so
 the menu item was broken on any machine without one, and it cost 1.9 GB resident and a 1.5 GB model download to
 be slower than Parakeet by an order of magnitude. The measurements that made it the incumbent, and then lost it
 the job, are in [`docs/measurements.md`](docs/measurements.md).
@@ -115,7 +115,7 @@ measurement workflow, the pitfalls, and the open work. Start with [docs/README.m
 ## Releasing it
 
 ```bash
-./scripts/make-dmg.sh              # dist/Ponte-1.0.dmg, signed with the Developer ID certificate
+./scripts/make-dmg.sh              # dist/Ponte-0.1.0.dmg, signed with the Developer ID certificate
 ./scripts/make-dmg.sh --notarize   # also submit to Apple, wait, and staple the ticket
 ./scripts/make-dmg.sh --install    # replace /Applications/Ponte.app with this build
 ```
@@ -125,7 +125,7 @@ with **Developer ID Application: Charles Joseph Ponti (3QHJ2KN8AL)** — team `3
 **Ponti & Co, LLC** — and the **hardened runtime** notarization requires, with
 `com.apple.security.device.audio-input` declared.
 
-**Notarized, and stapled, as of 1.0.** `--notarize` submits twice: the app first, then the disk image, stapling
+**Notarized, and stapled, as of 0.1.0.** `--notarize` submits twice: the app first, then the disk image, stapling
 each as it is accepted. Both matter, and only one of them was obvious:
 
 - The **app's** staple is what lets it launch without reaching Apple.
@@ -279,7 +279,7 @@ Same WAV file, same machine, three runs each, best warm run:
 | whisper.cpp `large-v3-turbo` (7.98 s clip) | 2.56 s | **1.76 s** | 4.5× realtime |
 | Parakeet Ultra (7.98 s clip) | 0.52 s | **0.14 s** | **56.8× realtime** |
 
-whisper.cpp was removed in 1.0. It stays in this table because it is what "Parakeet is fast" is fast *compared
+whisper.cpp was removed in 0.1.0. It stays in this table because it is what "Parakeet is fast" is fast *compared
 to* — without a second number, the first one means nothing.
 
 Through the app, hotkey to clipboard:

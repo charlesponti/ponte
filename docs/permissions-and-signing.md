@@ -81,7 +81,7 @@ an entitlement the app does not need is a reason for a notary to look harder at 
 
 Signed-but-not-notarized is what a buyer sees as *"Apple could not verify Ponte is free of malware"*, and on
 recent macOS there is no longer a right-click bypass — they would have to find System Settings → Privacy &
-Security → Open Anyway. 1.0 is notarized: two submissions, both Accepted, both stapled.
+Security → Open Anyway. The 0.1.0 build is notarized: two submissions, both Accepted, both stapled.
 
 **Sign both things.** The app is signed (Developer ID Application → Developer ID Certification Authority →
 Apple Root CA) *and* so is the disk image, which is the part that is easy to miss: Gatekeeper assesses the
@@ -105,14 +105,14 @@ stable, and the notary ticket is not.
 the check worth trusting is the one against the disk image:
 
 ```
-spctl -a -t open --context context:primary-signature -vvv dist/Ponte-1.0.dmg
-xcrun stapler validate dist/Ponte-1.0.dmg
+spctl -a -t open --context context:primary-signature -vvv dist/Ponte-0.1.0.dmg
+xcrun stapler validate dist/Ponte-0.1.0.dmg
 ```
 
 For the closest thing to a real download, copy the DMG, add a quarantine attribute the way a browser would, and
 assess that copy:
 
 ```
-xattr -w com.apple.quarantine "0083;$(printf '%x' $(date +%s));Safari;$(uuidgen)" /tmp/Ponte-1.0.dmg
-spctl -a -t open --context context:primary-signature -vvv /tmp/Ponte-1.0.dmg
+xattr -w com.apple.quarantine "0083;$(printf '%x' $(date +%s));Safari;$(uuidgen)" /tmp/Ponte-0.1.0.dmg
+spctl -a -t open --context context:primary-signature -vvv /tmp/Ponte-0.1.0.dmg
 ```
