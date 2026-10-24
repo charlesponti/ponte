@@ -23,11 +23,12 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 | #9 | measure and cut idle cost | measured: 0.0 % CPU, 22 MB, 4 threads. The 2.7 % in the issue was `ps %CPU`'s lifetime average. No work to do, and the method is now written down |
 | #8 | long dictations at 30 s / 2 min / 10 min | Parakeet is fine to six minutes and gets faster with length; whisper drops most of a long take → filed as #12. Boundary past six minutes: untested |
 
-**The issue list is frozen.** `charlesponti/ponte-macos`, where these were filed, is **archived**, so it is
-read-only: an issue there cannot be closed, commented on, or edited any more. Everything in this file is the
-authoritative record of where each one stands, and the repository is the single public one. Deciding whether to
-move the issues onto it — which would publish engineering notes to the page buyers read — is a call to make
-deliberately rather than by default.
+**Where the issues live.** All twelve exist on **both** repositories, identically — same bodies, same comments,
+same states. The public one is the live copy, and is where they are worked and closed; `charlesponti/ponte-macos`
+is an archived duplicate. GitHub refuses to move an issue *from* a private repository *to* a public one
+(*"Old issue cannot be transferred from private repository to public repository"*), so duplication was the only
+route, and the archived copy can be deleted whenever it stops being useful. The public list is where #5 was
+closed with its measurements.
 
 ### Open
 
@@ -36,7 +37,7 @@ deliberately rather than by default.
 | **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like, and whisper itself removed.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
 | #7 | notarize the DMG | done: two submissions, both Accepted and stapled. The build was signing only the app, so the *image* was rejected by Gatekeeper until it was signed too — see [pitfalls.md](pitfalls.md). The release still has to be published on this repository, since a release on the archived private one would be downloadable by nobody |
 | #6 | ship an update path | an appcast is a network call on a schedule — a product decision, not a technical one |
-| #5 | show the transcript in the HUD while speaking | **implemented** in `99f4ab5`. The wide box, the metered reveal and the mid-write snapshot are in, with the schedule tested as arithmetic (15 tests) and the live path measured on real speech (0.15–0.18 s a pass). See [hud.md](hud.md) |
+| #5 | show the transcript in the HUD while speaking | **closed.** `99f4ab5`. The wide box, the metered reveal and the mid-write snapshot are in, with the schedule tested as arithmetic (15 tests) and the live path measured on real speech (0.15–0.18 s a pass). See [hud.md](hud.md) |
 | #4 | local history window | search and re-copy past dictations |
 | #3 | custom vocabulary | names and jargon that engines keep missing |
 | #2 | re-transcribe a failed take from the menu | **implemented**; the policy and the adoption path are tested and the kept file is proven re-transcribable, but the menu click itself is unverified — see [pitfalls.md](pitfalls.md) |
