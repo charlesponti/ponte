@@ -10,9 +10,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#f6f7f9; --bg2:#ffffff; --fg:#0b0d12; --muted:#5b6478;
-    --accent:#16c784; --accent2:#4f7cff; --line:#e3e6ee; --card:#ffffff;
-    --shadow:0 12px 40px rgba(15,20,40,.08);
+    --bg:#000000; --bg2:#0a0a0a; --fg:#ffffff; --muted:#a6a6a6;
+    --accent:#16c784; --accent2:#4f7cff; --line:rgba(255,255,255,0.1); --card:#090909;
+    --shadow:0 10px 30px rgba(0,0,0,0.25);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{-webkit-font-smoothing:antialiased;overflow-x:hidden}
@@ -47,10 +47,10 @@
 <body class="font-sans bg-bg text-fg leading-[1.55]">
 
 <!-- nav -->
-<nav class="fixed top-0 left-0 right-0 z-[60] backdrop-blur-[18px] bg-[rgba(246,247,249,0.72)] border-b border-line">
+<nav class="fixed top-0 left-0 right-0 z-[60] backdrop-blur-[18px] bg-[rgba(0,0,0,0.72)] border-b border-line">
   <div class="max-w-[1200px] mx-auto px-9 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-2.5 font-bold tracking-[-0.01em] text-lg">
-      <div class="w-8 h-8 rounded-[10px] bg-gradient-to-br from-accent to-accent2 grid place-items-center text-white font-extrabold text-base shadow-[0_6px_18px_rgba(22,199,132,0.25)]">P</div>
+    <div class="flex items-center gap-2.5 font-bold tracking-[-0.01em] text-lg text-white">
+      <div class="w-8 h-8 rounded-[10px] bg-gradient-to-br from-accent to-accent2 grid place-items-center text-black font-extrabold text-base shadow-[0_6px_18px_rgba(22,199,132,0.25)]">P</div>
       Ponte
     </div>
     <div class="flex gap-7 text-sm text-muted">
@@ -60,74 +60,75 @@
       <a href="#engines" class="hover:text-fg">Engines</a>
       <a href="https://github.com/charlesponti/ponte" class="hover:text-fg">GitHub ↗</a>
     </div>
-    <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-2.5 px-[18px] py-2.5 rounded-[14px] font-semibold text-[13px] bg-accent text-white shadow-[0_10px_30px_rgba(22,199,132,0.3)] hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(22,199,132,0.45)] transition">Download</a>
+    <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full font-semibold text-[13px] bg-white text-black hover:bg-white/90 transition">Download</a>
   </div>
 </nav>
 
 <!-- hero -->
-<section class="relative pt-[130px] pb-24" style="border-top:none">
-  <div class="max-w-[1200px] mx-auto px-9">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-[70px] items-center">
+<section class="relative pt-32 pb-24 overflow-hidden">
+  <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(22,199,132,0.15),transparent_60%)] pointer-events-none"></div>
+  <div class="max-w-[1200px] mx-auto px-9 relative">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
       <div>
-        <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-5 flex items-center gap-3 before:content-[''] before:w-8 before:h-px before:bg-accent">Push-to-talk dictation · 100% local</div>
-        <h1 class="text-[clamp(52px,7vw,96px)] font-extrabold tracking-[-0.05em] leading-[1.0] mb-[22px]">Talk.<br><span class="bg-gradient-to-br from-accent via-[#1a1f2e] to-accent2 bg-clip-text text-transparent">It types.</span></h1>
-        <p class="text-xl text-muted max-w-[520px] mb-9 leading-relaxed">Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac — no network calls, no account, no subscription. The orb listens, transcribes, and pastes.</p>
-        <div class="flex gap-3.5 flex-wrap items-center" id="download">
-          <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-2.5 px-6.5 py-3.5 rounded-[14px] font-semibold text-sm bg-accent text-white shadow-[0_10px_30px_rgba(22,199,132,0.3)] hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(22,199,132,0.45)] transition">↓ Download Ponte 1.0</a>
-          <a href="https://github.com/charlesponti/ponte" class="inline-flex items-center gap-2.5 px-6.5 py-3.5 rounded-[14px] font-semibold text-sm bg-transparent border border-line text-fg hover:border-accent hover:text-accent transition">View source</a>
+        <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-6">Push-to-talk dictation · 100% local</div>
+        <h1 class="text-[clamp(56px,8vw,104px)] font-extrabold tracking-[-0.04em] leading-[0.9] mb-6 text-white">Talk.<br><span class="text-accent">It types.</span></h1>
+        <p class="text-xl text-muted max-w-[520px] mb-10 leading-relaxed">Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac — no network calls, no account, no subscription. The orb listens, transcribes, and pastes.</p>
+        <div class="flex gap-4 flex-wrap items-center" id="download">
+          <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full font-semibold text-sm bg-accent text-black shadow-[0_10px_40px_rgba(22,199,132,0.4)] hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(22,199,132,0.55)] transition">↓ Download Ponte 1.0</a>
+          <a href="https://github.com/charlesponti/ponte" class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full font-semibold text-sm bg-white/10 text-white border border-white/10 hover:bg-white/15 transition">View source</a>
         </div>
-        <div class="font-mono text-[13px] text-muted flex items-center gap-2 mt-[22px]">
-          <span class="px-2.5 py-1.25 border border-line rounded-[7px] bg-white text-fg text-xs shadow-[0_2px_0_rgba(0,0,0,0.06)]">⌥</span>
-          <span class="px-2.5 py-1.25 border border-line rounded-[7px] bg-white text-fg text-xs shadow-[0_2px_0_rgba(0,0,0,0.06)]">⌘</span>
-          <span class="px-2.5 py-1.25 border border-line rounded-[7px] bg-white text-fg text-xs shadow-[0_2px_0_rgba(0,0,0,0.06)]">Space</span>
+        <div class="font-mono text-[13px] text-muted flex items-center gap-2 mt-8">
+          <span class="px-2.5 py-1 border border-white/10 rounded-[7px] bg-white/5 text-white text-xs">⌥</span>
+          <span class="px-2.5 py-1 border border-white/10 rounded-[7px] bg-white/5 text-white text-xs">⌘</span>
+          <span class="px-2.5 py-1 border border-white/10 rounded-[7px] bg-white/5 text-white text-xs">Space</span>
           <span>start / stop recording</span>
         </div>
       </div>
-      <div class="relative rounded-[28px] overflow-hidden border border-line bg-gradient-to-b from-[#0e1320] to-[#05070b] shadow-[0_40px_120px_rgba(0,0,0,0.12),0_0_80px_rgba(22,199,132,0.12)] aspect-square">
+      <div class="relative rounded-[28px] overflow-hidden border border-white/10 bg-gradient-to-b from-[#0a0f1a] to-[#020408] shadow-[0_40px_120px_rgba(0,0,0,0.6),0_0_80px_rgba(22,199,132,0.15)] aspect-square">
         <div id="hero-orb" class="w-full h-full"></div>
-        <div class="absolute bottom-4 left-5 font-mono text-[11px] text-[#9aa3b8] tracking-[0.14em] uppercase">the <span class="text-accent">orb</span> · live</div>
+        <div class="absolute bottom-4 left-5 font-mono text-[11px] text-muted tracking-[0.14em] uppercase">the <span class="text-accent">orb</span> · live</div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- features -->
-<section id="features" class="py-30">
+<section id="features" class="py-32 border-t border-line">
   <div class="max-w-[1200px] mx-auto px-9">
     <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3 flex items-center gap-3 before:content-[''] before:w-8 before:h-px before:bg-accent">Features</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4">Sick STT, zero cloud.</h2>
+      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Features</div>
+      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">Sick STT, zero cloud.</h2>
       <p class="text-muted text-xl">Two interchangeable engines, a floating orb that tells you exactly what's happening, and text pasted wherever your cursor is.</p>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <div class="bg-card border border-line rounded-2xl p-8 shadow-card transition hover:-translate-y-1.25 hover:shadow-[0_24px_60px_rgba(15,20,40,0.12)] hover:border-accent">
-        <div class="w-11.5 h-11.5 rounded-[14px] bg-gradient-to-br from-[rgba(22,199,132,0.12)] to-[rgba(79,124,255,0.12)] grid place-items-center mb-5 text-[22px] border border-[rgba(22,199,132,0.18)]">🔒</div>
-        <h3 class="text-lg mb-2 font-semibold">100% local</h3>
+      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
+        <div class="text-[28px] mb-5">🔒</div>
+        <h3 class="text-lg mb-2 font-semibold text-white">100% local</h3>
         <p class="text-muted text-[15px] leading-relaxed">No network calls, no account, no subscription. Your voice never leaves the machine.</p>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-8 shadow-card transition hover:-translate-y-1.25 hover:shadow-[0_24px_60px_rgba(15,20,40,0.12)] hover:border-accent">
-        <div class="w-11.5 h-11.5 rounded-[14px] bg-gradient-to-br from-[rgba(22,199,132,0.12)] to-[rgba(79,124,255,0.12)] grid place-items-center mb-5 text-[22px] border border-[rgba(22,199,132,0.18)]">⚡</div>
-        <h3 class="text-lg mb-2 font-semibold">Parakeet on the ANE</h3>
+      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
+        <div class="text-[28px] mb-5">⚡</div>
+        <h3 class="text-lg mb-2 font-semibold text-white">Parakeet on the ANE</h3>
         <p class="text-muted text-[15px] leading-relaxed">FluidAudio → CoreML Parakeet Ultra on the Apple Neural Engine. Models stay resident for instant starts.</p>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-8 shadow-card transition hover:-translate-y-1.25 hover:shadow-[0_24px_60px_rgba(15,20,40,0.12)] hover:border-accent">
-        <div class="w-11.5 h-11.5 rounded-[14px] bg-gradient-to-br from-[rgba(22,199,132,0.12)] to-[rgba(79,124,255,0.12)] grid place-items-center mb-5 text-[22px] border border-[rgba(22,199,132,0.18)]">🧠</div>
-        <h3 class="text-lg mb-2 font-semibold">whisper.cpp fallback</h3>
+      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
+        <div class="text-[28px] mb-5">🧠</div>
+        <h3 class="text-lg mb-2 font-semibold text-white">whisper.cpp fallback</h3>
         <p class="text-muted text-[15px] leading-relaxed">CPU engine with large-v3-turbo. Switchable from the menu, no rebuild needed.</p>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-8 shadow-card transition hover:-translate-y-1.25 hover:shadow-[0_24px_60px_rgba(15,20,40,0.12)] hover:border-accent">
-        <div class="w-11.5 h-11.5 rounded-[14px] bg-gradient-to-br from-[rgba(22,199,132,0.12)] to-[rgba(79,124,255,0.12)] grid place-items-center mb-5 text-[22px] border border-[rgba(22,199,132,0.18)]">🎯</div>
-        <h3 class="text-lg mb-2 font-semibold">Global hotkey</h3>
+      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
+        <div class="text-[28px] mb-5">🎯</div>
+        <h3 class="text-lg mb-2 font-semibold text-white">Global hotkey</h3>
         <p class="text-muted text-[15px] leading-relaxed">Carbon hotkey — no Accessibility permission needed just to trigger. Works in any app.</p>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-8 shadow-card transition hover:-translate-y-1.25 hover:shadow-[0_24px_60px_rgba(15,20,40,0.12)] hover:border-accent">
-        <div class="w-11.5 h-11.5 rounded-[14px] bg-gradient-to-br from-[rgba(22,199,132,0.12)] to-[rgba(79,124,255,0.12)] grid place-items-center mb-5 text-[22px] border border-[rgba(22,199,132,0.18)]">🫧</div>
-        <h3 class="text-lg mb-2 font-semibold">Orb HUD</h3>
+      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
+        <div class="text-[28px] mb-5">🫧</div>
+        <h3 class="text-lg mb-2 font-semibold text-white">Orb HUD</h3>
         <p class="text-muted text-[15px] leading-relaxed">A 96px squircle that listens, thinks, and confirms. Mint while recording, green on done, red on error.</p>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-8 shadow-card transition hover:-translate-y-1.25 hover:shadow-[0_24px_60px_rgba(15,20,40,0.12)] hover:border-accent">
-        <div class="w-11.5 h-11.5 rounded-[14px] bg-gradient-to-br from-[rgba(22,199,132,0.12)] to-[rgba(79,124,255,0.12)] grid place-items-center mb-5 text-[22px] border border-[rgba(22,199,132,0.18)]">📋</div>
-        <h3 class="text-lg mb-2 font-semibold">Paste anywhere</h3>
+      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
+        <div class="text-[28px] mb-5">📋</div>
+        <h3 class="text-lg mb-2 font-semibold text-white">Paste anywhere</h3>
         <p class="text-muted text-[15px] leading-relaxed">Transcript is dropped straight into the focused app at your cursor.</p>
       </div>
     </div>
@@ -135,28 +136,28 @@
 </section>
 
 <!-- screens -->
-<section id="screens" class="py-30">
+<section id="screens" class="py-32 border-t border-line">
   <div class="max-w-[1200px] mx-auto px-9">
     <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3 flex items-center gap-3 before:content-[''] before:w-8 before:h-px before:bg-accent">Screens</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4">The orb, in three moods.</h2>
+      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Screens</div>
+      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">The orb, in three moods.</h2>
       <p class="text-muted text-xl">Mint and spinning while it listens. Green and collapsing when done. Red and throbbing on error.</p>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
       <div class="grid gap-3 justify-items-center">
-        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center">
+        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center shadow-[0_0_40px_rgba(22,199,132,0.15)]">
           <voice-orb mood="listening" class="w-24 h-24"></voice-orb>
         </div>
         <div class="text-[13px] text-[#5eead4] font-mono">0:03</div>
       </div>
       <div class="grid gap-3 justify-items-center">
-        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center">
+        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center shadow-[0_0_40px_rgba(22,199,132,0.15)]">
           <voice-orb mood="done" class="w-24 h-24"></voice-orb>
         </div>
         <div class="text-[13px] text-[#16c784] font-mono">Pasted ✓</div>
       </div>
       <div class="grid gap-3 justify-items-center">
-        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center">
+        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center shadow-[0_0_40px_rgba(239,68,68,0.15)]">
           <voice-orb mood="error" class="w-24 h-24"></voice-orb>
         </div>
         <div class="text-[13px] text-[#ef4444] font-mono">Error</div>
@@ -166,26 +167,26 @@
 </section>
 
 <!-- how -->
-<section id="how" class="py-30">
+<section id="how" class="py-32 border-t border-line">
   <div class="max-w-[1200px] mx-auto px-9">
     <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3 flex items-center gap-3 before:content-[''] before:w-8 before:h-px before:bg-accent">How it works</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4">Three steps. One hotkey.</h2>
+      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">How it works</div>
+      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">Three steps. One hotkey.</h2>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-      <div class="relative pt-6.5">
+      <div class="relative pt-8">
         <div class="absolute top-0 left-0 font-mono text-[13px] text-accent tracking-[0.12em] font-medium">01</div>
-        <h4 class="text-xl mt-5.5 mb-2 font-semibold">Press</h4>
+        <h4 class="text-xl mt-6 mb-2 font-semibold text-white">Press</h4>
         <p class="text-muted text-[15px]">⌥⌘Space starts recording. Press again to stop. The orb spins mint.</p>
       </div>
-      <div class="relative pt-6.5">
+      <div class="relative pt-8">
         <div class="absolute top-0 left-0 font-mono text-[13px] text-accent tracking-[0.12em] font-medium">02</div>
-        <h4 class="text-xl mt-5.5 mb-2 font-semibold">Transcribe</h4>
+        <h4 class="text-xl mt-6 mb-2 font-semibold text-white">Transcribe</h4>
         <p class="text-muted text-[15px]">Parakeet (ANE) or whisper.cpp (CPU) turns speech into text on-device.</p>
       </div>
-      <div class="relative pt-6.5">
+      <div class="relative pt-8">
         <div class="absolute top-0 left-0 font-mono text-[13px] text-accent tracking-[0.12em] font-medium">03</div>
-        <h4 class="text-xl mt-5.5 mb-2 font-semibold">Paste</h4>
+        <h4 class="text-xl mt-6 mb-2 font-semibold text-white">Paste</h4>
         <p class="text-muted text-[15px]">Transcript drops at your cursor in whatever app is focused.</p>
       </div>
     </div>
@@ -193,32 +194,32 @@
 </section>
 
 <!-- engines -->
-<section id="engines" class="py-30">
+<section id="engines" class="py-32 border-t border-line">
   <div class="max-w-[1200px] mx-auto px-9">
     <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3 flex items-center gap-3 before:content-[''] before:w-8 before:h-px before:bg-accent">Engines</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4">Pick your engine.</h2>
+      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Engines</div>
+      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">Pick your engine.</h2>
       <p class="text-muted text-xl">Switchable live from the menu bar. No rebuild, no restart.</p>
     </div>
-    <div class="w-full mt-2 bg-card rounded-2xl overflow-hidden shadow-card">
+    <div class="w-full mt-2 bg-card rounded-2xl overflow-hidden border border-line">
       <table class="w-full border-collapse">
         <thead>
           <tr>
-            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-[#fafbfc]">Engine</th>
-            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-[#fafbfc]">Runs on</th>
-            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-[#fafbfc]">Notes</th>
+            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-bg2">Engine</th>
+            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-bg2">Runs on</th>
+            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-bg2">Notes</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] font-semibold">Parakeet (default) <span class="inline-block px-2 py-0.75 rounded-md text-[11px] font-mono bg-[rgba(22,199,132,0.12)] text-accent ml-2 font-medium">ANE</span></td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px]">Apple Neural Engine</td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px]">FluidAudio 0.17.7 · CoreML Parakeet Ultra · models stay resident</td>
+            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] font-semibold text-white">Parakeet (default) <span class="inline-block px-2 py-0.75 rounded-md text-[11px] font-mono bg-[rgba(22,199,132,0.12)] text-accent ml-2 font-medium">ANE</span></td>
+            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">Apple Neural Engine</td>
+            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">FluidAudio 0.17.7 · CoreML Parakeet Ultra · models stay resident</td>
           </tr>
           <tr>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] font-semibold">whisper.cpp</td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px]">CPU</td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px]">large-v3-turbo · reloaded per recording · needs brew whisper-cpp</td>
+            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] font-semibold text-white">whisper.cpp</td>
+            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">CPU</td>
+            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">large-v3-turbo · reloaded per recording · needs brew whisper-cpp</td>
           </tr>
         </tbody>
       </table>
@@ -227,27 +228,27 @@
 </section>
 
 <!-- req -->
-<section id="req" class="py-30">
+<section id="req" class="py-32 border-t border-line">
   <div class="max-w-[1200px] mx-auto px-9">
     <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3 flex items-center gap-3 before:content-[''] before:w-8 before:h-px before:bg-accent">Requirements</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4">What you need.</h2>
+      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Requirements</div>
+      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">What you need.</h2>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4.5">
-      <div class="bg-card border border-line rounded-2xl p-5.5 shadow-card">
-        <strong class="block mb-1 text-base">macOS 14+</strong>
+      <div class="bg-card border border-line rounded-2xl p-5.5">
+        <strong class="block mb-1 text-base text-white">macOS 14+</strong>
         <span class="text-muted text-sm">Sonoma or newer.</span>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-5.5 shadow-card">
-        <strong class="block mb-1 text-base">Microphone</strong>
+      <div class="bg-card border border-line rounded-2xl p-5.5">
+        <strong class="block mb-1 text-base text-white">Microphone</strong>
         <span class="text-muted text-sm">Granted on first launch.</span>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-5.5 shadow-card">
-        <strong class="block mb-1 text-base">whisper-cpp</strong>
+      <div class="bg-card border border-line rounded-2xl p-5.5">
+        <strong class="block mb-1 text-base text-white">whisper-cpp</strong>
         <span class="text-muted text-sm">Only for the whisper engine: <code class="font-mono text-xs">brew install whisper-cpp</code></span>
       </div>
-      <div class="bg-card border border-line rounded-2xl p-5.5 shadow-card">
-        <strong class="block mb-1 text-base">Models</strong>
+      <div class="bg-card border border-line rounded-2xl p-5.5">
+        <strong class="block mb-1 text-base text-white">Models</strong>
         <span class="text-muted text-sm">Parakeet downloads on first use; whisper models in ~/Library/Application Support/Ponte/models</span>
       </div>
     </div>
@@ -257,7 +258,7 @@
   </div>
 </section>
 
-<footer class="py-20 border-t border-line text-muted text-[13px] bg-white">
+<footer class="py-20 border-t border-line text-muted text-[13px] bg-bg2">
   <div class="max-w-[1200px] mx-auto px-9 flex justify-between flex-wrap gap-3.5">
     <span>Ponte · by Ponti Studios</span>
     <div class="flex gap-5">
@@ -274,7 +275,7 @@
   import { createRoot } from 'react-dom/client';
   import { VoiceOrb } from '@thecharlesponti/waveform-react';
   const el = document.getElementById('hero-orb');
-  if (el) createRoot(el).render(createElement(VoiceOrb, { dots: 1800, gain: 0.5, spin: 0.12, tint: '#5eead4' }));
+  if (el) createRoot(el).render(createElement(VoiceOrb, { dots: 1800, gain: 0.5, spin: 0.12, tint: '#16c784' }));
 </script>
 </body>
 </html>
