@@ -3,6 +3,11 @@
 The GitHub issues are the source of truth for what is left. This document exists to say which ones matter, which
 are waiting on a person, and what is known but not filed.
 
+Everything is in one repository now: `charlesponti/ponte` holds the source, the site (`index.html`, published from
+`main` by GitHub Pages) and the releases. The old private `charlesponti/ponte-macos` is archived — its issues were
+recreated here with their numbers and threads, because GitHub will not transfer issues from a private repository
+to a public one. The upstream package is `charlesponti/waveform-ios`.
+
 ## Filed
 
 Fifteen issues were filed together after the first phase of measurement, deliberately lowest-priority-first so
@@ -23,7 +28,7 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 | | what | notes |
 |---|---|---|
 | **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like, and whisper itself removed.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
-| #7 | notarize the DMG | done: two submissions, both Accepted and stapled. The build was signing only the app, so the *image* was rejected by Gatekeeper until it was signed too — see [pitfalls.md](pitfalls.md) |
+| #7 | notarize the DMG | done: two submissions, both Accepted and stapled. The build was signing only the app, so the *image* was rejected by Gatekeeper until it was signed too — see [pitfalls.md](pitfalls.md). The release still has to be published on this repository, since a release on the archived private one would be downloadable by nobody |
 | #6 | ship an update path | an appcast is a network call on a schedule — a product decision, not a technical one |
 | #5 | show the transcript in the HUD while speaking | party trick that costs the watch-the-orb honesty |
 | #4 | local history window | search and re-copy past dictations |
