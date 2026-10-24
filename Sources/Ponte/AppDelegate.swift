@@ -349,7 +349,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.hud.beginRecording()
             self.live.onTrace = { vlog($0) }
             self.live.onText = { [weak self] text, seconds in
-                self?.hud.pushTranscript(text, seconds: seconds)
+                // The same replacements the final transcript gets: what you watch on the line should be what lands
+                // in the document, not a preview of a different spelling.
+                self?.hud.pushTranscript(Vocabulary.load().applied(to: text), seconds: seconds)
             }
             self.live.start(audio: url, language: Settings.language)
             self.startWatchingInput()
@@ -451,13 +453,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        lastTranscript = text
-        Transcriber.save(transcript: text, audio: audio, elapsed: elapsed, took: took, engine: engine)
-        vlog(String(format: "transcribed %.1fs audio in %.1fs -> %d chars [%@]", elapsed, took, text.count, engine))
+        // The replacement list, applied once, here: from this point the note, the clipboard, the paste and
+        // `lastTranscript` must agree, and the engine's raw spelling is not what anyone wants pasted.
+        let finalText = Vocabulary.load().applied(to: text)
+        if finalText != text { vlog("vocabulary: replaced in \(text.count) -> \(finalText.count) chars") }
+
+        lastTranscript = finalText
+        Transcriber.save(transcript: finalText, audio: audio, elapsed: elapsed, took: took, engine: engine)
+        vlog(String(format: "transcribed %.1fs audio in %.1fs -> %d chars [%@]",
+                    elapsed, took, finalText.count, engine))
 
         let pb = NSPasteboard.general
         pb.clearContents()
-        pb.setString(text, forType: .string)
+        pb.setString(finalText, forType: .string)
 
         if Settings.autoPaste, AXIsProcessTrusted() {
             pasteAtCursor()
@@ -577,6 +585,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(item("Open Notes Folder", #selector(openNotes), nil))
         menu.addItem(item("Open Audio Folder", #selector(openAudio), nil))
+        // Terms can be added without a rebuild: the file is read at every transcription.
+        menu.addItem(item("Vocabulary: Edit Replacement List…", #selector(editVocabulary), nil))
 
         menu.addItem(.separator())
         menu.addItem(languageMenu())
@@ -697,6 +707,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openNotes() { NSWorkspace.shared.open(AppPaths.transcripts) }
+
+    /// Opens the replacement list, writing a small example the first time so there is something to edit rather
+    /// than an empty file. It is plain JSON on purpose: hand-editable, scriptable, and easy to back up.
+    @objc private func editVocabulary() {
+        let url = Vocabulary.ensureFile()
+        NSWorkspace.shared.open(url)
+        vlog("vocabulary: opened \(url.path)")
+    }
     @objc private func openAudio() { NSWorkspace.shared.open(AppPaths.audio) }
 
     @objc private func toggleAutoPaste() {

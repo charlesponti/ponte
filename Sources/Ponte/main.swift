@@ -531,7 +531,10 @@ func runCLI() -> Int32? {
                                                   language: lang) { message in
                 FileHandle.standardError.write("  \(message)\n".data(using: .utf8)!)
             }
-            print(result.text)
+            // The same replacement list the app applies before pasting, so what this prints is what would land
+            // in a document — which is also what makes this command useful for checking a rule.
+            let text = Vocabulary.load().applied(to: result.text)
+            print(text)
             FileHandle.standardError.write("(\(String(format: "%.2f", result.seconds))s, engine=\(result.engine))\n".data(using: .utf8)!)
             _ = language
             return result.text.isEmpty ? 1 : 0

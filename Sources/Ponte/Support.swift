@@ -29,6 +29,9 @@ enum AppPaths {
         return u
     }()
 
+    /// The replacement list for words the engine keeps getting wrong. Plain JSON, editable by hand.
+    static let vocabulary = support.appendingPathComponent("vocabulary.json")
+
     static let log = support.appendingPathComponent("ponte.log")
 
     static func stamp(_ d: Date = Date()) -> String {

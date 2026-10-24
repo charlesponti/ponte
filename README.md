@@ -377,6 +377,40 @@ engine: parakeet-ultra
 ---
 ```
 
+## Vocabulary
+
+Engines mis-hear the words that matter most: product names, colleagues, jargon. Ponte has two ways to fix that, and
+they do different things.
+
+**A replacement list**, which is what it ships with. Plain JSON, read at every transcription, so terms can be added
+without a rebuild:
+
+```
+~/Library/Application Support/Ponte/vocabulary.json
+```
+
+```json
+[ { "from": "parakeet", "to": "Parakeet" },
+  { "from": "pin to",   "to": "Ponte" },
+  { "from": "ponte app", "to": "the Ponte app" } ]
+```
+
+The menu item **Vocabulary: Edit Replacement List…** creates the file with two examples and opens it. Matching is
+case-insensitive and whole-word — `ponte` does not fire inside `pontes` — and longer phrases are applied before
+shorter ones, so a phrase rule wins over a single-word rule it contains. The replacement is literal: a `$` or a
+backslash in a name is a character, not a template. A list that cannot be parsed means *no* replacements rather than
+a failed dictation, because a broken list must never cost anyone their words.
+
+It is applied once, where a transcript becomes final — so the note, the clipboard, the paste and the HUD's live line
+all show the same text. `Ponte --transcribe file.wav` applies it too, which makes it the way to check a rule.
+
+**Bias in the decoder**, which is not enabled. FluidAudio 0.17.7 does expose it —
+`configureVocabularyBoosting(vocabulary:ctcModels:config:)` runs a *separate CTC model* over the same audio and
+re-scores the transcript where the acoustics support a term, which is stronger than replacing text after the fact
+because it can fix a word the engine got wrong in a way no spelling rule predicts. It costs an extra model (the CTC
+checkpoint, about 98 MB), a second pass over the audio on every transcription, and it only helps terms the acoustics
+are close to. The replacement list needs none of that and fixes the consistent errors — which is most of them.
+
 ## Permissions
 
 - **Microphone** — required. Prompted on first recording; also under **Permissions ▸ Microphone**.
