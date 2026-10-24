@@ -3,6 +3,17 @@
 Push-to-talk dictation for macOS. Press a hotkey, talk, and the text appears at your cursor.
 Everything runs on your Mac — no network calls, no account, no subscription.
 
+**Site** <https://charlesponti.github.io/ponte/> · **Releases** [../../releases](../../releases) · **Issues** [../../issues](../../issues)
+
+The site is the `index.html` at the root of this repository and is published from `main` by GitHub Pages, so the
+product page, the source and the download live in one place. Keeping them together is deliberate: the page
+described an app that no longer existed — an engine that had been removed, a macOS version two releases back, a
+feature that was never built — and nothing in the structure made that drift visible.
+
+The engineering notes are in [`docs/`](docs/README.md): architecture, the engine and its measurements, the HUD's
+lifecycle and geometry, permissions and signing, the test and measurement workflow, the pitfalls, and the open
+work.
+
 ```
 ⌥⌘Space   start recording  (press again to stop)
           → a 96 px squircle holding the orb, mint and spinning fast while it listens
