@@ -58,6 +58,76 @@ and vanish against a grey blur. A 12 % hairline is the only edge.
   register top and bottom, which is why spacing that looks right in the code is not. See
   [measurements.md](measurements.md) for the ink measurements.
 
+## The live transcript
+
+While a take is running the box is wide — **330 × 156** — and a row sits under the orb: the clock on the left, one
+line of speech filling the rest. Words arrive out of a blur, the line drifts left as each one lands, and the oldest
+slide off behind a 34 pt fade. Nothing scrolls and nothing wraps.
+
+### The words are metered, not dumped
+
+The engine does not deliver words at the rate they are spoken. It transcribes everything it has heard each time it
+is asked, so a burst of three or four words arrives together every 1.2 s. Animating the burst animates the wrong
+thing: you would see the transcript arrive in lumps, which is a property of polling rather than of speech.
+
+So words are queued and released at the rate they were *spoken*, measured from the take itself — words ÷ seconds of
+audio, clamped to 2–6 a second. A slow speaker gets slow words; a fast one keeps up.
+
+The blur is then derived rather than chosen. A word's entrance should occupy about two thirds of its slot:
+
+| symbol | meaning | value |
+|---|---|---|
+| `R` | words a second, measured | 2.5 — conversational English, 150 wpm |
+| `1/R` | the slot each word gets | 400 ms |
+| `D` | how long a word takes to resolve | `clamp(0.72/R, 0.15, 0.40)` → **288 ms** |
+
+The bounds are perceptual, not stylistic: under about 150 ms the eye reads a cut rather than a blur, and past
+400 ms a word is still resolving when the next one lands, which is a permanent haze rather than a reveal. Past
+about 4.8 words a second the floor takes over from the rule, which is why there is a clamp at each end and a test
+for each.
+
+Because the schedule is arithmetic on a queue, it is asserted rather than watched (`TranscriptRevealTests`): a
+burst of seven words drains in 2.688 s, every word resolves inside its own slot, and the newest one or two sit at
+66 % ink until a later snapshot agrees with them. That last part is honest about a real property — each snapshot
+re-transcribes the audio, so the tail *can* change. A word that looks final but moves reads as a mistake; one that
+looks provisional reads as thinking.
+
+### Reading a file that is still being written
+
+A WAV in progress has **zero in its two size fields** — the recorder fills them in when it closes the file — and
+the engine refuses it outright: *"Invalid audio data provided. Must be at least 300ms of 16kHz audio."* So a pass
+copies the bytes written so far and patches the RIFF size and the `data` chunk size. The first version wrote the
+`data` size *into the first two samples* instead of into the field four bytes before them, which the engine would
+have heard as a click; the header test is what stopped it.
+
+Only one pass may be in flight. The engine is shared with the final transcription, and a queue of passes would
+delay the result the person is waiting for, so a tick that finds a pass running is skipped. The interval starts at
+1.2 s, stretches to 2 s past twenty seconds, and stops entirely past a minute: the engine's cost grows with the
+audio (0.59 s for eight seconds, about 2.5 s for two minutes) and the line is a courtesy by then. `live.stop()`
+runs *before* the final transcription is asked for.
+
+Measured on real speech, fed to the live path one second at a time: passes over 1.0, 2.0, 3.0, 4.0 and 5.34 s of a
+take still being written, each costing **0.15–0.18 s**, with no pass losing a word an earlier one had, and the
+first word settled from the first pass onwards.
+
+### Working on it
+
+- `--hud-render <out.png> recording <t> <text> --words "the quick brown fox" --since 2 --rate 2.5` draws the live
+  box at any moment. The reveal is a function of time, so the same arguments always draw the same frame.
+- `--record 12 --live` runs the whole thing against the microphone and prints what it hears while the take is still
+  running, with the elapsed time of each pass. This is how the feature is exercised without a GUI.
+- The acoustic route is unavailable on a Mac whose default input is a pair of AirPods: scripted dictation needs the
+  speakers to reach the microphone. `LiveTranscriptIntegrationTests` gets around it by synthesising speech to a
+  *file* (`say -o`, no microphone involved) and feeding it in slices — the same shape of input the recorder gives
+  the live path.
+- A run-loop `Timer` will not do this job. It fires only when something is running the run loop, and there are real
+  cases where nothing is — while a menu is tracking, and in any harness that pumps the main queue without spinning
+  the run loop. It is a `DispatchSourceTimer`, whose handler hops to the main queue so everything stateful stays
+  single-threaded.
+- **Never ask `AVAudioFile` how long a file being written is.** It reports zero for a WAV whose size fields are
+  zero, so a guard built on it silently blocks every pass. The only trustworthy measure mid-take is the payload:
+  16 kHz mono 16-bit is 32,000 bytes a second.
+
 ## The orb
 
 From `WaveformUI`, the same sphere Thames draws: 1,100 dots, a gain of 0.25 and a dot scale of 0.28 at Ponte's

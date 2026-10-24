@@ -7,6 +7,16 @@ import WaveformUI
 ///
 /// The columns and the clock belong to the recording engine (`WaveformCapture`), so the orb Ponte
 /// draws is the same picture Thames draws from the same analysis.
+/// Everything the live transcript needs to draw itself, and nothing else. Empty until words arrive.
+struct LiveText: Equatable {
+    var words: [String] = []
+    /// Seconds after the take began when the first word appeared: the reveal schedule is measured from there.
+    var since: TimeInterval = 0
+    /// Words a second, measured from the take (`TranscriptReveal.rate`), so a slow speaker gets slow words.
+    var rate: Double = 2.5
+    var isEmpty: Bool { words.isEmpty }
+}
+
 final class HudModel: ObservableObject {
     @Published var state: HudState = .idle
     @Published var startedAt = Date()
@@ -16,6 +26,10 @@ final class HudModel: ObservableObject {
     @Published var hint: String?
     /// The box the collapse is heading for: the measured pill, text plus padding.
     @Published var target = CGSize(width: HudSpec.fullBox, height: HudSpec.fullBox)
+    /// What the engine has heard so far, revealed at the rate it was spoken.
+    @Published var live = LiveText()
+    /// How long the take ended up being. The clock must stop when the recording does, not when the HUD hides.
+    @Published var recordedFor: TimeInterval = 0
 
     var ring = ColumnRing(capacity: 8192)
     var clock: StreamClock?
@@ -41,6 +55,10 @@ struct HudBox: View {
     var spinRate: Float = HudSpec.baseSpin
     /// Off for a still: a turning orb is drawn from the wall clock, so two renders differ.
     var turning: Bool = true
+    /// What the engine has heard so far. Only the live states have room for it.
+    var live = LiveText()
+    /// The take's length once it has stopped. While recording the clock follows `t`; after that it holds.
+    var recordedFor: TimeInterval = 0
 
     var body: some View {
         let geometry = HudLifecycle.geometry(state, t, target: target)
@@ -52,6 +70,14 @@ struct HudBox: View {
         // take ends — the clock is not lost, it is just not the most useful thing to show.
         let text = hint ?? (state == .recording ? HudLifecycle.clock(t) : label)
         let textColour = hint == nil ? labelColour : Color(nsColor: HudSpec.amber)
+        // The wide box has a row under the orb instead of a single centred line: the clock holds the left,
+        // and the transcript fills the rest. The clock keeps its own width so a count past nine minutes does
+        // not shove the text sideways.
+        let wide = (state == .recording || state == .working) && geometry.collapse < 0.5
+        // The clock's number stops when the take does; the transcript's own clock must not, or the last words
+        // of a take would freeze half-revealed when the engine starts thinking.
+        let seconds = state == .recording ? t : recordedFor
+        let lineWidth = HudSpec.liveBox.width - HudSpec.boxPadding * 2 - HudSpec.clockWidth - 8
 
         ZStack {
             RoundedRectangle(cornerRadius: geometry.radius, style: .continuous)
@@ -73,10 +99,29 @@ struct HudBox: View {
                         .frame(width: orbSize, height: orbSize)
                         .opacity(visual.alpha)
                 }
-                Text(text)
-                    .font(.system(size: geometry.labelSize, weight: .semibold))
-                    .foregroundStyle(textColour)
-                    .fixedSize()
+                if wide {
+                    HStack(spacing: 8) {
+                        Text(HudLifecycle.clock(seconds))
+                            .font(.system(size: HudSpec.smallLabelSize, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.white.opacity(HudSpec.transcriptClockAlpha))
+                            .frame(width: HudSpec.clockWidth, alignment: .trailing)
+                        if let hint {
+                            Text(hint)
+                                .font(.system(size: HudSpec.transcriptSize, weight: .semibold))
+                                .foregroundStyle(Color(nsColor: HudSpec.amber))
+                                .fixedSize()
+                        } else {
+                            TranscriptLine(words: live.words, elapsed: t - live.since, rate: live.rate,
+                                           width: lineWidth)
+                        }
+                    }
+                } else {
+                    Text(text)
+                        .font(.system(size: geometry.labelSize, weight: .semibold))
+                        .foregroundStyle(textColour)
+                        .fixedSize()
+                }
             }
             .fixedSize()
             // The lift is what gives the text its bottom clearance without moving the orb's top edge.
@@ -84,6 +129,56 @@ struct HudBox: View {
         }
         .frame(width: geometry.box.width, height: geometry.box.height)
         .opacity(geometry.hudAlpha)
+    }
+}
+
+/// One line of live transcript: the words the engine has heard, revealed at the rate they were spoken.
+///
+/// Pure in `elapsed`, like the box around it, so any frame of it can be rendered and a still says something
+/// true. The reveal itself — which word appears when, and how long it takes to resolve — is
+/// `TranscriptReveal`'s, derived from the take's own speaking rate rather than chosen by eye.
+///
+/// Nothing here animates by state change: every word's blur, rise, scale and ink is a function of the time on
+/// the clock, which is why two renders of the same moment agree.
+struct TranscriptLine: View {
+    var words: [String]
+    var elapsed: TimeInterval
+    var rate: Double
+    var width: CGFloat
+
+    var body: some View {
+        let newest = words.count - 1
+        let newestProgress = TranscriptReveal.progress(wordIndex: newest, at: elapsed, rate: rate)
+        HStack(spacing: HudSpec.transcriptWordGap) {
+            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
+                let p = TranscriptReveal.progress(wordIndex: index, at: elapsed, rate: rate)
+                if p > 0 {
+                    let fresh = TranscriptReveal.provisional(wordIndex: index, of: words.count,
+                                                             elapsed: elapsed, rate: rate)
+                    Text(word)
+                        .font(.system(size: HudSpec.transcriptSize, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(fresh ? HudSpec.transcriptFreshAlpha
+                                                                  : HudSpec.transcriptInkAlpha))
+                        .blur(radius: (1 - p) * HudSpec.transcriptBlur)
+                        .opacity(p)
+                        .offset(y: (1 - p) * HudSpec.transcriptRise)
+                        .scaleEffect(HudSpec.transcriptScale + (1 - HudSpec.transcriptScale) * p)
+                        .fixedSize()
+                }
+            }
+        }
+        .fixedSize()
+        // The line drifts left as the newest word lands, so it floats rather than jumping. Measured from the
+        // same schedule, so it needs no animation state to restart.
+        .offset(x: HudSpec.transcriptGlide * CGFloat(1 - newestProgress))
+        .frame(width: width, alignment: .trailing)
+        .clipped()
+        .overlay(alignment: .leading) {
+            LinearGradient(colors: [Color(nsColor: HudSpec.boxFill).opacity(HudSpec.boxFillAlpha), .clear],
+                           startPoint: .leading, endPoint: .trailing)
+                .frame(width: HudSpec.transcriptFade)
+                .allowsHitTesting(false)
+        }
     }
 }
 
@@ -98,7 +193,8 @@ struct HudView: View {
                 label: model.label, labelColour: model.labelColour, hint: model.hint,
                 target: model.target,
                 ring: model.ring, clock: model.clock, columnsPerSecond: model.columnsPerSecond,
-                gain: model.gain, spinRate: model.spinRate)
+                gain: model.gain, spinRate: model.spinRate,
+                live: model.live, recordedFor: model.recordedFor)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
     }

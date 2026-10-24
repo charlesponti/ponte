@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ponte — HUD transcript, iteration 2</title>
+<style>
+  :root{
+    --mint:#66d4cf; --ink:rgba(255,255,255,.96); --ink-fresh:rgba(255,255,255,.66);
+    --ink-dim:rgba(255,255,255,.55); --fill:rgba(0,0,0,.94); --border:rgba(255,255,255,.12);
+    --orb:64px; --label:12.5px; --small:10px; --radius:26px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0b;color:var(--ink);font:14px/1.5 -apple-system,system-ui,sans-serif;padding:40px 32px 80px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+  .sub{color:var(--ink-dim);max-width:820px;margin-bottom:12px}
+  .sub code{font:11.5px ui-monospace,Menlo,monospace;color:var(--mint)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:26px;align-items:start;margin-top:28px}
+  .card{background:#121214;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px}
+  .tag{font:600 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mint);margin-bottom:8px}
+  .name{font-weight:700;font-size:15px;margin-bottom:6px}
+  .why{color:var(--ink-dim);font-size:12.5px;min-height:56px;margin-bottom:16px}
+  .stage{background:linear-gradient(180deg,#1b1b1f,#0d0d10);border-radius:12px;padding:30px 12px;display:flex;justify-content:center;min-height:216px;position:relative;overflow:hidden}
+  .stage::after{content:"";position:absolute;inset:auto 0 0 0;height:70px;background:radial-gradient(60% 100% at 50% 100%,rgba(102,212,207,.10),transparent)}
+  .box{background:var(--fill);border:1px solid var(--border);border-radius:var(--radius);width:330px;display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 18px 15px;position:relative;z-index:1}
+  .orb{width:var(--orb);height:var(--orb)}
+  .row{display:flex;align-items:baseline;gap:9px;width:100%;justify-content:center}
+  .clock{font-size:var(--small);color:var(--ink-dim);font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .line{width:100%;overflow:hidden;position:relative;height:17px}
+  .line .inner{position:absolute;right:0;top:0;white-space:nowrap}
+  .word{display:inline-block;margin-left:5px;color:var(--ink);animation:blurIn var(--dur,260ms) cubic-bezier(.18,.72,.2,1) both}
+  .word.fresh{color:var(--ink-fresh)}
+  .word.settled{color:var(--ink);animation:none}
+  @keyframes blurIn{from{filter:blur(5px);opacity:0;transform:translateY(7px) scale(.96)}to{filter:blur(0);opacity:1;transform:none}}
+  /* The line glides a few points left as each word lands, so it floats rather than jumps. */
+  @keyframes glide{from{transform:translateX(9px)}to{transform:none}}
+  .fade{position:absolute;left:0;top:0;bottom:0;width:34px;background:linear-gradient(90deg,var(--fill),rgba(0,0,0,0));z-index:2;pointer-events:none}
+  .hint{font:11px/1.45 ui-monospace,Menlo,monospace;color:var(--ink-dim);margin-top:13px}
+  .spec{margin-top:40px;max-width:860px}
+  table{border-collapse:collapse;font-size:12.5px;width:100%;margin-top:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+  th{color:var(--ink-dim);font-weight:600;width:150px}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:middle;margin-right:6px}
+</style>
+</head>
+<body>
+<h1>HUD transcript — iteration 2</h1>
+<p class="sub">Variant B, with two changes: the transcript is a <b>single line</b>, and every word <b>blurs in</b>
+as it arrives. Three blur durations side by side, so pick the feel rather than describing it. The box is 330 pt
+wide and 156 pt tall — orb 64 pt, clock <code>0:04</code> at 10 pt, transcript at 12.5 pt — all real
+<code>HudSpec</code> values. The orb is drawn for the board: trust its size and position, not its shading.</p>
+
+<div class="grid">
+  <div class="card">
+    <div class="tag">B · 160 ms</div>
+    <div class="name">Brisk</div>
+    <div class="why">Words land almost before the blur is noticeable. Reads as one line being written, with a soft
+      edge on the newest word and nothing else moving.</div>
+    <div class="stage">
+      <div class="box" data-blur="160">
+        <div class="orb" data-orb></div>
+        <div class="row"><span class="clock" data-clock>0:04</span>
+          <div class="line"><div class="inner" data-line></div><div class="fade"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint">blur 5 px → 0 · rise 7 pt · 160 ms</div>
+  </div>
+
+  <div class="card">
+    <div class="tag">B · 260 ms — recommended</div>
+    <div class="name">Floating</div>
+    <div class="why">A soft shape that sharpens as you read it. Slow enough to see each word arrive, fast enough
+      that a sentence never lags the voice.</div>
+    <div class="stage">
+      <div class="box" data-blur="260">
+        <div class="orb" data-orb></div>
+        <div class="row"><span class="clock" data-clock>0:04</span>
+          <div class="line"><div class="inner" data-line></div><div class="fade"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint">blur 5 px → 0 · rise 7 pt · 260 ms</div>
+  </div>
+
+  <div class="card">
+    <div class="tag">B · 420 ms</div>
+    <div class="name">Deliberate</div>
+    <div class="why">Each word is an event. Lovely on a short take, visibly behind a fast speaker — the line is
+      always catching up.</div>
+    <div class="stage">
+      <div class="box" data-blur="420">
+        <div class="orb" data-orb></div>
+        <div class="row"><span class="clock" data-clock>0:04</span>
+          <div class="line"><div class="inner" data-line></div><div class="fade"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint">blur 5 px → 0 · rise 7 pt · 420 ms</div>
+  </div>
+</div>
+
+<div class="spec">
+  <table>
+    <tr><th>Layout</th><td>Orb, then one row: the clock, then the transcript. The clock keeps its place from
+      variant B, so the pill still answers "listening, and for how long" at a glance, and the line beneath it
+      answers "what did it hear".</td></tr>
+    <tr><th>The line</th><td>One line, never wraps. Older words slide off to the left behind a 34 pt fade rather
+      than a hard cut. About the last eight words are legible at 12.5 pt in 330 pt.</td></tr>
+    <tr><th>Blur-in</th><td>Per word: <code>blur(5px) → 0</code>, <code>opacity 0 → 1</code>,
+      <code>translateY(7px) → 0</code>, <code>scale(.96) → 1</code>. Nothing moves unless a word arrives, so a
+      pause looks like a pause.</td></tr>
+    <tr><th>Ink</th><td><span class="swatch" style="background:rgba(255,255,255,.66)"></span>The newest word or
+      two sit at 66 % and settle to 96 %
+      <span class="swatch" style="background:rgba(255,255,255,.96)"></span>once the next snapshot agrees. This is
+      the honest part: each snapshot re-transcribes the audio so far, so a word can still change. A provisional
+      word that looks final reads as a mistake; one that looks provisional reads as thinking.</td></tr>
+    <tr><th>Cadence</th><td>Snapshot every ~1.2 s for the first half-minute, stretching after that — the engine
+      cost grows with the take (0.59 s at 8 s of audio, about 2.5 s at two minutes). Past a minute the line is a
+      courtesy rather than a read-out.</td></tr>
+    <tr><th>Unchanged</th><td>The paste, the note, and the target application. The live text exists only inside
+      this pill; nothing reaches the app you are writing into until you stop.</td></tr>
+  </table>
+</div>
+
+<script>
+function orb(el){
+  const c = document.createElement('canvas');
+  const size = el.clientWidth || 64, dpr = 2;
+  c.width = size*dpr; c.height = size*dpr; c.style.width = size+'px'; c.style.height = size+'px';
+  el.appendChild(c);
+  const ctx = c.getContext('2d');
+  const N = 340, R = size/2 - 2, dots = [];
+  for (let i = 0; i < N; i++){
+    const y = 1 - (i/(N-1))*2, r = Math.sqrt(Math.max(0,1-y*y)), phi = i * 2.399963;
+    dots.push({x:Math.cos(phi)*r, y:y, z:Math.sin(phi)*r});
+  }
+  let t = 0;
+  (function frame(){
+    t += 0.012;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,size,size);
+    for (const d of dots){
+      const x = d.x*Math.cos(t) + d.z*Math.sin(t);
+      const z = d.z*Math.cos(t) - d.x*Math.sin(t);
+      const depth = (z+1)/2;
+      const rad = (0.8 + 1.6*(0.4+0.6*depth)) * (size/64);
+      ctx.beginPath();
+      ctx.arc(size/2 + x*R*0.92, size/2 + d.y*R*0.92, Math.max(0.5, rad*(0.5+depth)), 0, 6.284);
+      ctx.fillStyle = 'rgba(102,212,207,' + (0.18 + 0.78*depth*depth).toFixed(3) + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(frame);
+  })();
+}
+
+const WORDS = ("The quick brown fox jumps over the lazy dog and keeps on running through the long green field "
+  + "until it reaches the far fence and stops to look back at where it came from").split(" ");
+
+document.querySelectorAll('.box').forEach(box => {
+  const dur = box.dataset.blur || '260';
+  box.style.setProperty('--dur', dur + 'ms');
+  const inner = box.querySelector('[data-line]');
+  const clock = box.querySelector('[data-clock]');
+  let n = 0;
+
+  function draw(){
+    const start = Math.max(0, n - 14);
+    const shown = WORDS.slice(start, n);
+    inner.innerHTML = '';
+    shown.forEach((w, i) => {
+      const span = document.createElement('span');
+      const isNew = i >= shown.length - (shown.length > 1 ? 2 : 1);
+      span.className = 'word ' + (isNew ? 'fresh' : 'settled');
+      span.textContent = w;
+      if (isNew) span.style.animation = 'blurIn ' + dur + 'ms cubic-bezier(.18,.72,.2,1) both';
+      inner.appendChild(span);
+    });
+    // restart the glide so the whole line drifts left with each arrival, not just the new word
+    inner.style.animation = 'none';
+    void inner.offsetWidth;
+    inner.style.animation = 'glide 320ms cubic-bezier(.2,.7,.2,1) both';
+    clock.textContent = '0:' + String(Math.min(59, 4 + Math.floor(n / 6))).padStart(2, '0');
+  }
+
+  draw();
+  // Drive the demo off a clock rather than setInterval: a background tab throttles timers to about one a minute,
+  // so the board looked broken whenever it was not the front tab. ~3 words per 1.2 s tick is a real speaking rate.
+  const started = performance.now();
+  let tick = 0;
+  (function advance(){
+    const due = Math.floor((performance.now() - started) / 1200);
+    if (due > tick) { tick = due; n = n >= WORDS.length ? 4 : n + 3; draw(); }
+    requestAnimationFrame(advance);
+  })();
+  box.__fill = v => { n = v; draw(); };   // for rendering a filled line on demand
+});
+
+document.querySelectorAll('[data-orb]').forEach(orb);
+</script>
+</body>
+</html>

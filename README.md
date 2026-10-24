@@ -210,16 +210,21 @@ Ponte --status-icon /tmp/bar.png  # the menu bar mark on its own
 
 ## The HUD
 
-The HUD is a **96 px squircle holding an orb of 1,100 dots**, borrowed from
+The HUD is a **squircle holding an orb of 1,100 dots**, borrowed from
 the shared `Waveform` package and reproduced from its maths — Fibonacci lattice, four depth layers at
 opacity `[0.18, 0.4, 0.7, 1.0]`, perspective `0.75 + 0.25·depth`, spin 0.35 rad/s, tip 0.35.
 
 | State | Orb | Box |
 |---|---|---|
-| Recording | mint, **4× spin**, label is a live `m:ss` clock, **dots answer your voice** | 96 × 96 |
-| Working / downloading | mint, calm spin, label `…` or `43%` | 96 × 96 |
-| Done | mint → green, shrinks to nothing, label `Pasted ✓` | 96 × 96 → **text + 16 px all round** |
-| Error | mint → red, shrinks to 82%, **three throbs**, then exits | 96 × 96 through the throbs, then collapses |
+| Recording | mint, **4× spin**, **dots answer your voice**; clock and live transcript beneath it | **330 × 156** |
+| Working / downloading | mint, calm spin; clock holds the take's length | 330 × 156, or 104 × 104 for a download |
+| Done | mint → green, shrinks to nothing, label `Pasted ✓` | full box → **text + 16 px all round** |
+| Error | mint → red, shrinks to 82%, **three throbs**, then exits | the full box through the throbs, then collapses |
+
+The wide box is for the live transcript: one line of speech at 12.5 pt needs about 260 pt, and a 104 pt square
+holds an orb and a clock and nothing else. Recording and working share it, so the box does not jump when the
+engine starts thinking. Words arrive at the rate they were *spoken* — measured from the take, not assumed — and
+each resolves out of a blur in `0.72 / rate` seconds. [docs/hud.md](docs/hud.md) derives it.
 
 ### The voice
 

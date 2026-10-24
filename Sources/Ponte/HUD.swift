@@ -30,7 +30,33 @@ final class HUD {
 
     func beginRecording() {
         model.spinRate = HudSpec.baseSpin * HudSpec.recordingSpinMultiple
+        model.live = LiveText()
+        model.recordedFor = 0
         set(state: .recording, text: HudLifecycle.clock(0), colour: labelDim)
+    }
+
+    /// How long the take turned out to be. The clock holds here; the transcript carries on resolving whatever
+    /// words the last live pass brought back, which is why this does not clear it.
+    func recorded(seconds: TimeInterval) {
+        model.recordedFor = seconds
+    }
+
+    /// What the engine has heard so far, from a live pass. Each snapshot re-transcribes the audio, so the tail
+    /// can change: `TranscriptReveal.merge` keeps the settled prefix and replaces what follows it.
+    ///
+    /// `seconds` is the audio the pass ran over, which is how the speaking rate is measured rather than assumed.
+    func pushTranscript(_ text: String, seconds: TimeInterval) {
+        guard model.state == .recording || model.state == .working else { return }
+        let incoming = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard !incoming.isEmpty else { return }
+        let merged = TranscriptReveal.merge(shown: model.live.words, incoming: incoming)
+        var live = model.live
+        if live.isEmpty {
+            live.since = Date().timeIntervalSince(model.startedAt)
+        }
+        live.words = merged.words
+        live.rate = TranscriptReveal.rate(words: merged.words.count, seconds: seconds)
+        model.live = live
     }
 
     /// Working: the orb turns at the model's calm rate, label is an ellipsis.

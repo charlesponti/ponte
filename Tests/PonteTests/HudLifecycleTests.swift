@@ -27,7 +27,7 @@ final class HudLifecycleTests: XCTestCase {
     // MARK: - At rest
 
     func testQuietStatesAreTheSquareSquircle() {
-        for state in [HudState.idle, .recording, .working] {
+        for state in [HudState.idle, .loading, .done, .error, .cancelled] {
             let g = HudLifecycle.geometry(state, 0, target: target)
             XCTAssertEqual(g.box.width, HudSpec.fullBox, "\(state)")
             XCTAssertEqual(g.box.height, HudSpec.fullBox, "\(state)")
@@ -39,6 +39,35 @@ final class HudLifecycleTests: XCTestCase {
         }
     }
 
+    /// Recording and working hold the wide box, because that is where the live transcript goes — one line of
+    /// speech at 12.5 pt needs about 260 pt, and the square is 104.
+    func testTheLiveStatesHoldTheWideBox() {
+        for state in [HudState.recording, .working] {
+            let g = HudLifecycle.geometry(state, 0, target: target)
+            XCTAssertEqual(g.box, HudSpec.liveBox, "\(state)")
+            XCTAssertEqual(g.collapse, 0, accuracy: 0.001, "\(state)")
+            XCTAssertEqual(g.hudAlpha, 1, accuracy: 0.001, "\(state)")
+            XCTAssertEqual(g.visual.orb, 1, accuracy: 0.001, "\(state)")
+        }
+    }
+
+    /// The box must not change shape when the engine starts thinking: the same wide box, so the transcript
+    /// stays where it is and only the label changes.
+    func testTheBoxDoesNotJumpBetweenRecordingAndWorking() {
+        let recording = HudLifecycle.geometry(.recording, 0.3, target: target)
+        let working = HudLifecycle.geometry(.working, 0.3, target: target)
+        XCTAssertEqual(recording.box, working.box)
+    }
+
+    /// The wide box collapses to the pill like the square does — the motion is designed, and the geometry has
+    /// to interpolate between two different starting shapes.
+    func testTheWideBoxFollowsTheSameCollapse() {
+        let end = HudSpec.doneHold + HudSpec.doneCollapse
+        let g = HudLifecycle.geometry(.done, end, target: target)
+        XCTAssertEqual(g.box.width, target.width, accuracy: 0.5)
+        XCTAssertEqual(g.box.height, target.height, accuracy: 0.5)
+    }
+
     func testRecordingSpinsAtFourTimesTheModelRate() {
         XCTAssertEqual(HudLifecycle.visual(.recording, 0).spin,
                        HudSpec.baseSpin * HudSpec.recordingSpinMultiple, accuracy: 0.0001)
@@ -48,7 +77,8 @@ final class HudLifecycleTests: XCTestCase {
     // MARK: - Done
 
     func testDoneRegistersTheColourBeforeItMoves() {
-        XCTAssertEqual(HudLifecycle.geometry(.done, 0, target: target).box.width, HudSpec.fullBox,
+        XCTAssertEqual(HudLifecycle.geometry(.done, 0, target: target).box.width,
+                       HudLifecycle.fullSize(for: .done).width,
                        "the box must not move while the colour changes")
         let green = HudLifecycle.visual(.done, HudSpec.doneHold).tint
         assertColour(green, is: HudSpec.green, "green by the end of the hold")

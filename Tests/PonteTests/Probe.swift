@@ -134,6 +134,27 @@ enum Probe {
         return groups
     }
 
+    /// The horizontal extent of ink within a band of rows, in pixels, using the same rows-from-the-top
+    /// convention as `inkGroups`. This is how a line of text is shown to start and stop where it should:
+    /// the tail of a live transcript has to reach the box's padding and no further.
+    static func inkColumns(_ image: NSImage, from top: Int, to bottom: Int,
+                           above luminance: CGFloat = 0.35) -> ClosedRange<Int>? {
+        guard let rep = bitmap(image), let data = rep.bitmapData else { return nil }
+        let width = rep.pixelsWide, height = rep.pixelsHigh
+        let step = rep.samplesPerPixel, stride = rep.bytesPerRow
+        var lo = Int.max, hi = Int.min
+        for y in max(0, top)...min(bottom, height - 1) {
+            let row = data + y * stride
+            for x in 0..<width {
+                let p = row + x * step
+                guard CGFloat(p[3]) / 255 > 0.16 else { continue }
+                let lum = (CGFloat(p[0]) + CGFloat(p[1]) + CGFloat(p[2])) / (3 * 255)
+                if lum > luminance { lo = min(lo, x); hi = max(hi, x) }
+            }
+        }
+        return hi >= lo ? lo...hi : nil
+    }
+
     /// Any ink at all, whatever the colour: for template images, which are black.
     static func anyInk(_ image: NSImage, alphaAbove: CGFloat = 0.2) -> Ink {
         guard let rep = bitmap(image), let data = rep.bitmapData else { return Ink() }

@@ -29,6 +29,10 @@ let knownFlags: Set<String> = [
     "--status-icon", "--status-image", "--menubar-mark", "--menubar-sheet", "--help",
     // flags, as opposed to commands
     "--out", "--parakeet-model", "--language", "--turning",
+    // --hud-render's transcript: what was heard, when it started, and how fast it was spoken
+    "--words", "--since", "--rate",
+    // --record's live transcript
+    "--live",
 ]
 
 for argument in argv.dropFirst() where argument.hasPrefix("--") {
@@ -91,6 +95,41 @@ func recordSync(seconds: Double, out: URL?) throws -> URL {
         RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
     }
     rec.stop()
+    if let out {
+        try? FileManager.default.removeItem(at: out)
+        try FileManager.default.moveItem(at: url, to: out)
+        return out
+    }
+    return url
+}
+
+/// Record, running the live transcript exactly as the app does, and print what it hears while the take is
+/// still running.
+///
+/// This exists so the live path can be exercised without a GUI and without a human: the app's HUD and this
+/// loop share `LiveTranscript`, so what the log shows here is what the HUD fills from. The elapsed time on
+/// each line is the point — it proves the words arrived *before* the recording ended.
+func recordWithLive(seconds: Double, out: URL?, language: String) throws -> URL {
+    let rec = Recorder()
+    let url = try rec.start()
+    let live = LiveTranscript()
+    let began = Date()
+    var passes = 0
+    live.onTrace = { print("    \($0)") }
+    live.onText = { text, audio in
+        passes += 1
+        let at = Date().timeIntervalSince(began)
+        print(String(format: "[+%.2fs] %d words over %.2fs of audio: %@",
+                     at, text.split(separator: " ").count, audio, text))
+    }
+    live.start(audio: url, language: language)
+    let deadline = Date().addingTimeInterval(seconds)
+    while Date() < deadline {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+    }
+    live.stop()
+    rec.stop()
+    print("live passes: \(passes)")
     if let out {
         try? FileManager.default.removeItem(at: out)
         try FileManager.default.moveItem(at: url, to: out)
@@ -222,12 +261,14 @@ func writePNG(_ image: NSImage, to path: String) -> Int32 {
 
 /// The HUD at one moment, drawn by the app's own SwiftUI view.
 func hudImage(state: HudState, t: TimeInterval, text: String, colour: Color,
-              ring: ColumnRing, turning: Bool = false, scale: CGFloat = 2) -> NSImage {
+              ring: ColumnRing, turning: Bool = false, scale: CGFloat = 2,
+              live: LiveText = LiveText(), recordedFor: TimeInterval = 0) -> NSImage {
     // Rendering SwiftUI is main-actor work; the CLI is on the main thread.
     MainActor.assumeIsolated {
         let renderer = ImageRenderer(content: HudBox(
             state: state, t: t, label: text, labelColour: colour,
-            target: HudLifecycle.pillSize(for: text), ring: ring, clock: nil, turning: turning))
+            target: HudLifecycle.pillSize(for: text), ring: ring, clock: nil, turning: turning,
+            live: live, recordedFor: recordedFor))
         renderer.scale = scale
         return renderer.nsImage
             ?? NSImage(size: NSSize(width: HudSpec.fullBox, height: HudSpec.fullBox))
@@ -557,9 +598,19 @@ func runCLI() -> Int32? {
         let colour = argv.count > 6 ? hudNamedColour(argv[6]) ?? hudColour(for: state) : hudColour(for: state)
         // --turning renders the orb at `t` as a moving frame, which the CLI otherwise holds still.
         let turning = argv.contains("--turning")
+        // --words renders the live transcript as it looks at `t` seconds into a take. Because the reveal is a
+        // function of time, a still of it is exact: the same arguments always draw the same frame.
+        let live: LiveText = {
+            guard let words = value(of: "--words") else { return LiveText() }
+            let list = words.split(whereSeparator: { $0 == " " }).map(String.init)
+            return LiveText(words: list,
+                            since: Double(value(of: "--since") ?? "0") ?? 0,
+                            rate: Double(value(of: "--rate") ?? "2.5") ?? 2.5)
+        }()
         return writePNG(hudImage(state: state, t: t, text: text,
                                  colour: Color(nsColor: colour),
-                                 ring: IconRenderer.silentRing, turning: turning), to: argv[2])
+                                 ring: IconRenderer.silentRing, turning: turning,
+                                 live: live, recordedFor: t), to: argv[2])
 
     case "--status-icon":
         guard argv.count > 2 else { print("usage: Ponte --status-icon <out.png> [pt]"); return 2 }
@@ -617,7 +668,9 @@ func runCLI() -> Int32? {
         let out = value(of: "--out").map { URL(fileURLWithPath: $0) }
         guard requestMicBlocking() else { print("error: microphone access denied"); return 1 }
         do {
-            let url = try recordSync(seconds: seconds, out: out)
+            let url = try (argv.contains("--live")
+                ? recordWithLive(seconds: seconds, out: out, language: value(of: "--language") ?? "en")
+                : recordSync(seconds: seconds, out: out))
             print(url.path)
             return 0
         } catch {

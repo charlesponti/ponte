@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let recorder = Recorder()
     private let hud = HUD()
+    /// The live transcript: the engine run over the audio so far, while it is still being recorded.
+    private let live = LiveTranscript()
     private var hotKey: GlobalHotKey?
 
     /// Watches the input while recording, so a take producing nothing says so in time (see `InputWatch`).
@@ -282,6 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         switch state {
         case .starting, .recording:
             stopWatchingInput()
+            live.stop()
             let elapsed = recorder.elapsed
             let url = recorder.stop()
             if let url { try? FileManager.default.removeItem(at: url) }
@@ -327,8 +330,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 vlog("start aborted — state changed to \(self.state) while waiting for permission")
                 return
             }
+            let url: URL
             do {
-                _ = try self.recorder.start()
+                url = try self.recorder.start()
             } catch {
                 self.state = .idle
                 self.updateIcon()
@@ -343,6 +347,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                              columnsPerSecond: HudSpec.columnsPerSecond)
             }
             self.hud.beginRecording()
+            self.live.onTrace = { vlog("live: \($0)") }
+            self.live.onText = { [weak self] text, seconds in
+                self?.hud.pushTranscript(text, seconds: seconds)
+            }
+            self.live.start(audio: url, language: Settings.language)
             self.startWatchingInput()
         }
     }
@@ -350,6 +359,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func stopAndTranscribe() {
         stopWatchingInput()
         let elapsed = recorder.elapsed
+        // Stop the live passes before the final one is asked for: they share the engine, and a live pass in
+        // flight would delay the result the person is waiting for.
+        live.stop()
         guard let url = recorder.stop() else {
             state = .idle
             updateIcon()
@@ -376,6 +388,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func transcribe(audio url: URL, elapsed: TimeInterval) {
         state = .working
         updateIcon()
+        // The clock in the wide box holds the take's length from here, whether this is a first attempt or a retake.
+        hud.recorded(seconds: elapsed)
         hud.showWorking()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in

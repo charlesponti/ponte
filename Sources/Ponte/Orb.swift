@@ -79,6 +79,31 @@ enum HudSpec {
     static let finalLabelSize: CGFloat = 12.5
     static let smallLabelSize: CGFloat = 10
 
+    // MARK: - The live transcript
+    //
+    // The wide box, box above, one row below it: the clock, then one line of speech. See
+    // design/hud-transcript-v3.html — the board is the spec, and the reveal maths is in `TranscriptReveal`.
+    static let liveBox = CGSize(width: 330, height: 156)
+    /// The transcript's type. The same size as the pill's label: it is the same kind of text, arriving early.
+    static let transcriptSize: CGFloat = 12.5
+    /// One line's frame, never wrapped. Older words slide out to the left behind `transcriptFade`.
+    static let transcriptLineHeight: CGFloat = 17
+    static let transcriptFade: CGFloat = 34
+    /// How far the whole line drifts left as each word lands, so it floats rather than jumping.
+    static let transcriptGlide: CGFloat = 9
+    /// Provisional ink: the newest word or two, which a later snapshot can still change.
+    static let transcriptFreshAlpha: CGFloat = 0.66
+    static let transcriptInkAlpha: CGFloat = 0.96
+    /// The clock beside the transcript: dim, tabular, and held to a fixed width so a five-digit count cannot
+    /// shove the words sideways.
+    static let transcriptClockAlpha: CGFloat = 0.5
+    static let clockWidth: CGFloat = 30
+    static let transcriptWordGap: CGFloat = 5
+    /// A word arrives out of a blur, rising into place — the amounts the board draws.
+    static let transcriptBlur: CGFloat = 5
+    static let transcriptRise: CGFloat = 7
+    static let transcriptScale: CGFloat = 0.96
+
     // done: hold the colour, then collapse
     static let doneHold: TimeInterval = 0.15
     static let doneCollapse: TimeInterval = 0.55
@@ -210,6 +235,21 @@ enum HudLifecycle {
                       height: ceil(measured.height) + HudSpec.boxPadding * 2)
     }
 
+    /// The box a state holds before it collapses.
+    ///
+    /// Recording and working share the wide one: they are the same moment to the person watching — the take is
+    /// live — and the pill only appears once there is a result. Sharing it also means the box does not jump when
+    /// the engine starts thinking, which it would if working fell back to the square.
+    ///
+    /// The width is not decoration. One line of speech at 12.5 pt is about 260 pt, and the 104 pt square that
+    /// holds an orb and a clock cannot hold it.
+    static func fullSize(for state: HudState) -> CGSize {
+        switch state {
+        case .recording, .working: return HudSpec.liveBox
+        default: return CGSize(width: HudSpec.fullBox, height: HudSpec.fullBox)
+        }
+    }
+
     static func geometry(_ state: HudState, _ t: TimeInterval, target: CGSize) -> HudGeometry {
         let v = visual(state, t)
         var k = 0.0
@@ -228,8 +268,9 @@ enum HudLifecycle {
             break
         }
         let e = ease(k)
-        let w = HudSpec.fullBox + (target.width - HudSpec.fullBox) * e
-        let h = HudSpec.fullBox + (target.height - HudSpec.fullBox) * e
+        let full = fullSize(for: state)
+        let w = full.width + (target.width - full.width) * e
+        let h = full.height + (target.height - full.height) * e
         return HudGeometry(
             box: CGSize(width: w, height: h),
             radius: min(h / 2, HudSpec.fullRadius + (HudSpec.finalRadius - HudSpec.fullRadius) * e),

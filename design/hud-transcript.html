@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ponte — HUD with a live transcript</title>
+<style>
+  :root{
+    /* lifted from HudSpec in Sources/Ponte/Orb.swift — these are the real numbers */
+    --mint:#66d4cf; --ink:rgba(255,255,255,.96); --ink-dim:rgba(255,255,255,.55);
+    --fill:rgba(0,0,0,.94); --border:rgba(255,255,255,.12);
+    --full-box:104px; --radius:26px; --orb:64px; --pad:16px;
+    --label:12.5px; --small:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0a0a0b;color:var(--ink);font:14px/1.5 -apple-system,system-ui,sans-serif;padding:40px 32px 80px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-bottom:6px}
+  .sub{color:var(--ink-dim);max-width:760px;margin-bottom:34px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:28px;align-items:start}
+  .card{background:#121214;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:20px}
+  .tag{font:600 10px/1 ui-monospace,Menlo,monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--mint);margin-bottom:8px}
+  .name{font-weight:700;font-size:15px;margin-bottom:6px}
+  .why{color:var(--ink-dim);font-size:12.5px;min-height:52px;margin-bottom:16px}
+  .stage{background:linear-gradient(180deg,#1b1b1f,#0d0d10);border-radius:12px;padding:26px 12px;display:flex;flex-direction:column;align-items:center;gap:10px;min-height:210px;justify-content:center;position:relative;overflow:hidden}
+  .stage::after{content:"";position:absolute;inset:auto 0 0 0;height:62px;background:radial-gradient(60% 100% at 50% 100%,rgba(102,212,207,.10),transparent)}
+  .box{background:var(--fill);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:all .25s ease}
+  .box.square{width:var(--full-box);height:var(--full-box)}
+  .box.wide{width:330px;height:132px;padding:14px 18px;gap:6px}
+  .box.line{width:250px;height:104px;padding:12px 16px;gap:6px}
+  .orb{width:var(--orb);height:var(--orb);flex:0 0 auto}
+  .label{font-size:var(--label);color:var(--ink);letter-spacing:.01em;font-variant-numeric:tabular-nums}
+  .label.small{font-size:var(--small);color:var(--ink-dim)}
+  .clock{font-size:var(--label);color:var(--ink);font-variant-numeric:tabular-nums;opacity:.9}
+  .say{font-size:12.5px;line-height:1.35;text-align:center;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .say.one{-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;display:block}
+  .meter{width:210px;height:4px;border-radius:2px;background:rgba(255,255,255,.08);overflow:hidden}
+  .meter i{display:block;height:100%;width:0;background:var(--mint)}
+  .hint{font:11px/1.4 ui-monospace,Menlo,monospace;color:var(--ink-dim);margin-top:14px}
+  .now{--label:12.5px}
+  .legend{color:var(--ink-dim);font-size:12.5px;margin:34px 0 0;max-width:780px}
+  .legend b{color:var(--ink)}
+  table{border-collapse:collapse;margin-top:14px;font-size:12.5px;width:100%;max-width:820px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.07);vertical-align:top}
+  th{color:var(--ink-dim);font-weight:600}
+  code{font:11.5px ui-monospace,Menlo,monospace;color:var(--mint)}
+</style>
+</head>
+<body>
+<h1>HUD with a live transcript</h1>
+<p class="sub">Three directions for the same moment: 4.2 seconds into a dictation. Everything here uses the real
+<span style="color:var(--mint)">HudSpec</span> numbers — 104 pt box, 26 pt radius, 64 pt orb, 16 pt padding,
+12.5 pt label, mint #66d4cf on black at 94 %. The orb is drawn, not photographed, so treat its shading as
+indicative and its <em>size and position</em> as exact.</p>
+
+<div class="grid">
+  <div class="card">
+    <div class="tag">A — recommended</div>
+    <div class="name">The transcript replaces the clock</div>
+    <div class="why">The orb already says "listening" — it is mint and spinning the whole time — so the clock is
+      repeating it. The duration is not lost: it is in the note's frontmatter and in the log. The box widens and
+      grows downward; the orb stays the same size and stays put.</div>
+    <div class="stage">
+      <div class="box wide">
+        <div class="orb" data-orb="a"></div>
+        <div class="say" id="say-a">The quick brown fox jumps over</div>
+      </div>
+    </div>
+    <div class="hint">330 × 132 pt · two lines, clipped to the most recent text</div>
+  </div>
+
+  <div class="card">
+    <div class="tag">B</div>
+    <div class="name">Clock kept, transcript underneath</div>
+    <div class="why">Shown so the cost is visible rather than argued about: two facts in one pill, and the eye
+      has to choose. Also the tallest of the three, so it covers the most screen while you are looking at the
+      text you are writing.</div>
+    <div class="stage">
+      <div class="box wide" style="height:146px">
+        <div class="orb" data-orb="b"></div>
+        <div class="clock" id="clock-b">0:04</div>
+        <div class="say" id="say-b">The quick brown fox jumps over</div>
+      </div>
+    </div>
+    <div class="hint">330 × 146 pt · one fact per pill, broken</div>
+  </div>
+
+  <div class="card">
+    <div class="tag">C</div>
+    <div class="name">One line only, tail follows the voice</div>
+    <div class="why">The least disruptive: the box keeps the recording shape and just widens a little. You see
+      roughly the last six words, which is enough to catch "that is not what I said" before you stop — and not
+      enough to read a sentence back.</div>
+    <div class="stage">
+      <div class="box line">
+        <div class="orb" data-orb="c"></div>
+        <div class="say one" id="say-c">…jumps over</div>
+      </div>
+    </div>
+    <div class="hint">250 × 104 pt · one line, ellipsis at the head</div>
+  </div>
+</div>
+
+<div class="legend">
+  <b>What stays the same in all three:</b> the final transcript, the paste, and the note are untouched — the live
+  text never reaches the target application, it only appears here. Recording still starts and stops on the same
+  hotkey, and Esc still throws the take away.
+  <table>
+    <tr><th>Cadence</th><td>A snapshot of the audio so far, transcribed every ~1.2 s. Measured: 0.59 s for the
+      first 8 seconds, and the engine is already warm, so this is free at the start of a take. It gets more
+      expensive as a take grows — at two minutes the same work costs ~2.5 s — so the interval should stretch with
+      the length, and past a minute the transcript is a courtesy rather than a read-out.</td></tr>
+    <tr><th>The header problem</th><td>A WAV being written has zero in its size fields, and the engine refuses
+      it: <code>Invalid audio data… must be at least 300ms</code>. Snapshot it, patch the two size fields, and it
+      transcribes correctly — verified against a take that was still recording.</td></tr>
+    <tr><th>If the words are wrong</th><td>You will now see it while speaking, which is the point: stop, Esc, and
+      say it again rather than discovering it after the paste.</td></tr>
+  </table>
+</div>
+
+<script>
+// A dot-sphere, approximate: the real one is 1100 dots with gain and ballistics from WaveformUI.
+function orb(el, level){
+  const c = document.createElement('canvas');
+  const size = el.clientWidth || 64, dpr = 2;
+  c.width = size*dpr; c.height = size*dpr; c.style.width = size+'px'; c.style.height = size+'px';
+  el.appendChild(c);
+  const ctx = c.getContext('2d');
+  const N = 340, R = size/2 - 2, dots = [];
+  for (let i = 0; i < N; i++){
+    const y = 1 - (i/(N-1))*2, r = Math.sqrt(Math.max(0,1-y*y)), phi = i * 2.399963;
+    dots.push({x:Math.cos(phi)*r, y:y, z:Math.sin(phi)*r});
+  }
+  let t = 0;
+  (function frame(){
+    t += 0.012;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,size,size);
+    for (const d of dots){
+      const x = d.x*Math.cos(t) + d.z*Math.sin(t);
+      const z = d.z*Math.cos(t) - d.x*Math.sin(t);
+      const depth = (z+1)/2;
+      const rad = (0.8 + 2.1*level*(0.4+0.6*depth)) * (size/64);
+      const a = 0.18 + 0.78*depth*depth;
+      ctx.beginPath();
+      ctx.arc(size/2 + x*R*0.92, size/2 + d.y*R*0.92, Math.max(0.5, rad*(0.5+depth)), 0, 6.284);
+      ctx.fillStyle = 'rgba(102,212,207,' + a.toFixed(3) + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(frame);
+  })();
+}
+document.querySelectorAll('[data-orb]').forEach(el => orb(el, 0.55));
+
+// A live transcript, so you can see the cadence rather than imagine it.
+const WORDS = "The quick brown fox jumps over the lazy dog and keeps on running through the long green field until it reaches the far fence".split(" ");
+let n = 4;
+setInterval(() => {
+  n = n >= WORDS.length ? 3 : n + 1;
+  const tail = WORDS.slice(Math.max(0, n-9), n).join(" ");
+  const one  = WORDS.slice(Math.max(0, n-6), n).join(" ");
+  const a = document.getElementById('say-a'); if (a) a.textContent = n > 9 ? "… " + tail : WORDS.slice(0,n).join(" ");
+  const b = document.getElementById('say-b'); if (b) b.textContent = n > 9 ? "… " + tail : WORDS.slice(0,n).join(" ");
+  const c = document.getElementById('say-c'); if (c) c.textContent = "… " + one;
+  const clock = document.getElementById('clock-b');
+  if (clock) clock.textContent = "0:" + String(Math.min(59, 4 + Math.floor((n-4)/3))).padStart(2,'0');
+}, 1200);
+</script>
+</body>
+</html>
