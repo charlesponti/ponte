@@ -22,8 +22,10 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 # is the commit count, which only ever goes up — an updater compares that integer, and a version that goes backwards
 # makes an update look like a downgrade and get refused. Hand-editing the plist is how 0.1.0 shipped under a v1.0.0
 # tag, and why this is stamped rather than typed.
-SHORT_VERSION="$(tr -d '[:space:]' < VERSION)"
-BUILD_VERSION="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
+# `PONTE_VERSION` and `PONTE_BUILD` exist so a *test* release can be built without touching VERSION or making a
+# commit: that is how the updater gets exercised locally, with a newer build to find and install.
+SHORT_VERSION="${PONTE_VERSION:-$(tr -d '[:space:]' < VERSION)}"
+BUILD_VERSION="${PONTE_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 0)}"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT_VERSION" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_VERSION" "$APP/Contents/Info.plist"
 STAMPED_SHORT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
@@ -42,6 +44,24 @@ for bundle in .build/release/*.bundle; do
   echo "    + $(basename "$bundle")"
   cp -R "$bundle" "$APP/Contents/Resources/"
 done
+
+# Sparkle travels inside the bundle. Everything nested has to be signed from the inside out — its helper apps and
+# XPC services first, then the framework, then the app — because signing a bundle that contains unsigned code fails.
+# `--deep` would do that in one pass and is deprecated for signing for exactly the reason it looks convenient.
+FW_SRC=".build/out/Products/Release/Sparkle.framework"
+if [ -d "$FW_SRC" ]; then
+  mkdir -p "$APP/Contents/Frameworks"
+  cp -R "$FW_SRC" "$APP/Contents/Frameworks/"
+  echo "    + Sparkle.framework"
+else
+  echo "!! Sparkle.framework missing from .build/out/Products/Release — the updater would not run"
+  exit 1
+fi
+# The binary links @rpath/Sparkle.framework; without this the app fails to launch outside the build directory.
+if ! otool -l "$APP/Contents/MacOS/Ponte" | grep -q "@executable_path/../Frameworks"; then
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Ponte"
+  echo "    + rpath @executable_path/../Frameworks"
+fi
 
 # Sign with a *stable* identity. An ad-hoc signature (--sign -) has a designated
 # requirement of `cdhash H"…"`, which changes on every rebuild — macOS then cannot
@@ -64,6 +84,18 @@ fi
 
 if [ -n "$SIGN_ID" ]; then
   echo "==> signing as: $SIGN_ID"
+  # Inside out: Sparkle's own helpers, then the framework, then the app that contains them.
+  FW="$APP/Contents/Frameworks/Sparkle.framework"
+  if [ -d "$FW" ]; then
+    for item in "$FW"/Versions/B/Autoupdate "$FW"/Versions/B/Updater.app \
+                "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Installer.xpc \
+                "$FW"/Versions/B/Downloader.xpc; do
+      [ -e "$item" ] && codesign --force --sign "$SIGN_ID" --timestamp "$item" >/dev/null 2>&1 || true
+    done
+    codesign --force --sign "$SIGN_ID" --timestamp "$FW" >/dev/null 2>&1 \
+      || { echo "!! signing Sparkle.framework failed"; exit 1; }
+    echo "    signed Sparkle.framework"
+  fi
   codesign --force --sign "$SIGN_ID" --identifier com.ponti.ponte "$APP" >/dev/null 2>&1 \
     || { echo "codesign failed with '$SIGN_ID'"; exit 1; }
 else

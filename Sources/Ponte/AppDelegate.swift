@@ -2,8 +2,9 @@ import AppKit
 import AVFoundation
 import CoreGraphics
 import ServiceManagement
+import Sparkle
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpdaterDelegate {
     private var statusItem: NSStatusItem!
     private let recorder = Recorder()
     private let hud = HUD()
@@ -12,6 +13,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// The dictations already on disk, in a window opened deliberately. Made on first use, inside the main actor,
     /// because this delegate is not itself main-actor isolated and its initialiser is not a safe place for a window.
     private var historyWindow: HistoryWindow?
+    /// The updater. Sparkle's standard controller owns the schedule and the UI; the app supplies only where to look
+    /// (`SUFeedURL`) and what to trust (`SUPublicEDKey`), both in Info.plist.
+    private var updater: SPUStandardUpdaterController?
+    /// The menu line that normally just says which version this is. Sparkle warns that a menu-bar app schedules
+    /// checks in the background where nobody sees an alert — so a found update has to show up somewhere visible, and
+    /// the menu is the only surface this app has. It is also the disclosure: one line, no dialog.
+    private var versionItem: NSMenuItem?
     private var hotKey: GlobalHotKey?
 
     /// Watches the input while recording, so a take producing nothing says so in time (see `InputWatch`).
@@ -56,7 +64,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        vlog("--- launch pid=\(ProcessInfo.processInfo.processIdentifier) model=\(Settings.parakeetModel.rawValue)")
+        vlog("--- launch pid=\(ProcessInfo.processInfo.processIdentifier) model=\(Settings.parakeetModel.rawValue) version=\(AppPaths.Version.display)")
+
+        // The only network request Ponte makes, and it only fetches Ponte's own appcast: no account, no identifier,
+        // nothing about what was dictated. `startingUpdater: true` honours `SUEnableAutomaticChecks`; the menu item
+        // checks on demand. Started here rather than in the CLI paths, so `--record` and `--transcribe` still make
+        // no request at all.
+        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+        vlog("updater: started (feed \(Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String ?? "none"))")
 
         // A failed take stays on disk across a restart; adopt the newest one so the menu can still offer it.
         if let adopted = Retake.launchCandidate(in: AppPaths.audio, keepAudio: Settings.keepAudio) {
@@ -605,9 +620,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(permissionsMenu())
         menu.addItem(.separator())
 
+        menu.addItem(item("Check for Updates…", #selector(checkForUpdates), nil))
         let version = NSMenuItem(title: "Ponte \(AppPaths.Version.display)", action: nil, keyEquivalent: "")
         version.isEnabled = false
         menu.addItem(version)
+        versionItem = version
         menu.addItem(.separator())
         let dev = NSMenuItem(title: "Mic: \(AVCaptureDevice.default(for: .audio)?.localizedName ?? "none")", action: nil, keyEquivalent: "")
         dev.isEnabled = false
@@ -718,6 +735,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Yesterday's sentence, back. A window rather than a menu of the last few: the notes are already on disk, and
     /// search is the whole point of having them.
+    @objc private func checkForUpdates() { updater?.checkForUpdates(nil) }
+
     @objc private func showHistory() {
         MainActor.assumeIsolated {
             if historyWindow == nil { historyWindow = HistoryWindow() }
@@ -852,4 +871,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         transcribe(audio: audio, elapsed: lastTakeSeconds)
     }
 
+}
+
+// MARK: - What the update check found
+//
+// The check is a network request that is allowed to fail silently — a laptop on a train must not be told anything
+// about it — so the app says nothing on screen and quietly notes the outcome here. That is also how it can be
+// verified without a second release having been published.
+extension AppDelegate {
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        vlog("updater: found \(item.displayVersionString) build \(item.versionString)")
+        let found = "\(item.displayVersionString) available"
+        DispatchQueue.main.async { [weak self] in
+            self?.versionItem?.title = "Ponte \(AppPaths.Version.display) — \(found)"
+        }
+    }
+
+    func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
+        vlog("updater: nothing newer than \(AppPaths.Version.display)")
+    }
+
+    func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        vlog("updater: check failed — \(error.localizedDescription)")
+    }
 }

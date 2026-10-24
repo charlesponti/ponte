@@ -36,7 +36,7 @@ closed with its measurements.
 |---|---|---|
 | **#12** | whisper silently drops most of a long dictation | **closed as not the bug it looked like, and whisper itself removed.** Whisper is fine on long prose (566 of 555 words at 160 s, whole) and collapses on *repetition* — 6 of 24. The test material was one sentence 120 times, which is pathological for its decoder. No chunking: a 26-second chunk still loses three quarters. The limitation is now documented, and the check script carries a prose row |
 | #7 | notarize the DMG | done: two submissions, both Accepted and stapled. The build was signing only the app, so the *image* was rejected by Gatekeeper until it was signed too — see [pitfalls.md](pitfalls.md). The release still has to be published on this repository, since a release on the archived private one would be downloadable by nobody |
-| #6 | ship an update path | an appcast is a network call on a schedule — a product decision, not a technical one |
+| #6 | ship an update path | **implemented.** Sparkle, an appcast on Pages, EdDSA-signed archives, and the disclosure in the README. Proved end to end on a local feed: a 1.0.1 build found 1.0.2, downloaded it, Sparkle logged `OK: EdDSA signature is correct for update`, and the copy came back up as 1.0.2 |
 | #5 | show the transcript in the HUD while speaking | **closed.** `99f4ab5`. The wide box, the metered reveal and the mid-write snapshot are in, with the schedule tested as arithmetic (15 tests) and the live path measured on real speech (0.15–0.18 s a pass). See [hud.md](hud.md) |
 | #4 | local history window | search and re-copy past dictations |
 | #3 | custom vocabulary | names and jargon that engines keep missing |

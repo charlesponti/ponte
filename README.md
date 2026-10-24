@@ -377,6 +377,37 @@ engine: parakeet-ultra
 ---
 ```
 
+## Updates
+
+Ponte checks for its own updates with [Sparkle](https://sparkle-project.org). That is the **only** network request
+the app makes, and it is worth being precise about what it contains:
+
+| sent | not sent |
+|---|---|
+| a GET for `https://charlesponti.github.io/ponte/appcast.xml` | anything you have dictated |
+| a User-Agent naming the app and version (`Ponte/1.0.1 Sparkle/2.x`) | your audio, transcripts, vocabulary, or usage |
+| — | any account, key, or identifier |
+
+The server sees an IP address and a time, as it would for any request. System profiling is off, so not even the OS
+version or the machine model is sent. A failed check says nothing at all: no dialog, no error, no retry loop — a
+laptop on a train should not be told about it. When an update *is* found, the menu's version line changes to say so,
+because a background app that schedules checks has no other visible surface.
+
+`--record` and `--transcribe` never start the updater, so the command line makes no request at all.
+
+### What a release does now
+
+1. `VERSION` holds the number; the build number is the commit count. Both are stamped by `build-app.sh`, which
+   refuses to finish if the stamp did not take. **A version may never go backwards** — an updater reads the build
+   number and would treat it as a downgrade.
+2. `./scripts/build-app.sh --install` for a local build.
+3. `./scripts/make-dmg.sh --notarize` for the signed, notarized, stapled DMG a first-time buyer downloads.
+4. `./scripts/appcast.sh` packs the app into a zip, signs it with the EdDSA key in the login keychain
+   (`SUPublicEDKey` in `Info.plist` is the other half), and writes `appcast.xml` for Pages to serve.
+5. Attach `dist/Ponte-<version>.zip` **and** the DMG to the GitHub release, commit `appcast.xml`, and push.
+
+The DMG is for people who do not have Ponte yet. The zip is what the updater installs.
+
 ## Vocabulary
 
 Engines mis-hear the words that matter most: product names, colleagues, jargon. Ponte has two ways to fix that, and

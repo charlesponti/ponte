@@ -30,6 +30,12 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Local-only dictation. Your audio and text never leave the Mac.</string>
+	<key>SUFeedURL</key>
+	<string>https://charlesponti.github.io/ponte/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>+twDmS8uyzuPBvMeGALpRNaWD8RVQytvf5KuXVErmm8=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ponte records your voice and transcribes it on-device, on the Neural Engine. Audio never leaves your Mac.</string>
 </dict>
