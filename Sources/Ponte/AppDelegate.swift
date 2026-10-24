@@ -34,6 +34,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var lastTranscript: String?
 
+    /// The last take whose audio is still on disk, so it can be run again — see `Retake`.
+    private var lastTake: URL?
+    private var lastTakeSeconds: TimeInterval = 0
+
     /// Whether the engine's models are on disk and loaded — see `Readiness`.
     private var readiness: Readiness = .ready
 
@@ -48,6 +52,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         vlog("--- launch pid=\(ProcessInfo.processInfo.processIdentifier) model=\(Settings.parakeetModel.rawValue)")
+
+        // A failed take stays on disk across a restart; adopt the newest one so the menu can still offer it.
+        if let adopted = Retake.launchCandidate(in: AppPaths.audio, keepAudio: Settings.keepAudio) {
+            lastTake = adopted
+            lastTakeSeconds = Retake.seconds(of: adopted)
+            vlog("adopted \(Retake.describe(adopted)) as a retake candidate")
+        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateIcon()
@@ -355,6 +366,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             updateIcon()
             return
         }
+        transcribe(audio: url, elapsed: elapsed)
+    }
+
+    /// Run a take through the engine and act on the result.
+    ///
+    /// Shared by a normal dictation and by the menu's retake, so a re-run ends exactly the way the first attempt
+    /// would have: note written, clipboard loaded, paste attempted. A second code path here would drift.
+    private func transcribe(audio url: URL, elapsed: TimeInterval) {
         state = .working
         updateIcon()
         hud.showWorking()
@@ -391,10 +410,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     self.updateIcon()
                     self.hud.showError("Transcription failed")
                     Shell.notify("Ponte", error.localizedDescription)
-                    self.cleanUp(audio: url)
+                    // Keep the take. It is the only surviving record of what was said, and the retake is the one
+                    // thing that can still get text out of it. Deleting it here made the failure final, and left
+                    // the menu with nothing to offer at precisely the moment it was worth offering.
+                    self.rememberTake(url, seconds: elapsed)
                 }
             }
         }
+    }
+
+    /// Note a take as one the menu can run again, and say so in the log.
+    private func rememberTake(_ audio: URL, seconds: TimeInterval) {
+        lastTake = audio
+        lastTakeSeconds = seconds
+        vlog("kept \(Retake.describe(audio)) for a retake (\(String(format: "%.1f", seconds))s)")
     }
 
     private func finish(text: String, took: Double, audio: URL, elapsed: TimeInterval, engine: String) {
@@ -404,6 +433,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !text.isEmpty else {
             hud.showError("Heard nothing")
             vlog("empty transcript, audio kept at \(audio.path)")
+            rememberTake(audio, seconds: elapsed)
             return
         }
 
@@ -523,6 +553,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let copy = item("Copy Last Transcript", #selector(copyLast), nil)
         copy.isEnabled = lastTranscript != nil
         menu.addItem(copy)
+
+        // Offered only while the audio is actually on disk: it is not kept by default, so this is a window
+        // rather than a standing feature.
+        let retake = item(Retake.menuTitle, #selector(retakeLastTake), nil)
+        retake.isEnabled = Retake.candidate(lastTake) != nil
+        menu.addItem(retake)
 
         menu.addItem(.separator())
         menu.addItem(item("Open Notes Folder", #selector(openNotes), nil))
@@ -758,6 +794,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func selectLanguage(_ sender: NSMenuItem) {
         guard let code = sender.representedObject as? String else { return }
         Settings.language = code
+    }
+
+    /// Run the last kept take again, through the same path a dictation takes.
+    @objc private func retakeLastTake() {
+        guard let audio = Retake.candidate(lastTake) else { return }
+        vlog("retake requested for \(Retake.describe(audio))")
+        transcribe(audio: audio, elapsed: lastTakeSeconds)
     }
 
 }

@@ -43,6 +43,7 @@ is the only time the app touches the network at all — see `Readiness`).
 | `Orb.swift` | 259 | `HudSpec` (every colour and duration), `HudLifecycle` (geometry and colour per frame), `HudState` |
 | `Support.swift` | ~190 | `AppPaths`, `Settings`, `SettingKey`, logging, notifications, the shell helper |
 | `Transcriber.swift` | ~130 | `Result`, and the note format: markdown with frontmatter carrying engine, timings and confidence |
+| `Retake.swift` | ~55 | whether a failed take is still worth offering, and what the menu should call it |
 | `HUD.swift` | 136 | the panel, `show*` entry points, the hide timer |
 | `HudView.swift` | 105 | the SwiftUI box and the live view that ticks it |
 | `Recorder.swift` | 99 | Ponte's façade over `WaveformCapture.EngineRecorder` |

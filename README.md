@@ -399,7 +399,7 @@ single identity, every grant survives every future update — the requirement na
 ## Menu
 
 - Start / Stop recording (shows the current hotkey)
-- Copy last transcript · Open notes folder · Open audio folder
+- Copy last transcript · **Transcribe the last take again** · Open notes folder · Open audio folder
 - **Language** — 15 languages incl. auto-detect (mapped onto Parakeet's language hint)
 - **Speech model** — Parakeet Ultra (default) / v3 / v2 / Redux; download, or unload it from memory
 - Auto-paste into frontmost app · Keep audio files · Launch at Login

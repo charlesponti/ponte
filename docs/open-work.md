@@ -28,7 +28,7 @@ the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos
 | #5 | show the transcript in the HUD while speaking | party trick that costs the watch-the-orb honesty |
 | #4 | local history window | search and re-copy past dictations |
 | #3 | custom vocabulary | names and jargon that engines keep missing |
-| #2 | re-transcribe a failed take from the menu | the audio is kept after a failure for exactly this |
+| #2 | re-transcribe a failed take from the menu | **implemented**; the policy and the adoption path are tested and the kept file is proven re-transcribable, but the menu click itself is unverified — see [pitfalls.md](pitfalls.md) |
 | #1 | decide the licence-check service, and what it costs the "no network calls" promise | blocked: waiting on research. A licence check would be Ponte's first network call |
 | waveform-ios#2 | make the orb's render independent of ambient graphics state | upstream: in-process renders vary, so some assertions have to be made through the CLI |
 

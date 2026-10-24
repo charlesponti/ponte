@@ -117,6 +117,35 @@ app, notarize and staple both, and run the check against the DMG — ideally aga
 which is what a browser download actually is. A build that reports its own success in its own words is not
 evidence.
 
+## A build script that reports success and installs nothing
+
+**Symptom.** `make-dmg.sh --install` finishes cleanly, the app restarts, and the features just built are simply
+not there. Three live tests in a row exercised the previous binary.
+**Cause.** The staged app was current — `.build/release/Ponte` and `dist/Ponte.app` both contained the new
+code — while `/Applications/Ponte.app` still held the build from hours earlier. A running process cannot have
+its executable replaced, and the old script's `cp -R` neither failed nor took effect, with nothing checking the
+result. The `osascript … to quit` it relies on can also fail silently, and that was swallowed with `|| true`.
+**Rule.** An install must verify it installed: compare the staged binary with the installed one and exit
+non-zero when they differ. Anything that changes state outside the repository — an install, a push, a
+notarization, an issue close — needs its result read back, because a command that reports success is not
+evidence that anything happened.
+
+**And a related measurement trap:** the run that "proved" the new code was live showed the *old* behaviour.
+Before trusting a live test, check the installed binary contains the change — `strings /Applications/Ponte.app/
+Contents/MacOS/Ponte | grep '<a string unique to the change>'`.
+
+## Status-item menus cannot be driven from here
+
+**Symptom.** An AX script reports its own trust as `true`, lists the app's attributes including
+`AXExtrasMenuBar`, and then can never read a value from it — `AXError -25212` from the app's element, `-25205`
+from the system-wide one. System Events does not see the menu either.
+**Cause.** Menu bar extras are not exposed the way ordinary app UI is. This is the same wall the earlier note
+about System Events recorded, now confirmed against the Accessibility API directly, with and without activating
+the app.
+**Rule.** Do not plan a verification that depends on clicking a status-item menu. Unit-test the policy behind
+the item, log the state the item's enablement depends on, and hand the one click to a person — saying plainly
+that it is the part you could not check.
+
 ## Editing this codebase
 
 **Symptom.** A one-line addition to the CLI's usage text fails the build with *"insufficient indentation of

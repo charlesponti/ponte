@@ -169,10 +169,21 @@ fi
 if [ "$INSTALL" = "1" ]; then
   echo "==> installing to /Applications"
   osascript -e 'tell application "Ponte" to quit' >/dev/null 2>&1 || true
+  # Insist, and then check. This block used to report success while leaving the previous build in place: the
+  # staged app was current, /Applications was not, and every later test silently exercised the old binary.
+  # A running process cannot have its executable replaced, so waiting for it to actually go is the point.
+  for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -f "Ponte.app/Contents/MacOS/Ponte" >/dev/null || break; sleep 1; done
   pkill -f "Ponte.app/Contents/MacOS/Ponte" >/dev/null 2>&1 || true
   sleep 1
+  pgrep -f "Ponte.app/Contents/MacOS/Ponte" >/dev/null && { pkill -9 -f "Ponte.app/Contents/MacOS/Ponte"; sleep 1; }
   rm -rf "/Applications/$APP_NAME.app"
   cp -R "$APP" "/Applications/$APP_NAME.app"
+  if ! cmp -s "$APP/Contents/MacOS/$APP_NAME" "/Applications/$APP_NAME.app/Contents/MacOS/$APP_NAME"; then
+    echo "!! the installed binary is not the one just built — install failed"
+    cmp "$APP/Contents/MacOS/$APP_NAME" "/Applications/$APP_NAME.app/Contents/MacOS/$APP_NAME" | head -2
+    exit 1
+  fi
+  echo "    installed and verified identical to the build"
   open "/Applications/$APP_NAME.app"
   echo "    note: this build is signed with a different certificate than the development one, so"
   echo "    macOS may ask for the microphone again."
