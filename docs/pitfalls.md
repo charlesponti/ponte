@@ -81,6 +81,20 @@ doing what it said it would.
 **Rule.** Anchor the pattern — `(?<!\d)(\d{1,3})%` — and let the test be the spec. The test caught this bug in
 the code that was written to fix the previous one.
 
+## The window was smaller than what it drew
+
+**Symptom.** The live transcript is built, installed and tested — and nothing appears in the HUD.
+**Cause.** Two, stacked. The installed app was **twelve hours older** than the source: `build-app.sh --install`
+quit and copied without checking, and `open` on an app that is still running just activates the old instance, so
+every run exercised the previous binary. Underneath that, the floating panel was **420 × 132** — sized for the
+104 pt square it used to hold — while the live box is **330 × 156**, so the top 24 pt of the box, the top of the
+orb, fell outside the panel.
+**Rule.** A container sized separately from its contents needs an assertion that it is at least as big;
+`HudPanelTests` now checks every state's box *and* the longest label the HUD can say (371 pt of ink against a
+420 pt panel — closer than it looks). And when something is "not visible", establish what is *showing* it before
+doubting what is *drawn*: every test passed while the box was being cut off, the geometry was right, and a PNG of
+the box proved nothing about whether the window was big enough to display it.
+
 ## The test material can be the bug
 
 **Symptom.** Whisper returns 6 of 24 repetitions from a 76-second recording, and an issue is filed saying it
@@ -129,6 +143,9 @@ result. The `osascript … to quit` it relies on can also fail silently, and tha
 non-zero when they differ. Anything that changes state outside the repository — an install, a push, a
 notarization, an issue close — needs its result read back, because a command that reports success is not
 evidence that anything happened.
+
+`build-app.sh --install` had the same hole and now waits for the running copy to exit, `pkill -9`s it, and
+compares the installed binary's SHA-256 with the build's before reporting success.
 
 **And a related measurement trap:** the run that "proved" the new code was live showed the *old* behaviour.
 Before trusting a live test, check the installed binary contains the change — `strings /Applications/Ponte.app/
