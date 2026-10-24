@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VoiceNote — B, with the waiting orb</title>
+<style>
+  /* ---------------------------------------------------------------
+     VoiceNote HUD, direction B only — iteration 2.
+     Pill metrics from Sources/VoiceNote/HUD.swift.
+     Orb maths from ~/Developer/Waveform:
+       OrbModel   — Fibonacci lattice, golden = pi*(3-sqrt5), age=|asin(y)|/(pi/2)
+       OrbProjection — place(), layer(depth)=min(3,|depth*4|),
+                       perspective(depth)=0.75+0.25*depth,
+                       opacities=[0.18,0.4,0.7,1.0], spin 0.35 rad/s, tip 0.35,
+                       radius = min(w,h)/2/(1+gain)*0.94, dot radius 1.1 at silence
+     A waiting orb has no audio, so by the model's own rule it is a plain sphere:
+     every dot sits at 1.0 and nothing is invented.
+     --------------------------------------------------------------- */
+
+  :root {
+    --hud-fill: rgba(28, 28, 30, 0.72);
+    --hud-border: rgba(255, 255, 255, 0.10);
+    --hud-ink: rgba(255, 255, 255, 0.96);
+    --hud-ink-dim: rgba(255, 255, 255, 0.55);
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --green: #32d74b;
+    --mint: #66d4cf;
+
+    --page: #0b0b0d; --card: #141418; --card-2: #1b1b20; --line: #2a2a31;
+    --ink: #ececf1; --ink-mid: #a2a2ad; --ink-dim: #6e6e78; --accent: #7aa2ff;
+    --radius: 14px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font: 13px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; width: 980px; }
+  .wrap { padding: 22px 24px 26px; }
+  h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 4px; }
+  h2 { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+       color: var(--ink-dim); margin: 0 0 10px; }
+  p { margin: 0; }
+  .lede { color: var(--ink-mid); max-width: 74ch; }
+  .lede b, .note b { color: var(--ink); font-weight: 600; }
+  .agreement { margin-top: 14px; padding: 11px 14px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; color: var(--ink-mid);
+    display: flex; gap: 10px; align-items: baseline; }
+  .agreement strong { color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+  .tweaks { margin-top: 18px; padding: 12px 14px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 10px; display: flex; flex-wrap: wrap;
+    gap: 20px; align-items: center; }
+  .tweak { display: flex; gap: 8px; align-items: center; }
+  .tweak > span { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .seg button { all: unset; cursor: pointer; padding: 5px 10px; font: inherit; font-size: 12px;
+    color: var(--ink-mid); background: var(--card-2); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: #33333d; color: var(--ink); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ---------- the HUD ---------- */
+  .hud { background: var(--hud-fill); border: 1px solid var(--hud-border);
+    box-shadow: 0 8px 26px rgba(0,0,0,0.42), 0 1px 0 rgba(255,255,255,0.05) inset;
+    color: var(--hud-ink); -webkit-backdrop-filter: blur(22px) saturate(160%);
+    backdrop-filter: blur(22px) saturate(160%); display: flex; align-items: center; gap: 10px; }
+  .hud * { flex: none; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.red { background: var(--red); } .dot.orange { background: var(--orange); }
+  .dot.green { background: var(--green); }
+  .dot.pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .label { font-size: 13px; font-weight: 600; letter-spacing: -0.005em; white-space: nowrap; }
+  .label.ok { color: var(--green); } .label.err { color: var(--red); }
+  .timer { font-variant-numeric: tabular-nums; font-size: 12px; color: var(--hud-ink-dim); }
+  .glyph { width: 14px; height: 14px; }
+  .glyph path, .glyph rect { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+  .check { width: 14px; height: 14px; }
+  .check path { fill: none; stroke: var(--green); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .B { border-radius: 20px; padding: 0 14px; }
+  .B.small { width: 172px; height: 40px; }
+  .B.tall  { width: 172px; height: 56px; }
+  .B.wide  { width: 236px; height: 40px; }
+  .slabars { display: flex; align-items: center; gap: 3px; height: 16px; width: 38px; }
+  .slabars b { width: 3px; border-radius: 2px; }
+  /* painted by paintBars() with HUD.swift's ramp: hue 0.33*(1-v*1.25) */
+  .slabars.idle b { background: rgba(255,255,255,0.35) !important; }
+  .dots3 { display: flex; gap: 4px; align-items: center; width: 38px; justify-content: center; }
+  .dots3 i { width: 5px; height: 5px; border-radius: 50%; background: var(--hud-ink); opacity: .3; }
+  .prog { display: flex; gap: 3px; width: 38px; }
+  .prog b { flex: 1 1 0; border-radius: 2px; height: 14px; background: rgba(255,255,255,.16); }
+  .prog b.on { background: rgba(255,173,38,.9); }
+
+  /* the orb canvas */
+  canvas.orb { display: block; }
+  .orb-24 { width: 24px; height: 24px; }
+  .orb-28 { width: 28px; height: 28px; }
+  .orb-32 { width: 32px; height: 32px; }
+  .orb-44 { width: 44px; height: 44px; }
+  .orb-64 { width: 64px; height: 64px; }
+  .orb-72 { width: 72px; height: 72px; }
+
+  /* squircle host for the biggest orb */
+  .hud.squircle { width: 96px; height: 96px; border-radius: 26px; flex-direction: column;
+    justify-content: center; gap: 4px; }
+  .hud.squircle .timer { font-size: 10px; }
+
+  /* ---------- stages ---------- */
+  .states { display: grid; gap: 12px; margin-top: 4px; }
+  .state-row { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .state-what { color: var(--ink-mid); font-size: 12px; }
+  .state-what b { color: var(--ink); display: block; font-size: 12.5px; }
+  .state-stage { display: flex; justify-content: flex-start; }
+
+  /* ---------- orb study ---------- */
+  .orb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 4px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    display: flex; flex-direction: column; overflow: hidden; }
+  .card-head { padding: 14px 16px 12px; }
+  .card-tag { display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600;
+    color: var(--ink); background: #24242c; border: 1px solid var(--line); border-radius: 6px;
+    padding: 2px 7px; margin-bottom: 9px; }
+  .card-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .card-why { color: var(--ink-mid); font-size: 12.5px; }
+  .stage { position: relative; height: 168px; margin: 0 16px; border-radius: 10px;
+    overflow: hidden; border: 1px solid var(--line); display: flex; align-items: center;
+    justify-content: center; }
+  .stage.dark { background: #1c1c1f; } .stage.light { background: #f4f4f2; }
+  .stage.grey { background: #6f7480; }
+  .fake { position: absolute; inset: 14px 16px auto 16px; display: grid; gap: 8px; }
+  .fake i { display: block; height: 7px; border-radius: 4px; }
+  .stage.dark .fake i { background: #2e2e33; } .stage.light .fake i { background: #e2e2de; }
+  .stage.grey .fake i { background: #7f848f; }
+  .fake i:nth-child(2) { width: 78%; } .fake i:nth-child(3) { width: 62%; }
+  .fake i:nth-child(4) { width: 88%; } .fake i:nth-child(5) { width: 41%; }
+  .hold { z-index: 1; }
+  .spec { padding: 12px 16px 0; color: var(--ink-dim); font-size: 11.5px;
+    font-variant-numeric: tabular-nums; }
+  .spec span + span::before { content: " · "; color: var(--line); }
+  .pick { margin: 12px 16px 16px; padding: 9px 12px; width: calc(100% - 32px); background: var(--card-2);
+    color: var(--ink); border: 1px solid var(--line); border-radius: 9px; font: inherit;
+    font-weight: 600; cursor: pointer; text-align: left; }
+  .pick:hover { background: #2c2c36; border-color: #3a3a46; }
+  .pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 12.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { color: var(--ink-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  td:first-child { color: var(--ink); font-weight: 600; white-space: nowrap; }
+  td { color: var(--ink-mid); } tr:last-child td { border-bottom: 0; }
+  .note { margin-top: 18px; color: var(--ink-dim); font-size: 12px; max-width: 78ch; }
+  .note code { color: var(--ink-mid); font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .foot { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line);
+    color: var(--ink-dim); font-size: 11.5px; }
+  .scale-150 .hold { transform: scale(1.5); transform-origin: center; }
+  .motion .slabars b { animation: bounce 900ms ease-in-out infinite; }
+  .motion .slabars b:nth-child(2) { animation-duration: 700ms; animation-delay: -200ms; }
+  .motion .slabars b:nth-child(3) { animation-duration: 980ms; animation-delay: -440ms; }
+  .motion .slabars b:nth-child(4) { animation-duration: 640ms; animation-delay: -90ms; }
+  @keyframes bounce { 0%,100% { transform: scaleY(0.32); } 50% { transform: scaleY(1); } }
+  .motion .dots3 i { animation: dotpulse 1.1s ease-in-out infinite; }
+  .motion .dots3 i:nth-child(2) { animation-delay: .18s; }
+  .motion .dots3 i:nth-child(3) { animation-delay: .36s; }
+  @keyframes dotpulse { 0%,100% { opacity: .22; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-2px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .motion .slabars b, .motion .dots3 i { animation: none; }
+  }
+</style>
+</head>
+<body class="motion scale-100">
+<div class="wrap">
+
+  <h1>Direction B — one pill, and a waiting orb</h1>
+  <p class="lede">
+    A and C are gone. This is B only: <b>172 × 40</b>, no label row, states carried by shape, colour and one
+    short string. The waiting state now uses the orb from <code>~/Developer/Waveform</code>, reproduced from
+    its actual maths — the Fibonacci lattice, the four depth layers, the 0.35 rad/s spin.
+  </p>
+
+  <div class="agreement">
+    <strong>Working agreement:</strong>
+    <span>Still design-only. Nothing is rebuilt or installed while we iterate. When you pick, I implement
+    in one pass.</span>
+  </div>
+
+  <div class="tweaks">
+    <div class="tweak"><span>Backdrop</span>
+      <div class="seg" role="group" aria-label="Backdrop">
+        <button data-set="backdrop" data-value="dark" aria-pressed="true">Dark editor</button>
+        <button data-set="backdrop" data-value="light" aria-pressed="false">Light doc</button>
+        <button data-set="backdrop" data-value="grey" aria-pressed="false">Mid grey</button>
+      </div>
+    </div>
+    <div class="tweak"><span>Motion</span>
+      <div class="seg" role="group" aria-label="Motion">
+        <button data-set="motion" data-value="on" aria-pressed="true">On</button>
+        <button data-set="motion" data-value="off" aria-pressed="false">Off</button>
+      </div>
+    </div>
+    <div class="tweak"><span>Scale</span>
+      <div class="seg" role="group" aria-label="Scale">
+        <button data-set="scale" data-value="scale-100" aria-pressed="true">1×</button>
+        <button data-set="scale" data-value="scale-150" aria-pressed="false">1.5×</button>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="margin-top:22px">B, five states</h2>
+  <div class="states">
+
+    <div class="state-row">
+      <div class="state-what"><b>Recording</b>meter animating, timer running</div>
+      <div class="state-stage">
+        <div class="hud B small">
+          <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+            <rect x="6" y="1.6" width="4" height="7.4" rx="2"></rect>
+            <path d="M3.6 7.4a4.4 4.4 0 0 0 8.8 0"></path><path d="M8 11.8V14.4"></path>
+          </svg>
+          <div class="slabars" id="barsA">
+            <b style="height:7px"></b><b style="height:14px"></b><b style="height:10px"></b><b style="height:16px"></b>
+          </div>
+          <span class="timer">0:07</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-row">
+      <div class="state-what"><b>Waiting</b>the orb — plain sphere, turning, nothing invented</div>
+      <div class="state-stage">
+        <div class="hud B small">
+          <canvas class="orb orb-28" data-count="260" data-dot="1.15" data-tint="mint"></canvas>
+          <span class="timer">&hellip;</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-row">
+      <div class="state-what"><b>Done</b>tick, bars flat, palette green, auto-hides 1.4 s</div>
+      <div class="state-stage">
+        <div class="hud B small">
+          <svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.6l3.3 3.2L13 4.8"></path></svg>
+          <div class="slabars idle"><b style="height:3px"></b><b style="height:3px"></b>
+            <b style="height:3px"></b><b style="height:3px"></b></div>
+          <span class="timer" style="color:var(--green)">0.2s</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-row">
+      <div class="state-what"><b>Downloading</b>arrow glyph, four-segment fill</div>
+      <div class="state-stage">
+        <div class="hud B small">
+          <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 2v9"></path><path d="M4.4 7.6L8 11.2l3.6-3.6"></path><path d="M3 13.6h10"></path>
+          </svg>
+          <div class="prog"><b class="on"></b><b class="on"></b><b></b><b></b></div>
+          <span class="timer">43%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="state-row">
+      <div class="state-what"><b>Nothing heard</b>the state that forces B to grow — 172 → 236 px</div>
+      <div class="state-stage">
+        <div class="hud B wide">
+          <span class="dot red"></span>
+          <span class="label err" style="font-size:12px">Heard nothing</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2 style="margin-top:26px">The waiting orb — how much room does it need?</h2>
+  <p class="card-why" style="margin-bottom:14px">
+    At the reference size the orb is <b>~1,200 dots whose radius is about 1/136th of the sphere</b>. Scale that
+    down to a 28 px orb and every dot is 0.2 px — it stops being an orb and becomes a smudge. So the real
+    question is not what the orb looks like, it is <b>where it is allowed to be big enough</b>. All four below
+    are live, drawn with the same maths, at true size.
+  </p>
+
+  <div class="orb-grid">
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-tag"><i>1</i> smallest change</div>
+        <div class="card-name">28 px orb, 260 dots, pill unchanged</div>
+        <p class="card-why">The orb drops into the pill where the glyph and bars were. Dots are chunkier than
+        the reference so they still resolve — this is a <b>bead orb</b>, same family, different scale.</p>
+      </div>
+      <div class="stage dark">
+        <div class="fake"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hold"><div class="hud B small">
+          <canvas class="orb orb-28" data-count="260" data-dot="1.15" data-tint="mint"></canvas>
+          <span class="timer">&hellip;</span>
+        </div></div>
+      </div>
+      <div class="spec"><span>172 × 40</span><span>orb 28</span><span>260 dots</span><span>dot r 1.15</span></div>
+      <button class="pick" data-hermes-send="Orb option 1: 28 px orb, 260 dots, keep the 172x40 pill unchanged.">Go with 1 →</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-tag"><i>2</i> truer density</div>
+        <div class="card-name">32 px orb, 420 dots, pill unchanged</div>
+        <p class="card-why">More dots in slightly more space: the rim starts to read as a silhouette, which is
+        what makes the reference look spherical rather than like scattered points.</p>
+      </div>
+      <div class="stage dark">
+        <div class="fake"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hold"><div class="hud B small">
+          <canvas class="orb orb-32" data-count="420" data-dot="0.9" data-tint="mint"></canvas>
+          <span class="timer">&hellip;</span>
+        </div></div>
+      </div>
+      <div class="spec"><span>172 × 40</span><span>orb 32</span><span>420 dots</span><span>dot r 0.9</span></div>
+      <button class="pick" data-hermes-send="Orb option 2: 32 px orb, 420 dots, keep the 172x40 pill unchanged.">Go with 2 →</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-tag"><i>3</i> pill grows a little</div>
+        <div class="card-name">44 px orb, 700 dots, pill 172 × 56</div>
+        <p class="card-why">Sixteen extra pixels of height buys a real sphere: recognizable lattice, visible
+        rim, still one small object. The pill changes size for the waiting state only.</p>
+      </div>
+      <div class="stage dark">
+        <div class="fake"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hold"><div class="hud B tall">
+          <canvas class="orb orb-44" data-count="700" data-dot="0.8" data-tint="mint"></canvas>
+          <span class="timer">&hellip;</span>
+        </div></div>
+      </div>
+      <div class="spec"><span>172 × 56</span><span>orb 44</span><span>700 dots</span><span>dot r 0.8</span></div>
+      <button class="pick" data-hermes-send="Orb option 3: 44 px orb, 700 dots, waiting pill grows to 172x56.">Go with 3 →</button>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-tag"><i>4</i> the orb as its own object</div>
+        <div class="card-name">64 px orb, 1,100 dots, 96 px squircle</div>
+        <p class="card-why">Closest to the reference: enough dots and enough room that it reads exactly like
+        the Waveform orb. It is no longer a pill — the waiting state becomes a distinct circular badge.</p>
+      </div>
+      <div class="stage dark">
+        <div class="fake"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="hold"><div class="hud squircle">
+          <canvas class="orb orb-64" data-count="1100" data-dot="0.62" data-tint="mint"></canvas>
+          <span class="timer">&hellip;</span>
+        </div></div>
+      </div>
+      <div class="spec"><span>96 × 96</span><span>orb 64</span><span>1,100 dots</span><span>dot r 0.62</span></div>
+      <button class="pick" data-hermes-send="Orb option 4: 64 px orb, 1100 dots inside a 96 px squircle for the waiting state.">Go with 4 →</button>
+    </div>
+
+  </div>
+
+  <h2 style="margin-top:26px">Two smaller decisions on the same orb</h2>
+  <div class="orb-grid" style="margin-top:4px">
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-name">Colour</div>
+        <p class="card-why">The reference defaults to SwiftUI <code>.mint</code>. The rest of the waiting state
+        in this app is orange. Mint keeps the orb recognisably “the Waveform thing”; orange keeps the app
+        internally consistent.</p>
+      </div>
+      <div class="stage dark" style="gap:26px">
+        <div class="hold" style="display:flex;gap:26px;align-items:center">
+          <div style="display:grid;gap:6px;justify-items:center">
+            <canvas class="orb orb-44" data-count="700" data-dot="0.8" data-tint="mint"></canvas>
+            <span class="timer">mint</span>
+          </div>
+          <div style="display:grid;gap:6px;justify-items:center">
+            <canvas class="orb orb-44" data-count="700" data-dot="0.8" data-tint="orange"></canvas>
+            <span class="timer">orange</span>
+          </div>
+          <div style="display:grid;gap:6px;justify-items:center">
+            <canvas class="orb orb-44" data-count="700" data-dot="0.8" data-tint="white"></canvas>
+            <span class="timer">white</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec"><span>same orb, three tints</span><span>mint = SwiftUI .mint on dark, approx.</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-name">Does it replace the timer slot?</div>
+        <p class="card-why">During waiting there is no elapsed time to show. Three ways to use the right-hand
+        slot: an ellipsis, nothing at all, or the word for what is happening if the pill grows.</p>
+      </div>
+      <div class="stage dark" style="gap:20px">
+        <div class="hold" style="display:flex;gap:20px;align-items:center;flex-direction:column">
+          <div class="hud B small">
+            <canvas class="orb orb-28" data-count="260" data-dot="1.15" data-tint="mint"></canvas>
+            <span class="timer">&hellip;</span>
+          </div>
+          <div class="hud B small">
+            <canvas class="orb orb-28" data-count="260" data-dot="1.15" data-tint="mint"></canvas>
+          </div>
+          <div class="hud B wide">
+            <canvas class="orb orb-28" data-count="260" data-dot="1.15" data-tint="mint"></canvas>
+            <span class="timer">Transcribing</span>
+          </div>
+        </div>
+      </div>
+      <div class="spec"><span>ellipsis</span><span>nothing</span><span>word, costs width</span></div>
+    </div>
+
+  </div>
+
+  <h2 style="margin-top:26px">What I’d build</h2>
+  <p class="note">
+    <b>Option 3</b> — a 44 px orb in a pill that grows to 172 × 56 while waiting. It is the smallest amount of
+    extra room that lets the orb be the real thing rather than a dot-smudge, it keeps B’s
+    “one small object” character, and it does not grow the way the “Heard nothing” state does, so the two
+    growth cases stay distinguishable: <b>taller means busy, wider means it needs you</b>.
+  </p>
+  <p class="note" style="margin-top:10px">
+    On colour I would go <b>mint</b>. The orb is a borrowed object with its own identity, and mint reads as
+    “audio is being computed here” rather than repeating the orange that already means “working” elsewhere in
+    the app. Timer slot: <b>ellipsis</b> when the pill stays tight, the word when it is wide.
+  </p>
+  <p class="note" style="margin-top:10px">
+    One honest caveat about the waiting orb: the model’s own rule is that nothing is invented, so a sphere
+    with no audio is just a plain turning sphere. If you want it to <i>pulse</i> while waiting, that has to be
+    a decision — it is no longer showing data.
+  </p>
+
+  <div class="foot">
+    Board: <code>design/hud-b.html</code> · design-only, nothing installed · orb maths lifted from
+    <code>~/Developer/Waveform</code> (<code>OrbModel</code>, <code>OrbProjection</code>) and reproduced in
+    canvas, dot for dot · pill metrics from <code>Sources/VoiceNote/HUD.swift</code>.
+  </div>
+
+</div>
+
+<script>
+  // ---------------------------------------------------------------- orb
+  const TAU = Math.PI * 2;
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));   // OrbModel: the golden angle
+  const SPIN_RATE = 0.35;                        // OrbProjection.spin(rate:)
+  const TIP = 0.35;                              // OrbProjection tip
+  const STILL = 0.6;                             // OrbProjection.spin(still:)
+  const OPACITIES = [0.18, 0.4, 0.7, 1.0];       // OrbProjection.opacities
+  const TINTS = { mint: "102,212,207", orange: "255,159,10", white: "235,235,240" };
+
+  function makeLattice(count) {
+    const unit = [], age = [];
+    for (let i = 0; i < count; i++) {
+      const y = 1 - 2 * (i + 0.5) / count;
+      const ring = Math.sqrt(Math.max(0, 1 - y * y));
+      const angle = GOLDEN * i;
+      unit.push([Math.cos(angle) * ring, y, Math.sin(angle) * ring]);
+      age.push(Math.abs(Math.asin(y)) / (Math.PI / 2));
+    }
+    return { unit, age };
+  }
+
+  class Orb {
+    constructor(canvas) {
+      this.c = canvas;
+      this.count = +canvas.dataset.count || 260;
+      this.dotR = +canvas.dataset.dot || 1.0;
+      this.tint = TINTS[canvas.dataset.tint] || TINTS.mint;
+      this.lattice = makeLattice(this.count);
+      const rect = canvas.getBoundingClientRect();
+      this.size = rect.width || parseFloat(getComputedStyle(canvas).width) || 28;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.round(this.size * dpr);
+      canvas.height = Math.round(this.size * dpr);
+      this.ctx = canvas.getContext("2d");
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    draw(t) {
+      const g = this.ctx, s = this.size, half = s / 2;
+      g.clearRect(0, 0, s, s);
+      // OrbProjection.radius(in:gain:) with gain 0.45 and out = 1 (silence)
+      const radius = Math.min(s, s) / 2 / (1 + 0.45) * 0.94;
+      const spin = t * SPIN_RATE;                 // turning
+      const sy = Math.sin(spin), cy = Math.cos(spin);
+      const sx = Math.sin(TIP), cx = Math.cos(TIP);
+      const layers = [[], [], [], []];
+      for (let i = 0; i < this.count; i++) {
+        const u = this.lattice.unit[i];
+        const x1 = u[0] * cy + u[2] * sy;
+        const z1 = -u[0] * sy + u[2] * cy;
+        const y2 = u[1] * cx - z1 * sx;
+        const z2 = u[1] * sx + z1 * cx;
+        const depth = (z2 + 1) / 2;
+        const layer = Math.min(3, Math.floor(depth * 4));
+        const persp = 0.75 + 0.25 * depth;        // OrbProjection.perspective
+        const r = Math.max(0.35, this.dotR * persp);
+        layers[layer].push(half + x1 * radius, half - y2 * radius, r);
+      }
+      for (let L = 0; L < 4; L++) {
+        const arr = layers[L];
+        if (!arr.length) continue;
+        g.beginPath();
+        for (let k = 0; k < arr.length; k += 3) {
+          const x = arr[k], y = arr[k + 1], r = arr[k + 2];
+          g.moveTo(x + r, y);
+          g.arc(x, y, r, 0, TAU);
+        }
+        g.fillStyle = `rgba(${this.tint},${OPACITIES[L]})`;
+        g.fill();
+      }
+    }
+  }
+
+  const orbs = [...document.querySelectorAll("canvas.orb")].map(c => new Orb(c));
+
+  // ---------------------------------------------------------------- tweaks
+  const KEY = "voicenote.hudB.tweaks";
+  const state = Object.assign({ backdrop: "dark", motion: "on", scale: "scale-100" },
+                              JSON.parse(localStorage.getItem(KEY) || "{}"));
+
+  function apply() {
+    document.body.classList.remove("scale-100", "scale-150", "motion", "nomotion");
+    document.body.classList.add(state.scale);
+    document.body.classList.add(state.motion === "on" ? "motion" : "nomotion");
+    document.querySelectorAll(".stage").forEach(s => {
+      s.classList.remove("dark", "light", "grey"); s.classList.add(state.backdrop);
+    });
+    document.querySelectorAll("[data-set]").forEach(b => {
+      const v = b.dataset.set === "scale" ? state.scale : state[b.dataset.set];
+      b.setAttribute("aria-pressed", String(b.dataset.value === v));
+    });
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+  document.querySelectorAll("[data-set]").forEach(b => {
+    b.addEventListener("click", () => { state[b.dataset.set] = b.dataset.value; apply(); });
+  });
+
+  // ---------------------------------------------------------------- loop
+  let last = 0;
+  function frame(now) {
+    const t = now / 1000;
+    const still = state.motion === "off";
+    orbs.forEach(o => o.draw(still ? STILL / SPIN_RATE : t));
+    requestAnimationFrame(frame);
+  }
+
+  function paintBars() {
+    document.querySelectorAll(".slabars:not(.idle) b").forEach(b => {
+      const h = parseFloat(b.style.height) || 3;
+      const track = b.parentElement.getBoundingClientRect().height || 16;
+      const v = Math.max(0, Math.min(1, h / track));
+      const hue = (0.33 * (1 - Math.min(1, v * 1.25)) * 360).toFixed(1);
+      b.style.background = `hsl(${hue} 72% 61%)`;
+    });
+  }
+
+  apply();
+  paintBars();
+  // First frame synchronously so the board is never blank (rAF only fires when the
+  // tab is visible — it is paused in headless screenshots and background tabs).
+  orbs.forEach(o => o.draw(6.0));
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

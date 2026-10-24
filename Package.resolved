@@ -1,0 +1,24 @@
+{
+  "originHash" : "8a8e275e3220d3188ac90653f477d6ed3deece479f9c49995f674203c708d93c",
+  "pins" : [
+    {
+      "identity" : "fluidaudio",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/FluidInference/FluidAudio.git",
+      "state" : {
+        "revision" : "503b4bd1bbf7220882de39fe8ae6716aae4132da",
+        "version" : "0.17.7"
+      }
+    },
+    {
+      "identity" : "waveform-ios",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/charlesponti/waveform-ios.git",
+      "state" : {
+        "revision" : "cda2732b1aedf663fb8e95d038676fde789e8db4",
+        "version" : "0.2.0"
+      }
+    }
+  ],
+  "version" : 3
+}
