@@ -92,6 +92,38 @@ burst of seven words drains in 2.688 s, every word resolves inside its own slot,
 re-transcribes the audio, so the tail *can* change. A word that looks final but moves reads as a mistake; one that
 looks provisional reads as thinking.
 
+### How far behind the voice it runs
+
+The lag is the interval between passes plus the cost of one, so the cost is the number everything else is built on.
+Measured in-process on this machine (`LiveTranscriptIntegrationTests` prints it):
+
+| window a pass reads | pass | realtime |
+|---|---|---|
+| 2 s | 0.09 s | 23× |
+| 3 s | 0.08 s | 36× |
+| 4 s | 0.10 s | 41× |
+| 6 s | 0.11 s | 56× |
+| the whole take, 34 s | 0.40 s | 85× |
+
+That is why a pass reads a **fixed six seconds** rather than everything heard so far. Re-transcribing the whole take
+costs more every second — 0.40 s at 34 s of audio, about 2.5 s at two minutes — so the line fell further behind the
+longer you talked. A window costs the same at the end of a minute as at the start of one.
+
+The interval is twice the last pass's cost, floored at 350 ms. At 0.11 s the floor is what binds, so words reach the
+line about **half a second** after they are spoken, and stay there however long the dictation runs.
+
+Two things about that number are easy to get wrong. The cost is measured **on the engine's own thread**: timing it
+where the trace is emitted folds in the hop to the main queue, where the HUD is drawing sixty times a second, and
+made the app throttle itself four times harder than the engine needed. And it is the *engine's* cost, which is
+measured on speech: passes over silence cost about 0.45 s, so a take that opens with silence polls more slowly
+until there are words to read.
+
+Windows overlap by about five and a half of their six seconds, and `LiveTranscript.stitch` joins each window onto
+what has already been committed by matching the words themselves rather than any timing. A window's own first word
+is the one cut in half by the window's start, so it is never trusted — the committed version wins. If no overlap is
+found at all, nothing is appended: guessing would either duplicate words or replace settled ones, and the next
+window overlaps this one and recovers.
+
 ### Reading a file that is still being written
 
 A WAV in progress has **zero in its two size fields** — the recorder fills them in when it closes the file — and

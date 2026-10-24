@@ -3,14 +3,21 @@ import Foundation
 /// When each word of a live transcript becomes visible, and how long it takes to resolve.
 ///
 /// The engine does not deliver words at the rate they are spoken. It transcribes everything it has heard each
-/// time it is polled, so a burst of three or four words arrives together every ~1.2 s. Animating the burst
-/// animates the wrong thing: you would see the transcript arrive in lumps, which is a property of polling rather
-/// than of speech. This releases the queue at the rate the words were actually spoken — words ÷ seconds of
-/// audio, both of which the engine already knows — so a slow speaker gets slow words and a fast one keeps up.
+/// time it is polled, so a burst of words arrives together — and the longer the take, the longer a pass takes and
+/// the bigger the burst. Pacing a burst out by *word index from a fixed origin* is the obvious thing and it is
+/// wrong: the words pile up behind the schedule and trickle out after the dictation has ended, so you finish
+/// talking and then watch your own sentence arrive.
 ///
-/// The blur is then derived rather than chosen. A word's entrance should occupy about two thirds of its slot:
-/// less and consecutive words read as simultaneous, more and two of them are always mid-blur, which is a
-/// permanent haze rather than a reveal.
+/// A word's appearance is therefore the later of two moments:
+///
+/// - **when it was spoken** — `index ÷ rate` plus a small display latency. This is the only thing that paces a
+///   word, and it exists so a burst delivered *early* is spread out at the rhythm of speech rather than landing
+///   as a lump.
+/// - **when it arrived** — the moment the engine actually returned it. A word delivered late is never held back
+///   any further: it appears at once, which is what keeps the line level with the voice instead of behind it.
+///
+/// The blur is derived rather than chosen. A word's entrance should occupy about two thirds of its slot: less and
+/// consecutive words read as simultaneous, more and two of them are always mid-blur, which is a permanent haze.
 ///
 /// Pure in its inputs, like `HudLifecycle`, so the schedule can be asserted instead of watched.
 enum TranscriptReveal {
@@ -21,6 +28,10 @@ enum TranscriptReveal {
     static let occupancy: Double = 0.72
     static let minDuration: Double = 0.15   // under this the eye reads a cut, not a blur
     static let maxDuration: Double = 0.40   // over this the word outlives its own slot
+    /// How long after a word was spoken it appears, provided the engine already has it. Small enough to be
+    /// imperceptible against the engine's own round trip, large enough that the last word of a burst does not
+    /// appear before the ear has finished hearing it.
+    static let displayLatency: Double = 0.25
 
     /// Seconds between one word arriving and the next.
     static func slot(rate: Double) -> Double { 1 / clampRate(rate) }
@@ -42,6 +53,27 @@ enum TranscriptReveal {
         return min(maxRate, max(minRate, rate))
     }
 
+    /// The moment a word may appear: when it was spoken, or when it arrived, whichever is later.
+    static func start(wordIndex: Int, arrival: TimeInterval, rate: Double) -> Double {
+        max(Double(wordIndex) * slot(rate: rate) + displayLatency, arrival)
+    }
+
+    /// How much of a word's entrance has happened. Zero means it is not on screen at all.
+    static func progress(wordIndex: Int, arrival: TimeInterval, at takeTime: Double, rate: Double) -> Double {
+        let from = start(wordIndex: wordIndex, arrival: arrival, rate: rate)
+        guard takeTime > from else { return 0 }
+        return min(1, (takeTime - from) / duration(rate: rate))
+    }
+
+    /// Whether a word is still provisional: among the last two to have appeared, and not fully resolved.
+    /// The newest words are the ones a later snapshot can still change, so they are the ones that should look
+    /// like it — a word that looks final but moves reads as a mistake, one that looks provisional reads as thinking.
+    static func provisional(wordIndex: Int, of count: Int, arrival: TimeInterval,
+                            at takeTime: Double, rate: Double) -> Bool {
+        guard count - 1 - wordIndex < 2 else { return false }
+        return progress(wordIndex: wordIndex, arrival: arrival, at: takeTime, rate: rate) < 1
+    }
+
     /// The words to keep showing, and where the new material starts.
     ///
     /// Each snapshot re-transcribes the audio so far, so the tail of the transcript can change: a word that came
@@ -57,23 +89,6 @@ enum TranscriptReveal {
         // A snapshot that only drops words (a shorter tail) keeps what is settled and ignores the rest.
         if incoming.count < shown.count, shared == incoming.count { return (shown, shared) }
         return (incoming, shared)
-    }
-
-    /// How much of a word's entrance has happened, for a word queued `index` slots after the first.
-    static func progress(wordIndex: Int, at elapsed: Double, rate: Double) -> Double {
-        let start = Double(wordIndex) * slot(rate: rate)
-        let d = duration(rate: rate)
-        guard elapsed > start else { return 0 }
-        return min(1, (elapsed - start) / d)
-    }
-
-    /// Whether a word is still provisional: within the last two to have arrived, and not fully resolved.
-    /// The newest words are the ones a later snapshot can still change, so they are the ones that should look
-    /// like it — a word that looks final but moves reads as a mistake, one that looks provisional reads as thinking.
-    static func provisional(wordIndex: Int, of count: Int, elapsed: Double, rate: Double) -> Bool {
-        let fromEnd = count - 1 - wordIndex
-        guard fromEnd < 2 else { return false }
-        return progress(wordIndex: wordIndex, at: elapsed, rate: rate) < 1
     }
 
     private static func normalise(_ word: String) -> String {

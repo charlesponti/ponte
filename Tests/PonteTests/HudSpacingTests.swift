@@ -64,7 +64,8 @@ final class HudSpacingTests: XCTestCase {
     /// padding and stop there, and the row is one line high, not two.
     func testTheTranscriptReachesTheRightPaddingAndStops() {
         let words = "the quick brown fox jumps over the lazy dog and keeps on running through the long green field"
-        let live = LiveText(words: words.split(separator: " ").map(String.init), since: 0, rate: 2.5)
+        let list = words.split(separator: " ").map(String.init)
+        let live = LiveText(words: list, arrivals: Array(repeating: 0, count: list.count), rate: 2.5)
         // 9 s into a 2.5 words/second take, every word has resolved.
         guard let rep = Probe.bitmap(frame(.recording, 9, "0:09", live: live)) else { return XCTFail("no bitmap") }
         let groups = Probe.inkGroups(frame(.recording, 9, "0:09", live: live))

@@ -603,8 +603,11 @@ func runCLI() -> Int32? {
         let live: LiveText = {
             guard let words = value(of: "--words") else { return LiveText() }
             let list = words.split(whereSeparator: { $0 == " " }).map(String.init)
+            // `--since` positions the line's clock: a word's reveal is paced from when it was spoken, so words
+            // delivered before that moment wait, and words the engine has already returned do not.
+            let since = Double(value(of: "--since") ?? "0") ?? 0
             return LiveText(words: list,
-                            since: Double(value(of: "--since") ?? "0") ?? 0,
+                            arrivals: Array(repeating: since, count: list.count),
                             rate: Double(value(of: "--rate") ?? "2.5") ?? 2.5)
         }()
         return writePNG(hudImage(state: state, t: t, text: text,

@@ -81,6 +81,28 @@ doing what it said it would.
 **Rule.** Anchor the pattern — `(?<!\d)(\d{1,3})%` — and let the test be the spec. The test caught this bug in
 the code that was written to fix the previous one.
 
+## Words arriving after you stopped talking
+
+**Symptom.** You finish a dictation, and the text keeps coming — the sentence assembles itself over the next few
+seconds instead of while you were saying it.
+**Cause.** The reveal was paced by word *index* from a fixed origin: word *i* appeared at `origin + i × slot`. The
+engine does not deliver words at the rate they are spoken — it returns everything heard so far each time it is
+polled — so a pass that brought a dozen words left eleven of them queued behind that schedule, and the queue drained
+at speaking rate after you stopped. Two things made it worse: the poll was a fixed 1.2 s, so the bursts were large,
+and a pass re-transcribed the whole take, so the bursts grew the longer the dictation ran.
+**Rule.** Pace an arrival, never an index. A word may wait only until the moment it was spoken; once the engine has
+handed it over it appears at once. Anything that paces by position will eventually be paced against a queue, and a
+queue that is behind is a queue that keeps arriving after the person has stopped talking.
+
+## The cost you measure is the cost you throttle by
+
+**Symptom.** The live transcript felt a second and a half behind when the engine's own cost was 0.11 s.
+**Cause.** The pass cost was timed from the start of the pass to the moment the trace was *written*, and the trace
+hops to the main queue — where the HUD is drawing sixty times a second. The interval is derived from that cost, so
+the app throttled itself four times harder than it needed to.
+**Rule.** Measure work on the thread doing it. Any figure that a control loop is derived from has to be taken before
+the result is handed to a busy queue, or the display's own latency ends up in the thing that governs it.
+
 ## The window was smaller than what it drew
 
 **Symptom.** The live transcript is built, installed and tested — and nothing appears in the HUD.

@@ -42,6 +42,37 @@ final class LiveTranscriptIntegrationTests: XCTestCase {
         return try Data(contentsOf: wav)
     }
 
+    /// What a pass costs at each window length.
+    ///
+    /// This is the number the whole read-out's latency is built on: the next pass waits twice what this one cost,
+    /// so the cost *is* how far behind the voice the line runs. Printed rather than asserted — it measures the
+    /// machine, not the code, and it is the table to design the window against.
+    func testWhatAPassCostsAtEachWindowLength() throws {
+        let sentence = "the quick brown fox jumps over the lazy dog and keeps on running through the long green field. "
+        let audio = try speech(String(repeating: sentence, count: 6))
+        let payloadAt = try XCTUnwrap(LiveTranscript.dataRange([UInt8](audio))).lowerBound
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ponte-cost-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: file) }
+        try audio.write(to: file)
+        print("  the take is \(Double(audio.count - payloadAt) / 32_000)s of audio")
+
+        var cheapest: TimeInterval = .greatestFiniteMagnitude
+        var whole: TimeInterval = 0
+        for window in [1.5, 2.0, 3.0, 4.0, 6.0, 3600.0] {
+            let (url, seconds) = try LiveTranscript.snapshot(of: file, lastSeconds: window)
+            defer { try? FileManager.default.removeItem(at: url) }
+            let began = Date()
+            let result = try AsrEngine.transcribe(wav: url)
+            let cost = Date().timeIntervalSince(began)
+            if window < 100 { cheapest = min(cheapest, cost) } else { whole = cost }
+            print(String(format: "  window %5.1fs -> pass %.2fs  (%.0fx realtime), %d words",
+                         seconds, cost, seconds / max(cost, 0.001), result.text.split(separator: " ").count))
+        }
+        print(String(format: "  the interval each implies: %.2fs at best, %.2fs over the whole take",
+                     2 * cheapest, 2 * whole))
+    }
+
     /// A file in the state the recorder leaves mid-take: a real header with both size fields still zero.
     ///
     /// The payload's offset comes from the same chunk-walker the live path uses, not from a fixed 44: a real WAV

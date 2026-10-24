@@ -347,7 +347,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                              columnsPerSecond: HudSpec.columnsPerSecond)
             }
             self.hud.beginRecording()
-            self.live.onTrace = { vlog("live: \($0)") }
+            self.live.onTrace = { vlog($0) }
             self.live.onText = { [weak self] text, seconds in
                 self?.hud.pushTranscript(text, seconds: seconds)
             }

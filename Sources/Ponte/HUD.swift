@@ -29,6 +29,7 @@ final class HUD {
         model.spinRate = HudSpec.baseSpin * HudSpec.recordingSpinMultiple
         model.live = LiveText()
         model.recordedFor = 0
+        model.takeStartedAt = Date()
         set(state: .recording, text: HudLifecycle.clock(0), colour: labelDim)
     }
 
@@ -44,15 +45,8 @@ final class HUD {
     /// `seconds` is the audio the pass ran over, which is how the speaking rate is measured rather than assumed.
     func pushTranscript(_ text: String, seconds: TimeInterval) {
         guard model.state == .recording || model.state == .working else { return }
-        let incoming = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
-        guard !incoming.isEmpty else { return }
-        let merged = TranscriptReveal.merge(shown: model.live.words, incoming: incoming)
         var live = model.live
-        if live.isEmpty {
-            live.since = Date().timeIntervalSince(model.startedAt)
-        }
-        live.words = merged.words
-        live.rate = TranscriptReveal.rate(words: merged.words.count, seconds: seconds)
+        live.absorb(text, seconds: seconds, at: Date().timeIntervalSince(model.takeStartedAt))
         model.live = live
     }
 
