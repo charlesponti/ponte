@@ -66,12 +66,32 @@ echo "==> built $APP"
 
 if [ "${1:-}" = "--install" ]; then
   echo "==> installing to /Applications"
-  # quit a running copy first so the bundle swap is clean
+  # Quit a running copy first, and *wait* for it. A process cannot have its executable replaced, and `open` on an
+  # app that is still running just activates the old instance — which is how a twelve-hour-old build was being
+  # tested while every script reported success.
   osascript -e 'tell application "Ponte" to quit' >/dev/null 2>&1 || true
   pkill -f "Ponte.app/Contents/MacOS/Ponte" >/dev/null 2>&1 || true
+  for _ in $(seq 1 10); do
+    pgrep -f "Ponte.app/Contents/MacOS/Ponte" >/dev/null 2>&1 || break
+    sleep 1
+  done
+  pkill -9 -f "Ponte.app/Contents/MacOS/Ponte" >/dev/null 2>&1 || true
   sleep 1
+
   rm -rf "/Applications/Ponte.app"
   cp -R "$APP" "/Applications/Ponte.app"
+
+  # Verify rather than assume: the installed binary must be byte-identical to the one just built.
+  built_sum=$(shasum -a 256 "$APP/Contents/MacOS/Ponte" | awk '{print $1}')
+  installed_sum=$(shasum -a 256 "/Applications/Ponte.app/Contents/MacOS/Ponte" | awk '{print $1}')
+  if [ "$built_sum" != "$installed_sum" ]; then
+    echo "!! the installed binary is not the one just built — install failed"
+    echo "   built:     $built_sum"
+    echo "   installed: $installed_sum"
+    exit 1
+  fi
+  echo "    installed and verified identical to the build ($(echo "$built_sum" | cut -c1-12))"
+
   open "/Applications/Ponte.app"
   echo "==> launched /Applications/Ponte.app"
 fi

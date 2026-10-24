@@ -110,8 +110,22 @@ Measured on real speech, fed to the live path one second at a time: passes over 
 take still being written, each costing **0.15–0.18 s**, with no pass losing a word an earlier one had, and the
 first word settled from the first pass onwards.
 
+### The panel has to hold the box
+
+The floating panel is a fixed size, and the box is drawn inside it. It was 420 × 132 — sized for a 104 pt square —
+while the live box is 330 × 156, so the top of the box fell outside the panel and the orb was cut off. It is
+420 × 180 now, and `HudPanelTests` asserts that every state's box and the longest label the HUD can say both fit.
+
+The reason this is worth a test rather than an eye: a clipped box is invisible in the one place you would look for
+it. Rendering the box alone says nothing about whether the panel is big enough to show it, and neither does a test
+of the geometry — the box was drawing correctly the whole time it was being cut off.
+
 ### Working on it
 
+- `--hud-demo [seconds]` shows the real HUD panel — same panel, view, state machine and reveal — driven by a
+  scripted take. This is how to see the live transcript on a machine whose default input is a pair of AirPods, and
+  how it was verified on screen: the box complete, the clock running, an older word fading at the left, and the
+  newest arriving out of a blur.
 - `--hud-render <out.png> recording <t> <text> --words "the quick brown fox" --since 2 --rate 2.5` draws the live
   box at any moment. The reveal is a function of time, so the same arguments always draw the same frame.
 - `--record 12 --live` runs the whole thing against the microphone and prints what it hears while the take is still

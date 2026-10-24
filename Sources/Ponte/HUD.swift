@@ -14,9 +14,6 @@ final class HUD {
     private let model = HudModel()
     private var hideWork: DispatchWorkItem?
 
-    /// Wide enough for the longest thing the HUD says ("Microphone access denied — System Settings…").
-    private let panelSize = CGSize(width: 420, height: 132)
-    private let bottomInset: CGFloat = 96
     private let labelDim = Color.white.opacity(0.55)
 
     // MARK: - Public
@@ -132,7 +129,7 @@ final class HUD {
     private func ensurePanel() {
         guard panel == nil else { return }
 
-        let p = NSPanel(contentRect: NSRect(origin: .zero, size: panelSize),
+        let p = NSPanel(contentRect: NSRect(origin: .zero, size: HudSpec.panelSize),
                         styleMask: [.borderless, .nonactivatingPanel],
                         backing: .buffered, defer: false)
         p.isFloatingPanel = true
@@ -146,14 +143,14 @@ final class HUD {
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
 
         let host = NSHostingView(rootView: HudView(model: model))
-        host.frame = NSRect(origin: .zero, size: panelSize)
+        host.frame = NSRect(origin: .zero, size: HudSpec.panelSize)
         host.autoresizingMask = [.width, .height]
         p.contentView = host
 
         let screen = NSScreen.main ?? NSScreen.screens.first
         if let visible = screen?.visibleFrame {
-            p.setFrameOrigin(NSPoint(x: (visible.midX - panelSize.width / 2).rounded(),
-                                     y: (visible.minY + bottomInset).rounded()))
+            p.setFrameOrigin(NSPoint(x: (visible.midX - HudSpec.panelSize.width / 2).rounded(),
+                                     y: (visible.minY + HudSpec.bottomInset).rounded()))
         }
 
         panel = p

@@ -91,6 +91,20 @@ enum HudSpec {
     static let transcriptFade: CGFloat = 34
     /// How far the whole line drifts left as each word lands, so it floats rather than jumping.
     static let transcriptGlide: CGFloat = 9
+    // MARK: - The panel
+
+    /// The floating panel everything is drawn inside: one fixed size, big enough for the widest box any state
+    /// draws and the longest thing the HUD says, with the box at its bottom centre.
+    ///
+    /// It was 420 × 132, sized for a 104 pt square. The live box is 330 × 156, so the top 24 pt of it — the top
+    /// of the orb — fell outside the panel. The height is now the wide box plus a margin for the collapse; the
+    /// extra space is transparent and sits above the box, which is bottom-aligned, so nothing moves.
+    ///
+    /// There is a test for this (`HudPanelTests`): a box or a label that no longer fits is a clipping bug, and
+    /// clipping is exactly what a still of the HUD will not show you.
+    static let panelSize = CGSize(width: 420, height: 180)
+    static let bottomInset: CGFloat = 96
+
     /// Provisional ink: the newest word or two, which a later snapshot can still change.
     static let transcriptFreshAlpha: CGFloat = 0.66
     static let transcriptInkAlpha: CGFloat = 0.96

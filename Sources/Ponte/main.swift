@@ -31,8 +31,8 @@ let knownFlags: Set<String> = [
     "--out", "--parakeet-model", "--language", "--turning",
     // --hud-render's transcript: what was heard, when it started, and how fast it was spoken
     "--words", "--since", "--rate",
-    // --record's live transcript
-    "--live",
+    // --record's live transcript, and the scripted HUD
+    "--live", "--hud-demo",
 ]
 
 for argument in argv.dropFirst() where argument.hasPrefix("--") {
@@ -677,6 +677,37 @@ func runCLI() -> Int32? {
             print("error: \(error.localizedDescription)")
             return 1
         }
+
+    case "--hud-demo":
+        // The real HUD panel, driven by a scripted take.
+        //
+        // The panel, the view, the state machine and the reveal are the app's own; only the words are scripted. It
+        // exists because the live transcript cannot otherwise be seen on a machine whose default input is a pair of
+        // AirPods: scripted dictation needs the speakers to reach the microphone, and an AirPods mic hears the
+        // room rather than the Mac's speakers.
+        let seconds = Double(value(of: "--hud-demo") ?? "") ?? 12
+        let script = (value(of: "--words") ?? "the quick brown fox jumps over the lazy dog and keeps on running through the long green field until it reaches the far fence and stops")
+            .split(separator: " ").map(String.init)
+        NSApplication.shared.setActivationPolicy(.accessory)
+        let hud = HUD()
+        hud.beginRecording()
+        hud.recorded(seconds: seconds)
+        let began = Date()
+        var shown = 0
+        let tick = Timer(timeInterval: 0.4, repeats: true) { timer in
+            let elapsed = Date().timeIntervalSince(began)
+            if elapsed > seconds { timer.invalidate(); hud.showDone("Pasted ✓"); return }
+            shown = min(script.count, shown + 1)
+            let text = script.prefix(shown).joined(separator: " ")
+            // The engine reports the audio it has heard; a scripted take pretends the words arrived as they would.
+            hud.pushTranscript(text, seconds: max(1, elapsed))
+        }
+        RunLoop.main.add(tick, forMode: .common)
+        print("HUD demo for \(seconds)s — the panel is at the screen's bottom centre")
+        let deadline = Date().addingTimeInterval(seconds + 2.5)
+        while Date() < deadline { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05)) }
+        tick.invalidate()
+        return 0
 
     case "--selftest":
         let seconds = Double(argv.count > 2 ? argv[2] : "") ?? 5
