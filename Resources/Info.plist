@@ -29,7 +29,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Local-only dictation. No network calls.</string>
+	<string>Local-only dictation. Your audio and text never leave the Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Ponte records your voice and transcribes it on-device, on the Neural Engine. Audio never leaves your Mac.</string>
 </dict>

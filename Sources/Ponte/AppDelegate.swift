@@ -605,6 +605,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(permissionsMenu())
         menu.addItem(.separator())
 
+        let version = NSMenuItem(title: "Ponte \(AppPaths.Version.display)", action: nil, keyEquivalent: "")
+        version.isEnabled = false
+        menu.addItem(version)
+        menu.addItem(.separator())
         let dev = NSMenuItem(title: "Mic: \(AVCaptureDevice.default(for: .audio)?.localizedName ?? "none")", action: nil, keyEquivalent: "")
         dev.isEnabled = false
         menu.addItem(dev)

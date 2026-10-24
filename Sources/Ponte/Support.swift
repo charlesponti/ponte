@@ -34,6 +34,22 @@ enum AppPaths {
 
     static let log = support.appendingPathComponent("ponte.log")
 
+    // MARK: - Version
+
+    /// What this build is, as stamped by `scripts/build-app.sh`: the release number and the commit count.
+    ///
+    /// The second number is the one an updater compares, and it only ever goes up. Outside an app bundle — running
+    /// the bare binary — there is no Info.plist to read, so this says "dev" rather than inventing a version.
+    enum Version {
+        static var short: String {
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
+        }
+        static var build: String {
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        }
+        static var display: String { "\(short) (\(build))" }
+    }
+
     static func stamp(_ d: Date = Date()) -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd_HH-mm-ss"

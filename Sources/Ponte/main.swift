@@ -26,7 +26,7 @@ let knownFlags: Set<String> = [
     // commands
     "--record", "--transcribe", "--bench", "--download", "--selftest", "--devices",
     "--hud-render", "--hud-strip", "--hud-voice", "--icon", "--icon-sheet",
-    "--status-icon", "--status-image", "--menubar-mark", "--menubar-sheet", "--help",
+    "--status-icon", "--status-image", "--menubar-mark", "--menubar-sheet", "--help", "--version",
     // flags, as opposed to commands
     "--out", "--parakeet-model", "--language", "--turning",
     // --hud-render's transcript: what was heard, when it started, and how fast it was spoken
@@ -512,6 +512,10 @@ func runCLI() -> Int32? {
     switch argv[1] {
     case "--help", "-h", "help":
         usage()
+        return 0
+
+    case "--version":
+        print("Ponte \(AppPaths.Version.display)")
         return 0
 
     case "--devices":

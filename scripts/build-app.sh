@@ -17,6 +17,22 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Ponte "$APP/Contents/MacOS/Ponte"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+
+# One source of truth for the version. `CFBundleShortVersionString` is the release tag's number; `CFBundleVersion`
+# is the commit count, which only ever goes up — an updater compares that integer, and a version that goes backwards
+# makes an update look like a downgrade and get refused. Hand-editing the plist is how 0.1.0 shipped under a v1.0.0
+# tag, and why this is stamped rather than typed.
+SHORT_VERSION="$(tr -d '[:space:]' < VERSION)"
+BUILD_VERSION="$(git rev-list --count HEAD 2>/dev/null || echo 0)"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $SHORT_VERSION" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_VERSION" "$APP/Contents/Info.plist"
+STAMPED_SHORT="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")"
+STAMPED_BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")"
+if [ "$STAMPED_SHORT" != "$SHORT_VERSION" ] || [ "$STAMPED_BUILD" != "$BUILD_VERSION" ]; then
+  echo "!! version stamping failed: wanted $SHORT_VERSION ($BUILD_VERSION), bundle has $STAMPED_SHORT ($STAMPED_BUILD)"
+  exit 1
+fi
+echo "    version $STAMPED_SHORT ($STAMPED_BUILD)"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 # Resource bundles (FluidAudio ships CoreML/tokenizer resources) must travel with
