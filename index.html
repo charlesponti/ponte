@@ -4,19 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ponte — Push-to-talk dictation for macOS</title>
-<meta name="description" content="Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac — no network, no account, no subscription.">
+<meta name="description" content="Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#000000; --bg2:#0a0a0a; --fg:#ffffff; --muted:#a6a6a6;
-    --accent:#16c784; --accent2:#4f7cff; --line:rgba(255,255,255,0.1); --card:#090909;
-    --shadow:0 10px 30px rgba(0,0,0,0.25);
-  }
+  :root{--accent:#16c784;--line:rgba(255,255,255,0.08)}
   *{box-sizing:border-box;margin:0;padding:0}
-  body{-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body{-webkit-font-smoothing:antialiased;overflow-x:hidden;background:#000;color:#fff}
   a{color:inherit;text-decoration:none}
+  html{scroll-behavior:smooth;scroll-snap-type:y proximity}
+  section{scroll-snap-align:start}
+  .orb-glow{filter:drop-shadow(0 0 60px rgba(22,199,132,0.3)) drop-shadow(0 0 120px rgba(22,199,132,0.15));}
+  .reveal{opacity:0;transform:translateY(40px);transition:opacity 1s ease,transform 1s ease}
+  .reveal.visible{opacity:1;transform:translateY(0)}
+  .orb-parallax{transition:transform 0.1s ease-out}
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-track{background:#000}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+  *:focus{outline:none}
 </style>
 <script type="importmap">
 {
@@ -33,240 +39,150 @@
   tailwind.config = {
     theme: {
       extend: {
-        colors: {
-          bg: 'var(--bg)', bg2: 'var(--bg2)', fg: 'var(--fg)', muted: 'var(--muted)',
-          accent: 'var(--accent)', accent2: 'var(--accent2)', line: 'var(--line)', card: 'var(--card)',
-        },
+        colors: { accent: '#16c784', muted: 'rgba(255,255,255,0.5)', line: 'rgba(255,255,255,0.08)' },
         fontFamily: { sans: ['Inter','system-ui','sans-serif'], mono: ['JetBrains Mono','monospace'] },
-        boxShadow: { card: 'var(--shadow)' },
       },
     },
   };
 </script>
 </head>
-<body class="font-sans bg-bg text-fg leading-[1.55]">
+<body class="font-sans bg-black text-white antialiased overflow-x-hidden">
 
 <!-- nav -->
-<nav class="fixed top-0 left-0 right-0 z-[60] backdrop-blur-[18px] bg-[rgba(0,0,0,0.72)] border-b border-line">
-  <div class="max-w-[1200px] mx-auto px-9 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-2.5 font-bold tracking-[-0.01em] text-lg text-white">
-      <div class="w-8 h-8 rounded-[10px] bg-gradient-to-br from-accent to-accent2 grid place-items-center text-black font-extrabold text-base shadow-[0_6px_18px_rgba(22,199,132,0.25)]">P</div>
-      Ponte
-    </div>
-    <div class="flex gap-7 text-sm text-muted">
-      <a href="#features" class="hover:text-fg">Features</a>
-      <a href="#screens" class="hover:text-fg">Screens</a>
-      <a href="#how" class="hover:text-fg">How it works</a>
-      <a href="#engines" class="hover:text-fg">Engines</a>
-      <a href="https://github.com/charlesponti/ponte" class="hover:text-fg">GitHub ↗</a>
-    </div>
-    <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full font-semibold text-[13px] bg-white text-black hover:bg-white/90 transition">Download</a>
+<nav class="fixed top-0 left-0 right-0 z-50 px-8 py-6 flex items-center justify-between mix-blend-difference">
+  <div class="flex items-center gap-2 font-bold tracking-tight text-sm">
+    <div class="w-6 h-6 rounded-[6px] bg-accent grid place-items-center text-black font-black text-xs">P</div>
+    Ponte
+  </div>
+  <div class="flex items-center gap-6 text-xs text-white/60 font-mono">
+    <a href="#story" class="hover:text-white transition">Story</a>
+    <a href="#download" class="hover:text-white transition">Download</a>
+    <a href="https://github.com/charlesponti/ponte" class="hover:text-white transition">GitHub</a>
   </div>
 </nav>
 
-<!-- hero -->
-<section class="relative pt-32 pb-24 overflow-hidden">
-  <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(22,199,132,0.15),transparent_60%)] pointer-events-none"></div>
-  <div class="max-w-[1200px] mx-auto px-9 relative">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-      <div>
-        <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-6">Push-to-talk dictation · 100% local</div>
-        <h1 class="text-[clamp(56px,8vw,104px)] font-extrabold tracking-[-0.04em] leading-[0.9] mb-6 text-white">Talk.<br><span class="text-accent">It types.</span></h1>
-        <p class="text-xl text-muted max-w-[520px] mb-10 leading-relaxed">Press ⌥⌘Space, talk, and the text appears at your cursor. Everything runs on your Mac — no network calls, no account, no subscription. The orb listens, transcribes, and pastes.</p>
-        <div class="flex gap-4 flex-wrap items-center" id="download">
-          <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full font-semibold text-sm bg-accent text-black shadow-[0_10px_40px_rgba(22,199,132,0.4)] hover:-translate-y-0.5 hover:shadow-[0_16px_50px_rgba(22,199,132,0.55)] transition">↓ Download Ponte 1.0</a>
-          <a href="https://github.com/charlesponti/ponte" class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full font-semibold text-sm bg-white/10 text-white border border-white/10 hover:bg-white/15 transition">View source</a>
-        </div>
-        <div class="font-mono text-[13px] text-muted flex items-center gap-2 mt-8">
-          <span class="px-2.5 py-1 border border-white/10 rounded-[7px] bg-white/5 text-white text-xs">⌥</span>
-          <span class="px-2.5 py-1 border border-white/10 rounded-[7px] bg-white/5 text-white text-xs">⌘</span>
-          <span class="px-2.5 py-1 border border-white/10 rounded-[7px] bg-white/5 text-white text-xs">Space</span>
-          <span>start / stop recording</span>
-        </div>
-      </div>
-      <div class="relative rounded-[28px] overflow-hidden border border-white/10 bg-gradient-to-b from-[#0a0f1a] to-[#020408] shadow-[0_40px_120px_rgba(0,0,0,0.6),0_0_80px_rgba(22,199,132,0.15)] aspect-square">
-        <div id="hero-orb" class="w-full h-full"></div>
-        <div class="absolute bottom-4 left-5 font-mono text-[11px] text-muted tracking-[0.14em] uppercase">the <span class="text-accent">orb</span> · live</div>
-      </div>
+<!-- HERO -->
+<section class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden" id="hero">
+  <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(22,199,132,0.08),transparent_50%)] pointer-events-none"></div>
+  <div class="relative z-10 orb-parallax" id="hero-orb-wrap">
+    <div id="hero-orb" class="w-[420px] h-[420px] md:w-[520px] md:h-[520px] orb-glow"></div>
+  </div>
+  <div class="relative z-10 mt-12 text-center px-8">
+    <h1 class="text-[clamp(48px,8vw,96px)] font-black tracking-[-0.04em] leading-[0.85] mb-4">
+      Talk.<br><span class="text-accent">It types.</span>
+    </h1>
+    <p class="text-lg text-white/50 max-w-md mx-auto mb-8 leading-relaxed">
+      Press ⌥⌘Space. Speak. The text appears at your cursor. 100% on your Mac.
+    </p>
+    <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-accent text-black font-bold text-sm tracking-wide hover:scale-105 transition-transform">
+      ↓ Download Ponte 1.0
+    </a>
+  </div>
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30 text-xs font-mono">
+    <span>scroll</span>
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+</section>
+
+<!-- STORY 1: Press -->
+<section class="min-h-screen flex items-center justify-center relative" id="story">
+  <div class="max-w-6xl mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+    <div class="reveal" data-reveal>
+      <div class="font-mono text-xs text-accent tracking-[0.2em] uppercase mb-4">01 — Press</div>
+      <h2 class="text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] leading-[0.9] mb-6">
+        ⌥⌘Space
+      </h2>
+      <p class="text-lg text-white/60 leading-relaxed max-w-md">
+        One hotkey. Any app. The orb appears — mint, spinning, listening. No window to find, no menu to open.
+      </p>
+    </div>
+    <div class="flex justify-center">
+      <div id="orb-press" class="w-[280px] h-[280px]"></div>
     </div>
   </div>
 </section>
 
-<!-- features -->
-<section id="features" class="py-32 border-t border-line">
-  <div class="max-w-[1200px] mx-auto px-9">
-    <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Features</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">Sick STT, zero cloud.</h2>
-      <p class="text-muted text-xl">Two interchangeable engines, a floating orb that tells you exactly what's happening, and text pasted wherever your cursor is.</p>
+<!-- STORY 2: Speak -->
+<section class="min-h-screen flex items-center justify-center relative" id="story-2">
+  <div class="max-w-6xl mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+    <div class="flex justify-center order-2 md:order-1">
+      <div id="orb-speak" class="w-[280px] h-[280px]"></div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
-        <div class="text-[28px] mb-5">🔒</div>
-        <h3 class="text-lg mb-2 font-semibold text-white">100% local</h3>
-        <p class="text-muted text-[15px] leading-relaxed">No network calls, no account, no subscription. Your voice never leaves the machine.</p>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
-        <div class="text-[28px] mb-5">⚡</div>
-        <h3 class="text-lg mb-2 font-semibold text-white">Parakeet on the ANE</h3>
-        <p class="text-muted text-[15px] leading-relaxed">FluidAudio → CoreML Parakeet Ultra on the Apple Neural Engine. Models stay resident for instant starts.</p>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
-        <div class="text-[28px] mb-5">🧠</div>
-        <h3 class="text-lg mb-2 font-semibold text-white">whisper.cpp fallback</h3>
-        <p class="text-muted text-[15px] leading-relaxed">CPU engine with large-v3-turbo. Switchable from the menu, no rebuild needed.</p>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
-        <div class="text-[28px] mb-5">🎯</div>
-        <h3 class="text-lg mb-2 font-semibold text-white">Global hotkey</h3>
-        <p class="text-muted text-[15px] leading-relaxed">Carbon hotkey — no Accessibility permission needed just to trigger. Works in any app.</p>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
-        <div class="text-[28px] mb-5">🫧</div>
-        <h3 class="text-lg mb-2 font-semibold text-white">Orb HUD</h3>
-        <p class="text-muted text-[15px] leading-relaxed">A 96px squircle that listens, thinks, and confirms. Mint while recording, green on done, red on error.</p>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-8 transition hover:-translate-y-1 hover:border-accent/40">
-        <div class="text-[28px] mb-5">📋</div>
-        <h3 class="text-lg mb-2 font-semibold text-white">Paste anywhere</h3>
-        <p class="text-muted text-[15px] leading-relaxed">Transcript is dropped straight into the focused app at your cursor.</p>
-      </div>
+    <div class="reveal order-1 md:order-2" data-reveal>
+      <div class="font-mono text-xs text-accent tracking-[0.2em] uppercase mb-4">02 — Speak</div>
+      <h2 class="text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] leading-[0.9] mb-6">
+        Talk.
+      </h2>
+      <p class="text-lg text-white/60 leading-relaxed max-w-md">
+        The orb's dots answer your voice — pushing outward with every word, shrinking in the silence between. A live transcript streams below.
+      </p>
     </div>
   </div>
 </section>
 
-<!-- screens -->
-<section id="screens" class="py-32 border-t border-line">
-  <div class="max-w-[1200px] mx-auto px-9">
-    <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Screens</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">The orb, in three moods.</h2>
-      <p class="text-muted text-xl">Mint and spinning while it listens. Green and collapsing when done. Red and throbbing on error.</p>
+<!-- STORY 3: Transcribe -->
+<section class="min-h-screen flex items-center justify-center relative" id="story-3">
+  <div class="max-w-6xl mx-auto px-8 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+    <div class="reveal" data-reveal>
+      <div class="font-mono text-xs text-accent tracking-[0.2em] uppercase mb-4">03 — Transcribe</div>
+      <h2 class="text-[clamp(40px,6vw,72px)] font-black tracking-[-0.04em] leading-[0.9] mb-6">
+        It types.
+      </h2>
+      <p class="text-lg text-white/60 leading-relaxed max-w-md">
+        Parakeet on the Neural Engine, or whisper.cpp on CPU. Your choice. Both run entirely on your Mac — no cloud, no account.
+      </p>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-      <div class="grid gap-3 justify-items-center">
-        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center shadow-[0_0_40px_rgba(22,199,132,0.15)]">
-          <voice-orb mood="listening" class="w-24 h-24"></voice-orb>
-        </div>
-        <div class="text-[13px] text-[#5eead4] font-mono">0:03</div>
-      </div>
-      <div class="grid gap-3 justify-items-center">
-        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center shadow-[0_0_40px_rgba(22,199,132,0.15)]">
-          <voice-orb mood="done" class="w-24 h-24"></voice-orb>
-        </div>
-        <div class="text-[13px] text-[#16c784] font-mono">Pasted ✓</div>
-      </div>
-      <div class="grid gap-3 justify-items-center">
-        <div class="w-24 h-24 rounded-[22px] overflow-hidden bg-black/95 border border-white/10 grid place-items-center shadow-[0_0_40px_rgba(239,68,68,0.15)]">
-          <voice-orb mood="error" class="w-24 h-24"></voice-orb>
-        </div>
-        <div class="text-[13px] text-[#ef4444] font-mono">Error</div>
-      </div>
+    <div class="flex justify-center">
+      <div id="orb-done" class="w-[280px] h-[280px]"></div>
     </div>
   </div>
 </section>
 
-<!-- how -->
-<section id="how" class="py-32 border-t border-line">
-  <div class="max-w-[1200px] mx-auto px-9">
-    <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">How it works</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">Three steps. One hotkey.</h2>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-      <div class="relative pt-8">
-        <div class="absolute top-0 left-0 font-mono text-[13px] text-accent tracking-[0.12em] font-medium">01</div>
-        <h4 class="text-xl mt-6 mb-2 font-semibold text-white">Press</h4>
-        <p class="text-muted text-[15px]">⌥⌘Space starts recording. Press again to stop. The orb spins mint.</p>
-      </div>
-      <div class="relative pt-8">
-        <div class="absolute top-0 left-0 font-mono text-[13px] text-accent tracking-[0.12em] font-medium">02</div>
-        <h4 class="text-xl mt-6 mb-2 font-semibold text-white">Transcribe</h4>
-        <p class="text-muted text-[15px]">Parakeet (ANE) or whisper.cpp (CPU) turns speech into text on-device.</p>
-      </div>
-      <div class="relative pt-8">
-        <div class="absolute top-0 left-0 font-mono text-[13px] text-accent tracking-[0.12em] font-medium">03</div>
-        <h4 class="text-xl mt-6 mb-2 font-semibold text-white">Paste</h4>
-        <p class="text-muted text-[15px]">Transcript drops at your cursor in whatever app is focused.</p>
-      </div>
+<!-- STORY 4: Paste -->
+<section class="min-h-screen flex items-center justify-center relative" id="story-4">
+  <div class="max-w-6xl mx-auto px-8 text-center">
+    <div class="font-mono text-xs text-accent tracking-[0.2em] uppercase mb-4">04 — Paste</div>
+    <h2 class="text-[clamp(48px,8vw,96px)] font-black tracking-[-0.04em] leading-[0.9] mb-6">
+      Anywhere.
+    </h2>
+    <p class="text-lg text-white/60 max-w-lg mx-auto mb-12">
+      The transcript drops at your cursor. In any app. No copy-paste. No switching windows.
+    </p>
+    <div class="flex justify-center gap-6 flex-wrap">
+      <div class="px-6 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-mono text-white/60">Mail</div>
+      <div class="px-6 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-mono text-white/60">Notes</div>
+      <div class="px-6 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-mono text-white/60">Slack</div>
+      <div class="px-6 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-mono text-white/60">Terminal</div>
+      <div class="px-6 py-3 rounded-full bg-white/5 border border-white/10 text-sm font-mono text-white/60">…anywhere</div>
     </div>
   </div>
 </section>
 
-<!-- engines -->
-<section id="engines" class="py-32 border-t border-line">
-  <div class="max-w-[1200px] mx-auto px-9">
-    <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Engines</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">Pick your engine.</h2>
-      <p class="text-muted text-xl">Switchable live from the menu bar. No rebuild, no restart.</p>
-    </div>
-    <div class="w-full mt-2 bg-card rounded-2xl overflow-hidden border border-line">
-      <table class="w-full border-collapse">
-        <thead>
-          <tr>
-            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-bg2">Engine</th>
-            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-bg2">Runs on</th>
-            <th class="px-5 py-4.5 text-left border-b border-line text-[12px] text-muted font-medium uppercase tracking-[0.08em] bg-bg2">Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] font-semibold text-white">Parakeet (default) <span class="inline-block px-2 py-0.75 rounded-md text-[11px] font-mono bg-[rgba(22,199,132,0.12)] text-accent ml-2 font-medium">ANE</span></td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">Apple Neural Engine</td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">FluidAudio 0.17.7 · CoreML Parakeet Ultra · models stay resident</td>
-          </tr>
-          <tr>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] font-semibold text-white">whisper.cpp</td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">CPU</td>
-            <td class="px-5 py-4.5 text-left border-b border-line text-[15px] text-muted">large-v3-turbo · reloaded per recording · needs brew whisper-cpp</td>
-          </tr>
-        </tbody>
-      </table>
+<!-- download -->
+<section id="download" class="min-h-screen flex flex-col items-center justify-center relative border-t border-line">
+  <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(22,199,132,0.06),transparent_50%)] pointer-events-none"></div>
+  <div class="relative text-center px-8">
+    <div class="font-mono text-xs text-accent tracking-[0.2em] uppercase mb-6">Download</div>
+    <h2 class="text-[clamp(48px,8vw,96px)] font-black tracking-[-0.04em] leading-[0.9] mb-8">
+      Ponte 1.0
+    </h2>
+    <p class="text-lg text-white/50 max-w-md mx-auto mb-10">
+      macOS 14+ · Apple Silicon · ~2 GB for models · 100% local, forever.
+    </p>
+    <a href="https://github.com/charlesponti/ponte/releases/download/v1.0.0/Ponte-1.0.dmg" class="inline-flex items-center gap-3 px-10 py-5 rounded-full bg-accent text-black font-bold text-base tracking-wide hover:scale-105 transition-transform shadow-[0_0_60px_rgba(22,199,132,0.3)]">
+      ↓ Download for Mac
+    </a>
+    <div class="mt-8 flex items-center justify-center gap-6 text-xs text-white/40 font-mono">
+      <a href="https://github.com/charlesponti/ponte" class="hover:text-white transition">Source on GitHub</a>
+      <span>·</span>
+      <span>Developer-ID signed</span>
     </div>
   </div>
 </section>
 
-<!-- req -->
-<section id="req" class="py-32 border-t border-line">
-  <div class="max-w-[1200px] mx-auto px-9">
-    <div class="max-w-[640px] mb-16">
-      <div class="font-mono text-xs tracking-[0.2em] text-accent uppercase mb-3">Requirements</div>
-      <h2 class="text-[clamp(34px,4.4vw,54px)] font-bold tracking-[-0.04em] leading-[1.08] mb-4 text-white">What you need.</h2>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4.5">
-      <div class="bg-card border border-line rounded-2xl p-5.5">
-        <strong class="block mb-1 text-base text-white">macOS 14+</strong>
-        <span class="text-muted text-sm">Sonoma or newer.</span>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-5.5">
-        <strong class="block mb-1 text-base text-white">Microphone</strong>
-        <span class="text-muted text-sm">Granted on first launch.</span>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-5.5">
-        <strong class="block mb-1 text-base text-white">whisper-cpp</strong>
-        <span class="text-muted text-sm">Only for the whisper engine: <code class="font-mono text-xs">brew install whisper-cpp</code></span>
-      </div>
-      <div class="bg-card border border-line rounded-2xl p-5.5">
-        <strong class="block mb-1 text-base text-white">Models</strong>
-        <span class="text-muted text-sm">Parakeet downloads on first use; whisper models in ~/Library/Application Support/Ponte/models</span>
-      </div>
-    </div>
-    <div class="mt-6 px-5.5 py-4.5 border border-dashed border-line rounded-[14px] text-muted text-sm bg-card">
-      <strong class="text-fg">Note:</strong> whisper.cpp runs on Intel too, but Parakeet needs Apple Silicon.
-    </div>
-  </div>
-</section>
-
-<footer class="py-20 border-t border-line text-muted text-[13px] bg-bg2">
-  <div class="max-w-[1200px] mx-auto px-9 flex justify-between flex-wrap gap-3.5">
-    <span>Ponte · by Ponti Studios</span>
-    <div class="flex gap-5">
-      <a href="https://github.com/charlesponti/ponte" class="hover:text-fg">GitHub</a>
-      <a href="#" class="hover:text-fg">Privacy</a>
-      <a href="#" class="hover:text-fg">License</a>
-    </div>
-  </div>
+<!-- footer -->
+<footer class="py-12 border-t border-line text-center text-xs text-white/30 font-mono">
+  <span>Ponte · by Ponti Studios · © 2026</span>
 </footer>
 
 <script src="voice-orb.js" type="module"></script>
@@ -274,8 +190,38 @@
   import { createElement } from 'react';
   import { createRoot } from 'react-dom/client';
   import { VoiceOrb } from '@thecharlesponti/waveform-react';
-  const el = document.getElementById('hero-orb');
-  if (el) createRoot(el).render(createElement(VoiceOrb, { dots: 1800, gain: 0.5, spin: 0.12, tint: '#16c784' }));
+
+  // Hero orb: large, slow spin
+  const heroEl = document.getElementById('hero-orb');
+  if (heroEl) createRoot(heroEl).render(createElement(VoiceOrb, { dots: 1800, gain: 0.5, spin: 0.12, tint: '#16c784' }));
+
+  // Story orbs: different states
+  const pressEl = document.getElementById('orb-press');
+  if (pressEl) createRoot(pressEl).render(createElement(VoiceOrb, { dots: 1100, gain: 0.25, spin: 0.48, tint: '#16c784' }));
+
+  const speakEl = document.getElementById('orb-speak');
+  if (speakEl) createRoot(speakEl).render(createElement(VoiceOrb, { dots: 1100, gain: 0.45, spin: 0.35, tint: '#16c784' }));
+
+  const doneEl = document.getElementById('orb-done');
+  if (doneEl) createRoot(doneEl).render(createElement(VoiceOrb, { dots: 1100, gain: 0.25, spin: 0.12, turning: false, still: 0.6, tint: '#16c784' }));
+</script>
+
+<!-- scroll reveal -->
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.2 });
+  document.querySelectorAll('[data-reveal]').forEach(el => observer.observe(el));
+
+  // parallax orb on mouse move
+  const heroOrb = document.getElementById('hero-orb-wrap');
+  if (heroOrb) {
+    document.addEventListener('mousemove', (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 20;
+      const y = (e.clientY / window.innerHeight - 0.5) * 20;
+      heroOrb.style.transform = `translate(${x}px, ${y}px)`;
+    });
+  }
 </script>
 </body>
 </html>
