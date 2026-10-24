@@ -32,7 +32,7 @@ let knownFlags: Set<String> = [
     // --hud-render's transcript: what was heard, when it started, and how fast it was spoken
     "--words", "--since", "--rate",
     // --record's live transcript, and the scripted HUD
-    "--live", "--hud-demo",
+    "--live", "--hud-demo", "--history-window",
 ]
 
 for argument in argv.dropFirst() where argument.hasPrefix("--") {
@@ -714,6 +714,20 @@ func runCLI() -> Int32? {
         while Date() < deadline { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05)) }
         tick.invalidate()
         return 0
+
+    case "--history-window":
+        // The real window, for a few seconds, so its layout can be photographed. `ImageRenderer` cannot draw a
+        // `List` or an `HSplitView` — it substitutes placeholder symbols — so a still of this view has to come from
+        // the window server, not from the renderer.
+        let seconds = Double(value(of: "--history-window") ?? "") ?? 8
+        return MainActor.assumeIsolated {
+            NSApplication.shared.setActivationPolicy(.accessory)
+            let history = HistoryWindow()
+            history.show()
+            let deadline = Date().addingTimeInterval(seconds)
+            while Date() < deadline { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05)) }
+            return 0
+        }
 
     case "--selftest":
         let seconds = Double(argv.count > 2 ? argv[2] : "") ?? 5

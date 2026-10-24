@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let hud = HUD()
     /// The live transcript: the engine run over the audio so far, while it is still being recorded.
     private let live = LiveTranscript()
+    /// The dictations already on disk, in a window opened deliberately. Made on first use, inside the main actor,
+    /// because this delegate is not itself main-actor isolated and its initialiser is not a safe place for a window.
+    private var historyWindow: HistoryWindow?
     private var hotKey: GlobalHotKey?
 
     /// Watches the input while recording, so a take producing nothing says so in time (see `InputWatch`).
@@ -587,6 +590,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Open Audio Folder", #selector(openAudio), nil))
         // Terms can be added without a rebuild: the file is read at every transcription.
         menu.addItem(item("Vocabulary: Edit Replacement List…", #selector(editVocabulary), nil))
+        menu.addItem(item("History…", #selector(showHistory), "y"))
 
         menu.addItem(.separator())
         menu.addItem(languageMenu())
@@ -707,6 +711,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openNotes() { NSWorkspace.shared.open(AppPaths.transcripts) }
+
+    /// Yesterday's sentence, back. A window rather than a menu of the last few: the notes are already on disk, and
+    /// search is the whole point of having them.
+    @objc private func showHistory() {
+        MainActor.assumeIsolated {
+            if historyWindow == nil { historyWindow = HistoryWindow() }
+            historyWindow?.show()
+        }
+    }
 
     /// Opens the replacement list, writing a small example the first time so there is something to edit rather
     /// than an empty file. It is plain JSON on purpose: hand-editable, scriptable, and easy to back up.
