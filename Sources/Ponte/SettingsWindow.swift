@@ -20,26 +20,34 @@ extension Color {
 }
 
 enum UI {
-    static let window = Color(hex: 0x131315)
-    static let sidebar = Color(hex: 0x1A1A1D)
-    static let ink = Color.white.opacity(0.96)
-    static let ink2 = Color.white.opacity(0.62)
-    static let ink3 = Color.white.opacity(0.40)
-    static let mint = Color(hex: 0x66D4CF)
+    // Colours come from the theme so the whole window can change register without touching a call site.
+    static var theme: WindowTheme { .current }
+    static var window: Color { theme.window }
+    static var sidebar: Color { theme.sidebar }
+    static var ink: Color { theme.ink }
+    static var ink2: Color { theme.ink2 }
+    static var ink3: Color { theme.ink3 }
+    static var accent: Color { theme.accent }
+    static var brass: Color { theme.brass }
+    /// Warning: the calm amber, never the accent. Refusals are amber, failures are red.
     static let amber = Color(hex: 0xE0B25A)
-    static let line = Color.white.opacity(0.075)
-    static let hairline = Color.white.opacity(0.035)
-    static let selection = Color(hex: 0x66D4CF).opacity(0.13)
-    static let control = Color.white.opacity(0.08)
-    static let controlBorder = Color.white.opacity(0.13)
+    static var line: Color { theme.line }
+    static var hairline: Color { theme.hairline }
+    static var selection: Color { theme.accentSoft }
+    static var control: Color { theme.control }
+    static var controlBorder: Color { theme.controlBorder }
 
     static let sidebarWidth: CGFloat = 176
 
+    /// Which composition the window draws. Read from `windowVariant` on every build, so the flag works without a
+    /// relaunch and a capture loop can walk the directions in one session.
+    static var variant: WindowVariant { .current }
+
     /// Liquid Glass exists from macOS 26 and the package floor is macOS 15, so every use is gated. Centralised so no
     /// call site has to remember which build it is on.
-    /// Tinted near-black: untinted glass takes its colour from whatever is behind it, which read as a washed
-    /// lavender panel that had nothing to do with the app.
-    static let glassTint = Color(red: 0.055, green: 0.055, blue: 0.062)
+    /// Tinted: untinted glass takes its colour from whatever is behind it, which read as a washed lavender panel
+    /// that had nothing to do with the app.
+    static var glassTint: Color { theme.glassTint }
 
     static var glassAvailable: Bool {
         if #available(macOS 26.0, *) { return true }
@@ -95,6 +103,7 @@ struct WindowActions {
 @MainActor
 final class PonteWindowModel: ObservableObject {
     @Published var pane: Pane = .dictations
+    @Published var variant: WindowVariant = .current
     let history = HistoryModel()
 
     @Published var hotKey = HotKeyChord.default
@@ -144,6 +153,7 @@ final class PonteWindowModel: ObservableObject {
         // the window shows auto-paste and keep-audio as off when they are on. Registering is idempotent, so the
         // window can do it rather than depending on the order the app happened to start in.
         Settings.registerDefaults()
+        variant = .current
         history.reload()
         hotKey = HotKeyChord(
             keyCode: Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode),
@@ -255,7 +265,18 @@ struct PonteRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(UI.window)
+            .clipShape(RoundedRectangle(cornerRadius: UI.variant.floatsContent ? 16 : 0, style: .continuous))
+            .overlay {
+                if UI.variant.floatsContent {
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.075), lineWidth: 1)
+                }
+            }
+            .shadow(color: .black.opacity(UI.variant.floatsContent ? 0.38 : 0),
+                    radius: UI.variant.floatsContent ? 18 : 0, y: UI.variant.floatsContent ? 8 : 0)
+            .padding(UI.variant.floatsContent ? 12 : 0)
         }
+        .background(UI.variant.floatsContent ? (UI.theme.backdrop ?? Color(hex: 0x141310).opacity(0.94)) : .clear)
         .background(UI.glassAvailable ? Color.clear : UI.window)
         .onDisappear { model.cancelRecordingIfNeeded() }
     }
@@ -267,11 +288,57 @@ private struct Sidebar: View {
     @ObservedObject var model: PonteWindowModel
 
     var body: some View {
+        if UI.variant.usesRail { rail } else { labels }
+    }
+
+    /// Icons only: the labels cost about 120 pt of width, and the content can use it.
+    private var rail: some View {
+        VStack(spacing: 4) {
+            Image(nsImage: StatusIcon.image(for: .idle))
+                .resizable().scaledToFit()
+                .frame(width: 18, height: 18)
+                .padding(.top, UI.glassAvailable ? 26 : 10)
+                .padding(.bottom, 8)
+
+            ForEach(Pane.allCases) { pane in
+                Button { model.pane = pane } label: {
+                    Image(systemName: pane.symbol)
+                        .font(.system(size: 13))
+                        .foregroundStyle(model.pane == pane ? UI.accent : UI.ink2)
+                        .frame(width: 32, height: 30)
+                        .background(RoundedRectangle(cornerRadius: 7)
+                            .fill(model.pane == pane ? UI.selection : .clear))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(pane.title)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .frame(width: 56)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(panelBackground)
+        .padding(.leading, UI.glassAvailable ? 10 : 0)
+        .padding(.vertical, UI.glassAvailable ? 10 : 0)
+    }
+
+    private var labels: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if UI.variant.showsMark {
+                // The app's own menu-bar mark, not a drawing of it.
+                Image(nsImage: StatusIcon.image(for: .idle))
+                    .resizable().scaledToFit()
+                    .frame(width: 18, height: 18)
+                    .padding(.leading, 16)
+                    .padding(.top, UI.glassAvailable ? 26 : 10)
+                    .padding(.bottom, 4)
+            }
+
             SidebarItem(title: "Dictations", count: model.history.notes.count,
                         selected: model.pane == .dictations) { model.pane = .dictations }
                 // With a full-size content view the window's traffic lights sit over the panel's top edge.
-                .padding(.top, UI.glassAvailable ? 30 : 12)
+                .padding(.top, UI.variant.showsMark ? 8 : (UI.glassAvailable ? 30 : 12))
 
             Text("SETTINGS")
                 .font(.system(size: 10))
@@ -336,12 +403,12 @@ private struct SidebarItem: View {
             HStack(spacing: 8) {
                 Text(title)
                     .font(.system(size: 13, weight: selected ? .semibold : .regular))
-                    .foregroundStyle(selected ? UI.mint : UI.ink2)
+                    .foregroundStyle(selected ? UI.accent : UI.ink2)
                 Spacer(minLength: 0)
                 if let count {
                     Text("\(count)")
                         .font(.system(size: 11))
-                        .foregroundStyle(selected ? UI.mint.opacity(0.8) : UI.ink3)
+                        .foregroundStyle(selected ? UI.accent.opacity(0.8) : UI.ink3)
                 }
             }
             .padding(.horizontal, 10)
@@ -402,16 +469,16 @@ private struct BoardButton: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12))
-                .foregroundStyle(mint ? UI.mint : UI.ink)
+                .foregroundStyle(mint ? UI.accent : UI.ink)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(mint ? UI.mint.opacity(0.10) : UI.control)
+                        .fill(mint ? UI.accent.opacity(0.10) : UI.control)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(mint ? UI.mint.opacity(0.45) : UI.controlBorder, lineWidth: 1)
+                        .stroke(mint ? UI.accent.opacity(0.45) : UI.controlBorder, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -432,7 +499,7 @@ private struct ToggleLine: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             Toggle("", isOn: Binding(get: { value }, set: set))
                 .toggleStyle(.switch)
-                .tint(UI.mint)
+                .tint(UI.accent)
                 .labelsHidden()
         }
         .padding(.vertical, 7)
@@ -520,16 +587,7 @@ private struct DictationsPane: View {
 
             Rectangle().fill(UI.line).frame(height: 1)
 
-            // A plain VStack, not a LazyVStack: a few dozen rows cost nothing to build, and the lazy one does not
-            // materialise in an offscreen `ImageRenderer` pass — which would leave the window unrenderable and
-            // therefore unverifiable.
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(history.filtered) { note in
-                        row(note)
-                    }
-                }
-            }
+            ScrollView { list }
 
             Rectangle().fill(UI.line).frame(height: 1)
             HStack(spacing: 8) {
@@ -555,7 +613,133 @@ private struct DictationsPane: View {
         history.notes.isEmpty ? "Nothing dictated yet" : "Double-click a dictation to copy it"
     }
 
-    private func row(_ note: History.Note) -> some View {
+    @ViewBuilder private var list: some View {
+        if UI.variant.groupsByDay {
+            // Pinned day headers, so the date stops being a column repeated on every row.
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                ForEach(DaySection.group(history.filtered)) { section in
+                    Section {
+                        ForEach(section.notes) { note in row(note) }
+                    } header: {
+                        dayHeader(section)
+                    }
+                }
+            }
+        } else {
+            VStack(spacing: 0) {
+                ForEach(history.filtered) { note in row(note) }
+            }
+        }
+    }
+
+    private func dayHeader(_ section: DaySection) -> some View {
+        HStack(spacing: 8) {
+            Text(section.title.uppercased())
+                .font(.system(size: 10)).tracking(1.1)
+                .foregroundStyle(UI.ink3)
+            Text(section.summary)
+                .font(.system(size: 10.5))
+                .foregroundStyle(UI.ink3.opacity(0.75))
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 15)
+        .padding(.bottom, 7)
+        .background(UI.window)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(UI.brass.opacity(0.22)).frame(height: 1)
+        }
+    }
+
+    private func time(_ note: History.Note) -> String {
+        guard let date = note.date else { return "—" }
+        return stampFormatter.string(from: date)
+    }
+
+    @ViewBuilder private func row(_ note: History.Note) -> some View {
+        if UI.variant.groupsByDay { stackedRow(note) } else { inlineRow(note) }
+    }
+
+    /// Time above the sentence; the duration is the length of a tick in the margin. Only real data — a longer take
+    /// draws a longer tick, and nothing is invented.
+    private func stackedRow(_ note: History.Note) -> some View {
+        let selected = history.selection == note.id
+        let seconds = CGFloat(DaySection.seconds(of: note))
+        return HStack(alignment: .top, spacing: 11) {
+            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                .fill(selected ? UI.accent : UI.brass.opacity(0.55))
+                .frame(width: 2, height: 9 + min(17, seconds * 1.15))
+                .padding(.top, 5)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 7) {
+                    Text(time(note))
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .foregroundStyle(UI.ink3)
+                    if selected, !note.duration.isEmpty {
+                        Text(note.duration).font(.system(size: 11)).foregroundStyle(UI.ink3)
+                    }
+                }
+                Text(note.title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(selected ? UI.ink : UI.ink2)
+                    .lineLimit(selected ? nil : 1)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if selected && UI.variant.reads { reading(note) }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(selected ? UI.selection.opacity(0.7) : .clear)
+        .contentShape(Rectangle())
+        .onTapGesture { history.selection = note.id }
+    }
+
+    /// The dictation read as prose: serif at reading size, the facts underneath, the actions where they belong.
+    private func reading(_ note: History.Note) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(note.text)
+                .font(.system(size: 19, design: .serif))
+                .lineSpacing(5)
+                .foregroundStyle(UI.ink)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let fresh = history.retranscribed {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("TRANSCRIBED AGAIN")
+                        .font(.system(size: 10)).tracking(1.1)
+                        .foregroundStyle(UI.ink3)
+                    Text(fresh)
+                        .font(.system(size: 17, design: .serif))
+                        .lineSpacing(4)
+                        .foregroundStyle(UI.ink2)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Text([note.duration, note.engine].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.system(size: 11))
+                    .foregroundStyle(UI.ink3)
+                Spacer(minLength: 8)
+                BoardButton(title: "Copy") { history.copy(note) }
+                BoardButton(title: "Transcribe again") { history.retranscribe(note) }
+                BoardButton(title: "Show note") { history.reveal(note) }
+            }
+        }
+        .padding(.top, 8)
+        .padding(.trailing, 8)
+    }
+
+    /// The shipped layout, for `plain`.
+    private func inlineRow(_ note: History.Note) -> some View {
         let selected = history.selection == note.id
         return HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(stamp(note))
@@ -568,7 +752,7 @@ private struct DictationsPane: View {
                 .frame(width: 40, alignment: .trailing)
             Text(note.title)
                 .font(.system(size: 13))
-                .foregroundStyle(selected ? UI.mint : UI.ink)
+                .foregroundStyle(selected ? UI.accent : UI.ink)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -603,7 +787,7 @@ private struct GeneralPane: View {
                     if model.recording {
                         Text("Press the new keys — Esc cancels")
                             .font(.system(size: 13))
-                            .foregroundStyle(UI.mint)
+                            .foregroundStyle(UI.accent)
                     } else {
                         KeyCaps(chord: model.hotKey)
                     }
@@ -697,8 +881,8 @@ private struct SpeechPane: View {
                     Button { model.setModel(m) } label: {
                         HStack(spacing: 10) {
                             Circle()
-                                .strokeBorder(model.model == m ? UI.mint : UI.ink3, lineWidth: 1.4)
-                                .background(Circle().fill(model.model == m ? UI.mint : .clear).padding(3))
+                                .strokeBorder(model.model == m ? UI.accent : UI.ink3, lineWidth: 1.4)
+                                .background(Circle().fill(model.model == m ? UI.accent : .clear).padding(3))
                                 .frame(width: 14, height: 14)
                             Text(m.label).font(.system(size: 13)).foregroundStyle(UI.ink)
                             Text(installed ? "· downloaded" : "· not downloaded")
@@ -724,8 +908,8 @@ private struct SpeechPane: View {
                     Button { model.setLanguage(lang.code) } label: {
                         HStack(spacing: 10) {
                             Circle()
-                                .strokeBorder(model.language == lang.code ? UI.mint : UI.ink3, lineWidth: 1.4)
-                                .background(Circle().fill(model.language == lang.code ? UI.mint : .clear).padding(3))
+                                .strokeBorder(model.language == lang.code ? UI.accent : UI.ink3, lineWidth: 1.4)
+                                .background(Circle().fill(model.language == lang.code ? UI.accent : .clear).padding(3))
                                 .frame(width: 14, height: 14)
                             Text(lang.label).font(.system(size: 13)).foregroundStyle(UI.ink)
                             Spacer(minLength: 0)
@@ -774,7 +958,7 @@ private struct UpdatesPane: View {
                 if let update = model.updateAvailable {
                     Text("\(update) is available — the menu can install it.")
                         .font(.system(size: 12))
-                        .foregroundStyle(UI.mint)
+                        .foregroundStyle(UI.accent)
                         .padding(.leading, 146)
                         .padding(.top, 2)
                 }
@@ -940,6 +1124,14 @@ final class PonteWindow {
             backdrop.material = .underWindowBackground
             backdrop.blendingMode = .behindWindow
             backdrop.state = .active
+            // A dark scrim over the blur. Without it the strip above the glass panel measured (75,76,70) against
+            // the panel's (15,15,17) — a milky band above a black panel, which reads as two surfaces fighting.
+            let scrim = NSView(frame: backdrop.bounds)
+            scrim.autoresizingMask = [.width, .height]
+            scrim.wantsLayer = true
+            scrim.layer?.backgroundColor = NSColor(white: 0, alpha: 0.55).cgColor
+            backdrop.addSubview(scrim)
+
             hosted.frame = backdrop.bounds
             hosted.autoresizingMask = [.width, .height]
             backdrop.addSubview(hosted)

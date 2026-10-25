@@ -34,7 +34,7 @@ let knownFlags: Set<String> = [
     // --record's live transcript, and the scripted HUD
     "--live", "--hud-demo", "--history-window",
     // the window: open it, or render a still of it at exact pixels
-    "--settings", "--settings-render", "--pane",
+    "--settings", "--settings-render", "--pane", "--variant", "--theme",
 ]
 
 for argument in argv.dropFirst() where argument.hasPrefix("--") {
@@ -724,6 +724,22 @@ func runCLI() -> Int32? {
     case "--settings", "--history-window":
         // The real window, for a few seconds, so its geometry can be measured from outside the process.
         let seconds = Double(value(of: "--settings") ?? value(of: "--history-window") ?? "") ?? 8
+        if let theme = value(of: "--theme") {
+            guard ["mint", "maison"].contains(theme) else {
+                print("error: --theme takes mint or maison")
+                return 2
+            }
+            UserDefaults.standard.set(theme, forKey: "windowTheme")
+            print("theme: \(theme)")
+        }
+        if let requested = value(of: "--variant") {
+            guard WindowVariant(rawValue: requested) != nil else {
+                print("error: --variant takes one of: \(WindowVariant.allCases.map(\.rawValue).joined(separator: " "))")
+                return 2
+            }
+            UserDefaults.standard.set(requested, forKey: "windowVariant")
+            print("variant: \(requested) — \(WindowVariant(rawValue: requested)!.summary)")
+        }
         return MainActor.assumeIsolated {
             NSApplication.shared.setActivationPolicy(.accessory)
             let window = PonteWindow()
