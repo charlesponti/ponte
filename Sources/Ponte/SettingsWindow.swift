@@ -281,12 +281,20 @@ struct PonteRootView: View {
         HStack(spacing: 0) {
             Sidebar(model: model)
             Group {
+                // Dictations has its own scrolling list; the settings panes are plain stacks, and a pane taller than
+                // the window (thirteen languages and four models) was clipping at the bottom and pushing its own
+                // header off the top. Every pane scrolls.
                 switch model.pane {
-                case .dictations: DictationsPane(model: model)
-                case .general: GeneralPane(model: model)
-                case .speech: SpeechPane(model: model)
-                case .updates: UpdatesPane(model: model)
-                case .about: AboutPane(model: model)
+                case .dictations:
+                    DictationsPane(model: model)
+                case .general:
+                    ScrollView { GeneralPane(model: model) }
+                case .speech:
+                    ScrollView { SpeechPane(model: model) }
+                case .updates:
+                    ScrollView { UpdatesPane(model: model) }
+                case .about:
+                    ScrollView { AboutPane(model: model) }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1157,8 +1165,11 @@ final class PonteWindow {
             let scrim = NSView(frame: backdrop.bounds)
             scrim.autoresizingMask = [.width, .height]
             scrim.wantsLayer = true
-            scrim.layer?.backgroundColor = (UI.theme.isDark ? NSColor(white: 0, alpha: 0.55)
-                                                            : NSColor(white: 1, alpha: 0.55)).cgColor
+            // The theme's own backdrop, always — not only in `studio`. Otherwise the band above the panels is a raw
+            // frosted blur, which read as a grey step above a parchment window.
+            let ground = UI.theme.backdrop ?? (UI.theme.isDark ? Color.black.opacity(0.55) : Color.white.opacity(0.55))
+            let resolved = NSColor(ground).usingColorSpace(.sRGB) ?? NSColor(white: UI.theme.isDark ? 0 : 1, alpha: 0.55)
+            scrim.layer?.backgroundColor = resolved.cgColor
             backdrop.addSubview(scrim)
 
             hosted.frame = backdrop.bounds
