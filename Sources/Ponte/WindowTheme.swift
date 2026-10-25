@@ -23,6 +23,8 @@ struct WindowTheme {
     let controlBorder: Color
     /// Warmth laid over the frosted window backdrop, so the gaps around the glass belong to the palette too.
     let backdrop: Color?
+    /// Drives the window's appearance (so the material resolves dark or light), and the scrim's colour.
+    let isDark: Bool
 
     static var current: WindowTheme {
         WindowTheme(rawValue: UserDefaults.standard.string(forKey: "windowTheme") ?? "") ?? .mint
@@ -35,6 +37,7 @@ struct WindowTheme {
     init(rawValue: String) {
         switch rawValue {
         case "maison": self = .maison
+        case "parchment", "light": self = .parchment
         default: self = .mint
         }
     }
@@ -55,7 +58,8 @@ struct WindowTheme {
         hairline: Color.white.opacity(0.035),
         control: Color.white.opacity(0.08),
         controlBorder: Color.white.opacity(0.13),
-        backdrop: nil
+        backdrop: nil,
+        isDark: true
     )
 
     /// Ebony, ivory, brass, cognac, and one orange that means "here".
@@ -75,12 +79,35 @@ struct WindowTheme {
         hairline: Color(hex: 0xC2A268).opacity(0.14),
         control: Color(hex: 0xF4EEE4).opacity(0.06),
         controlBorder: Color(hex: 0xC2A268).opacity(0.22),
-        backdrop: Color(hex: 0x141109).opacity(0.94)
+        backdrop: Color(hex: 0x141109).opacity(0.94),
+        isDark: true
+    )
+
+    /// The same maison register in daylight: parchment rather than white, ebony ink, and the orange deepened until it
+    /// can carry text on a light ground — the bright one fails there, which is why light-mode accents are always
+    /// darker than they look in the design.
+    static let parchment = WindowTheme(
+        rawValue: "parchment",
+        window: Color(hex: 0xF7F2E8),
+        sidebar: Color(hex: 0xF2ECDF),
+        glassTint: Color(hex: 0xF2ECDF),
+        ink: Color(hex: 0x1D1A16).opacity(0.92),
+        ink2: Color(hex: 0x1D1A16).opacity(0.66),
+        ink3: Color(hex: 0x1D1A16).opacity(0.46),
+        accent: Color(hex: 0xB8491A),
+        accentSoft: Color(hex: 0xC2571B).opacity(0.10),
+        brass: Color(hex: 0x8A6A3B),
+        line: Color(hex: 0x1D1A16).opacity(0.10),
+        hairline: Color(hex: 0x8A6A3B).opacity(0.24),
+        control: Color(hex: 0x1D1A16).opacity(0.05),
+        controlBorder: Color(hex: 0x8A6A3B).opacity(0.28),
+        backdrop: Color(hex: 0xF7F2E8).opacity(0.94),
+        isDark: false
     )
 
     init(rawValue: String, window: Color, sidebar: Color, glassTint: Color, ink: Color, ink2: Color, ink3: Color,
          accent: Color, accentSoft: Color, brass: Color, line: Color, hairline: Color, control: Color,
-         controlBorder: Color, backdrop: Color?) {
+         controlBorder: Color, backdrop: Color?, isDark: Bool) {
         self.rawValue = rawValue
         self.name = rawValue
         self.window = window
@@ -97,5 +124,6 @@ struct WindowTheme {
         self.control = control
         self.controlBorder = controlBorder
         self.backdrop = backdrop
+        self.isDark = isDark
     }
 }

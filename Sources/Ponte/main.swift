@@ -725,8 +725,8 @@ func runCLI() -> Int32? {
         // The real window, for a few seconds, so its geometry can be measured from outside the process.
         let seconds = Double(value(of: "--settings") ?? value(of: "--history-window") ?? "") ?? 8
         if let theme = value(of: "--theme") {
-            guard ["mint", "maison"].contains(theme) else {
-                print("error: --theme takes mint or maison")
+            guard ["mint", "maison", "parchment", "light"].contains(theme) else {
+                print("error: --theme takes mint, maison or parchment")
                 return 2
             }
             UserDefaults.standard.set(theme, forKey: "windowTheme")

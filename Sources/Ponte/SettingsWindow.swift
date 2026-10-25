@@ -269,7 +269,7 @@ struct PonteRootView: View {
             .overlay {
                 if UI.variant.floatsContent {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.075), lineWidth: 1)
+                        .stroke(UI.hairline, lineWidth: 1)
                 }
             }
             .shadow(color: .black.opacity(UI.variant.floatsContent ? 0.38 : 0),
@@ -384,7 +384,7 @@ private struct Sidebar: View {
                 .glassEffect(.regular.tint(UI.glassTint).interactive(), in: .rect(cornerRadius: 14))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                        .stroke(UI.hairline, lineWidth: 1)
                 )
         } else {
             UI.sidebar
@@ -1098,9 +1098,9 @@ final class PonteWindow {
         w.title = "Ponte"
         w.isReleasedWhenClosed = false
         w.minSize = NSSize(width: 760, height: 500)
-        // Dark, always: glass resolves against the window's appearance, and a light panel beside a dark content pane
-        // would read as a rendering bug on a light desktop.
-        w.appearance = NSAppearance(named: .darkAqua)
+        // The material resolves against the window's appearance, so this is the theme's job: a dark scrim and light
+        // glass in a light window would cancel each other out.
+        w.appearance = NSAppearance(named: UI.theme.isDark ? .darkAqua : .aqua)
         if #available(macOS 26.0, *) {
             // Glass needs something behind it to sample. An opaque window gives it flat grey, so the window is made
             // see-through and the glass reaches under the title bar; only the content pane paints a surface.
@@ -1129,7 +1129,8 @@ final class PonteWindow {
             let scrim = NSView(frame: backdrop.bounds)
             scrim.autoresizingMask = [.width, .height]
             scrim.wantsLayer = true
-            scrim.layer?.backgroundColor = NSColor(white: 0, alpha: 0.55).cgColor
+            scrim.layer?.backgroundColor = (UI.theme.isDark ? NSColor(white: 0, alpha: 0.55)
+                                                            : NSColor(white: 1, alpha: 0.55)).cgColor
             backdrop.addSubview(scrim)
 
             hosted.frame = backdrop.bounds
