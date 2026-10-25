@@ -25,6 +25,12 @@ struct WindowTheme {
     let backdrop: Color?
     /// Drives the window's appearance (so the material resolves dark or light), and the scrim's colour.
     let isDark: Bool
+    /// A keycap has a face, a wall below it, an edge, and a legend. Old-school keys are objects, not rectangles with
+    /// a border: the wall is what makes them read as something you could press.
+    let keyFace: Color
+    let keyWall: Color
+    let keyEdge: Color
+    let keyLegend: Color
     /// Which glass. `tint` only shifts hue — it takes no opacity — so it cannot make glass lighter; the *style* is
     /// what controls weight. `regular` carries its own darkening, which a dark ground needs and a light one does not.
     let glassStyle: GlassStyle
@@ -109,13 +115,21 @@ struct WindowTheme {
         controlBorder: Color(hex: 0x8A6A3B).opacity(0.28),
         backdrop: Color(hex: 0xF7F2E8).opacity(0.94),
         isDark: false,
-        glassStyle: .clear
+        glassStyle: .clear,
+        // Bone, a shade deeper than the paper, so the cap has a silhouette against the page rather than reading as
+        // a pale patch. The wall and edge carry the depth.
+        keyFace: Color(hex: 0xEFE6D4),
+        keyWall: Color(hex: 0xBCA983),
+        keyEdge: Color(hex: 0x9C8A66),
+        keyLegend: Color(hex: 0x241E19)
     )
 
     init(rawValue: String, window: Color, sidebar: Color, glassTint: Color, ink: Color, ink2: Color, ink3: Color,
          accent: Color, accentSoft: Color, brass: Color, line: Color, hairline: Color, control: Color,
          controlBorder: Color, backdrop: Color?, isDark: Bool,
-         glassStyle: GlassStyle = .regular) {
+         glassStyle: GlassStyle = .regular,
+         keyFace: Color = Color(hex: 0x2A2724), keyWall: Color = Color(hex: 0x100E0C),
+         keyEdge: Color = Color.white.opacity(0.10), keyLegend: Color = Color(hex: 0xF4EEE4)) {
         self.rawValue = rawValue
         self.name = rawValue
         self.window = window
@@ -134,5 +148,9 @@ struct WindowTheme {
         self.backdrop = backdrop
         self.isDark = isDark
         self.glassStyle = glassStyle
+        self.keyFace = keyFace
+        self.keyWall = keyWall
+        self.keyEdge = keyEdge
+        self.keyLegend = keyLegend
     }
 }

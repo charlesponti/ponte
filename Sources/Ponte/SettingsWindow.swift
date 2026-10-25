@@ -552,6 +552,59 @@ private struct ToggleLine: View {
     }
 }
 
+/// One keycap, drawn as an object: a wall below the face, a lit top edge, and an engraved legend.
+///
+/// The wall is the whole trick — a key that is only a rounded rectangle reads as a label in a box, however carefully
+/// it is coloured. Three points of wall plus a highlight is what makes the eye see something pressable.
+private struct KeyCap: View {
+    let legend: String
+    var wide = false
+
+    private let corner: CGFloat = 6
+    private let wallDepth: CGFloat = 2.5
+
+    var body: some View {
+        let face = RoundedRectangle(cornerRadius: corner, style: .continuous)
+        ZStack(alignment: .top) {
+            // the wall: the side of the key, below the face
+            face.fill(UI.theme.keyWall)
+                .frame(height: 26 + wallDepth)
+                .overlay(face.stroke(UI.theme.keyEdge.opacity(0.7), lineWidth: 1))
+
+            // the face
+            face.fill(
+                    LinearGradient(colors: [UI.theme.keyFace, UI.theme.keyFace.opacity(0.92)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                .frame(height: 26)
+                .overlay(
+                    // the lit top edge an old cap has, and its lower shadow
+                    face.strokeBorder(
+                        LinearGradient(colors: [Color.white.opacity(UI.theme.isDark ? 0.14 : 0.85),
+                                                Color.white.opacity(0.0)],
+                                       startPoint: .top, endPoint: .center),
+                        lineWidth: 1
+                    )
+                )
+                .overlay(face.stroke(UI.theme.keyEdge, lineWidth: 1))
+
+            Text(legend)
+                .font(.system(size: 12.5, weight: .medium))
+                .tracking(legend.count > 2 ? 0 : 0.4)
+                .foregroundStyle(UI.theme.keyLegend)
+                // engraved, not printed: the glyph sits in the cap rather than on it
+                .shadow(color: UI.theme.isDark ? Color.black.opacity(0.55) : Color.white.opacity(0.85),
+                        radius: 0, x: 0, y: 1)
+                .frame(height: 26)
+                .padding(.horizontal, wide ? 12 : 0)
+        }
+        .frame(minWidth: wide ? 52 : 27)
+        .frame(height: 26 + wallDepth)
+        .padding(.top, 1)   // room for the drop shadow below the wall
+        .shadow(color: Color.black.opacity(UI.theme.isDark ? 0.45 : 0.26), radius: 1.4, y: 1.4)
+    }
+}
+
 private struct KeyCaps: View {
     let chord: HotKeyChord
 
@@ -567,18 +620,9 @@ private struct KeyCaps: View {
     }
 
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(caps, id: \.self) { cap in
-                Text(cap)
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(UI.ink)
-                    .frame(minWidth: 26, minHeight: 26)
-                    .padding(.horizontal, cap.count > 2 ? 7 : 0)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(Color(hex: 0x242428))
-                            .overlay(RoundedRectangle(cornerRadius: 5).stroke(UI.controlBorder, lineWidth: 1))
-                    )
+        HStack(spacing: 6) {
+            ForEach(Array(caps.enumerated()), id: \.offset) { _, cap in
+                KeyCap(legend: cap, wide: cap.count > 2)
             }
         }
     }
