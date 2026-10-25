@@ -702,6 +702,9 @@ private struct DictationsPane: View {
     /// draws a longer tick, and nothing is invented.
     private func stackedRow(_ note: History.Note) -> some View {
         let selected = history.selection == note.id
+        // Once a row is open, the prose *is* the row: repeating the sentence at 13 pt above it and the duration in
+        // both the meta line and the footer says everything twice.
+        let reading = selected && UI.variant.reads
         let seconds = CGFloat(DaySection.seconds(of: note))
         return HStack(alignment: .top, spacing: 11) {
             RoundedRectangle(cornerRadius: 1, style: .continuous)
@@ -715,19 +718,21 @@ private struct DictationsPane: View {
                         .font(.system(size: 11))
                         .monospacedDigit()
                         .foregroundStyle(UI.ink3)
-                    if selected, !note.duration.isEmpty {
+                    if !reading, !note.duration.isEmpty {
                         Text(note.duration).font(.system(size: 11)).foregroundStyle(UI.ink3)
                     }
                 }
-                Text(note.title)
-                    .font(.system(size: 13))
-                    .foregroundStyle(selected ? UI.ink : UI.ink2)
-                    .lineLimit(selected ? nil : 1)
-                    .truncationMode(.tail)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                if selected && UI.variant.reads { reading(note) }
+                if reading {
+                    self.reading(note)
+                } else {
+                    Text(note.title)
+                        .font(.system(size: 13))
+                        .foregroundStyle(UI.ink2)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
             Spacer(minLength: 0)
         }
