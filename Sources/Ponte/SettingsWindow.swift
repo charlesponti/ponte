@@ -38,6 +38,10 @@ enum UI {
     static var controlBorder: Color { theme.controlBorder }
 
     static let sidebarWidth: CGFloat = 176
+    /// The inset that makes the sidebar and the content pane one system: same top, same bottom, same radius, and a
+    /// gutter between them.
+    static let gutter: CGFloat = 10
+    static let panelRadius: CGFloat = 14
 
     /// Which composition the window draws. Read from `windowVariant` on every build, so the flag works without a
     /// relaunch and a capture loop can walk the directions in one session.
@@ -287,16 +291,17 @@ struct PonteRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(UI.window)
-            .clipShape(RoundedRectangle(cornerRadius: UI.variant.floatsContent ? 16 : 0, style: .continuous))
-            .overlay {
-                if UI.variant.floatsContent {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(UI.hairline, lineWidth: 1)
-                }
-            }
-            .shadow(color: .black.opacity(UI.variant.floatsContent ? 0.38 : 0),
-                    radius: UI.variant.floatsContent ? 18 : 0, y: UI.variant.floatsContent ? 8 : 0)
-            .padding(UI.variant.floatsContent ? 12 : 0)
+            .clipShape(RoundedRectangle(cornerRadius: UI.panelRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: UI.panelRadius, style: .continuous)
+                    .stroke(UI.hairline, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.22), radius: 14, y: 6)
+            // Same vertical inset as the sidebar, plus a gutter in front of it: the two panes sit on one line and
+            // read as two objects rather than one rectangle cut in half.
+            .padding(.leading, UI.gutter)
+            .padding(.trailing, UI.gutter)
+            .padding(.vertical, UI.gutter)
         }
         .background(UI.variant.floatsContent ? (UI.theme.backdrop ?? Color(hex: 0x141310).opacity(0.94)) : .clear)
         .background(UI.glassAvailable ? Color.clear : UI.window)
@@ -341,8 +346,8 @@ private struct Sidebar: View {
         .frame(width: 56)
         .frame(maxHeight: .infinity, alignment: .top)
         .background(panelBackground)
-        .padding(.leading, UI.glassAvailable ? 10 : 0)
-        .padding(.vertical, UI.glassAvailable ? 10 : 0)
+        .padding(.leading, UI.glassAvailable ? UI.gutter : 0)
+        .padding(.vertical, UI.glassAvailable ? UI.gutter : 0)
     }
 
     private var labels: some View {
@@ -394,8 +399,8 @@ private struct Sidebar: View {
             // With the material there is no seam to draw: the panel edge does that job.
             if !UI.glassAvailable { Rectangle().fill(UI.line).frame(width: 1) }
         }
-        .padding(.leading, UI.glassAvailable ? 10 : 0)
-        .padding(.vertical, UI.glassAvailable ? 10 : 0)
+        .padding(.leading, UI.glassAvailable ? UI.gutter : 0)
+        .padding(.vertical, UI.glassAvailable ? UI.gutter : 0)
     }
 
     @ViewBuilder private var panelBackground: some View {
