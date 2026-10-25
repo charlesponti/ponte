@@ -37,6 +37,10 @@ enum UI {
 
     /// Liquid Glass exists from macOS 26 and the package floor is macOS 15, so every use is gated. Centralised so no
     /// call site has to remember which build it is on.
+    /// Tinted near-black: untinted glass takes its colour from whatever is behind it, which read as a washed
+    /// lavender panel that had nothing to do with the app.
+    static let glassTint = Color(red: 0.055, green: 0.055, blue: 0.062)
+
     static var glassAvailable: Bool {
         if #available(macOS 26.0, *) { return true }
         return false
@@ -309,7 +313,12 @@ private struct Sidebar: View {
         if #available(macOS 26.0, *) {
             // `.interactive()` because every row here is clickable: the spec says interaction feedback belongs to
             // glass used as a background for interactive controls.
-            Color.clear.glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+            Color.clear
+                .glassEffect(.regular.tint(UI.glassTint).interactive(), in: .rect(cornerRadius: 14))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                )
         } else {
             UI.sidebar
         }
@@ -468,7 +477,6 @@ private struct KeyCaps: View {
 private struct DictationsPane: View {
     @ObservedObject var model: PonteWindowModel
     @ObservedObject var history: HistoryModel
-    @FocusState private var focused: Bool
 
     init(model: PonteWindowModel) {
         self.model = model
@@ -522,13 +530,6 @@ private struct DictationsPane: View {
                     }
                 }
             }
-            .focusable()
-            .focused($focused)
-            .onKeyPress { press in
-                guard press.key == .return, let note = history.selected else { return .ignored }
-                if press.modifiers.contains(.command) { history.retranscribe(note) } else { history.copy(note) }
-                return .handled
-            }
 
             Rectangle().fill(UI.line).frame(height: 1)
             HStack(spacing: 8) {
@@ -548,7 +549,6 @@ private struct DictationsPane: View {
             .padding(.horizontal, 18)
             .frame(height: 44)
         }
-        .onAppear { focused = true }
     }
 
     private var defaultHint: String {
@@ -931,7 +931,22 @@ final class PonteWindow {
         } else {
             w.backgroundColor = NSColor(srgbRed: 19 / 255, green: 19 / 255, blue: 21 / 255, alpha: 1)
         }
-        w.contentView = NSHostingView(rootView: PonteRootView(model: model))
+        let hosted = NSHostingView(rootView: PonteRootView(model: model))
+        if #available(macOS 26.0, *) {
+            // Glass needs something behind it, but "clear" is the wrong something: a fully transparent window lets
+            // another app's text be read through the title bar. The backdrop is what Apple's own windows use — the
+            // desktop is diffused, never legible — and the glass then samples that instead of raw pixels.
+            let backdrop = NSVisualEffectView(frame: NSRect(origin: .zero, size: UI.size))
+            backdrop.material = .underWindowBackground
+            backdrop.blendingMode = .behindWindow
+            backdrop.state = .active
+            hosted.frame = backdrop.bounds
+            hosted.autoresizingMask = [.width, .height]
+            backdrop.addSubview(hosted)
+            w.contentView = backdrop
+        } else {
+            w.contentView = hosted
+        }
         w.center()
         window = w
     }
