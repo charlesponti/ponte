@@ -39,3 +39,13 @@ installs Ponte — it exists so a design can be agreed on before any code change
   gives you; more vertical padding would keep it squarer.
 - Whether the HUD should ever be repositionable, or stay bottom-centre.
 - Whether to show a live partial transcript (streaming) instead of an orb at all.
+
+## settings-window.html
+
+The window's directions (A: sidebar + panes, B: ledger + inspector, C: command-first), built at the real
+860 × 560 against this Mac's own dictations. **A was chosen and built.**
+
+The board shows the pre-Liquid-Glass look: an opaque window with a flush sidebar. The shipped window keeps the same
+layout but the sidebar is now a floating glass panel on macOS 26+. The material cannot be drawn in a board (or in an
+`ImageRenderer` still) — it samples what is behind the window — so `docs/glass.md` records the research and the
+running app is the only place to judge it.

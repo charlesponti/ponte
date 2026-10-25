@@ -34,6 +34,13 @@ enum UI {
     static let controlBorder = Color.white.opacity(0.13)
 
     static let sidebarWidth: CGFloat = 176
+
+    /// Liquid Glass exists from macOS 26 and the package floor is macOS 15, so every use is gated. Centralised so no
+    /// call site has to remember which build it is on.
+    static var glassAvailable: Bool {
+        if #available(macOS 26.0, *) { return true }
+        return false
+    }
     static let size = CGSize(width: 860, height: 560)
     static let contentMax: CGFloat = 560
 }
@@ -245,7 +252,7 @@ struct PonteRootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(UI.window)
         }
-        .background(UI.window)
+        .background(UI.glassAvailable ? Color.clear : UI.window)
         .onDisappear { model.cancelRecordingIfNeeded() }
     }
 }
@@ -259,7 +266,8 @@ private struct Sidebar: View {
         VStack(alignment: .leading, spacing: 0) {
             SidebarItem(title: "Dictations", count: model.history.notes.count,
                         selected: model.pane == .dictations) { model.pane = .dictations }
-                .padding(.top, 12)
+                // With a full-size content view the window's traffic lights sit over the panel's top edge.
+                .padding(.top, UI.glassAvailable ? 30 : 12)
 
             Text("SETTINGS")
                 .font(.system(size: 10))
@@ -286,8 +294,25 @@ private struct Sidebar: View {
         }
         .frame(width: UI.sidebarWidth)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(UI.sidebar)
-        .overlay(alignment: .trailing) { Rectangle().fill(UI.line).frame(width: 1) }
+        // Apple's rule: glass is the navigation layer, and sidebars float in it. The content pane beside this keeps
+        // its own solid surface so text contrast never depends on the wallpaper.
+        .background(panelBackground)
+        .overlay(alignment: .trailing) {
+            // With the material there is no seam to draw: the panel edge does that job.
+            if !UI.glassAvailable { Rectangle().fill(UI.line).frame(width: 1) }
+        }
+        .padding(.leading, UI.glassAvailable ? 10 : 0)
+        .padding(.vertical, UI.glassAvailable ? 10 : 0)
+    }
+
+    @ViewBuilder private var panelBackground: some View {
+        if #available(macOS 26.0, *) {
+            // `.interactive()` because every row here is clickable: the spec says interaction feedback belongs to
+            // glass used as a background for interactive controls.
+            Color.clear.glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
+        } else {
+            UI.sidebar
+        }
     }
 }
 
@@ -889,7 +914,23 @@ final class PonteWindow {
         w.title = "Ponte"
         w.isReleasedWhenClosed = false
         w.minSize = NSSize(width: 760, height: 500)
-        w.backgroundColor = NSColor(srgbRed: 19 / 255, green: 19 / 255, blue: 21 / 255, alpha: 1)
+        // Dark, always: glass resolves against the window's appearance, and a light panel beside a dark content pane
+        // would read as a rendering bug on a light desktop.
+        w.appearance = NSAppearance(named: .darkAqua)
+        if #available(macOS 26.0, *) {
+            // Glass needs something behind it to sample. An opaque window gives it flat grey, so the window is made
+            // see-through and the glass reaches under the title bar; only the content pane paints a surface.
+            w.isOpaque = false
+            w.backgroundColor = .clear
+            w.titleVisibility = .hidden
+            w.titlebarAppearsTransparent = true
+            w.styleMask.insert(.fullSizeContentView)
+            // A transparent title bar over a full-size content view is no longer a drag handle on its own.
+            w.isMovableByWindowBackground = true
+            vlog("window: Liquid Glass chrome on (macOS \(ProcessInfo.processInfo.operatingSystemVersionString))")
+        } else {
+            w.backgroundColor = NSColor(srgbRed: 19 / 255, green: 19 / 255, blue: 21 / 255, alpha: 1)
+        }
         w.contentView = NSHostingView(rootView: PonteRootView(model: model))
         w.center()
         window = w
