@@ -94,7 +94,7 @@ tccutil reset Microphone com.ponti.ponte
 ## One package, both apps
 
 Ponte and Thames share three products from the same package
-(`github.com/charlesponti/waveform-ios`, `from: "0.2.0"`):
+(`github.com/charlesponti/waveform`, `from: "0.2.0"`):
 
 | product | what it brings |
 |---|---|

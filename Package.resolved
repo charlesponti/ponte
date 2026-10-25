@@ -1,5 +1,5 @@
 {
-  "originHash" : "ac4cba0f081a19dc9e8cc3e36aaf88914831e33f0961d3fa7c7c1da5a4612561",
+  "originHash" : "4e549bc2b991edd6507fbe314f2abc9ff57209a8427e8f333df5a00e1611a634",
   "pins" : [
     {
       "identity" : "fluidaudio",
@@ -20,12 +20,12 @@
       }
     },
     {
-      "identity" : "waveform-ios",
+      "identity" : "waveform",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/charlesponti/waveform-ios.git",
+      "location" : "https://github.com/charlesponti/waveform.git",
       "state" : {
-        "revision" : "1a0d80cb4c593f20bfc539299ecb4e693f921543",
-        "version" : "0.4.0"
+        "revision" : "66e4f66b04cf16351e82944f0174383d3848b893",
+        "version" : "0.5.0"
       }
     }
   ],

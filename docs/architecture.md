@@ -57,7 +57,7 @@ is the only time the app touches the network at all — see `Readiness`).
 
 Two, deliberately — an app whose pitch is "everything on device" should be readable.
 
-- **`Waveform`** (`github.com/charlesponti/waveform-ios`, released, `from: "0.2.0"`) — `WaveformCore` for the
+- **`Waveform`** (`github.com/charlesponti/waveform`, released, `from: "0.2.0"`) — `WaveformCore` for the
   column maths and `WaveformUI` for the orb. **The audio capture comes from here too**: `Recorder.swift` is a
   façade over `WaveformCapture.EngineRecorder`, shared with Thames. Reading `Sources/Ponte/` will not tell you
   what the capture path does; see [capture-and-engines.md](capture-and-engines.md).

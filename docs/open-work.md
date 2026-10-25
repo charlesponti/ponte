@@ -6,13 +6,13 @@ are waiting on a person, and what is known but not filed.
 Everything is in one repository now: `charlesponti/ponte` holds the source, the site (`index.html`, published from
 `main` by GitHub Pages) and the releases. The old private `charlesponti/ponte-macos` is archived — its issues were
 recreated here with their numbers and threads, because GitHub will not transfer issues from a private repository
-to a public one. The upstream package is `charlesponti/waveform-ios`.
+to a public one. The upstream package is `charlesponti/waveform`.
 
 ## Filed
 
 Fifteen issues were filed together after the first phase of measurement, deliberately lowest-priority-first so
 the list reads top-down as a work order. Repositories: `charlesponti/ponte-macos` and
-`charlesponti/waveform-ios`.
+`charlesponti/waveform`.
 
 ### Closed
 
@@ -42,7 +42,7 @@ closed with its measurements.
 | #3 | custom vocabulary | names and jargon that engines keep missing |
 | #2 | re-transcribe a failed take from the menu | **implemented**; the policy and the adoption path are tested and the kept file is proven re-transcribable, but the menu click itself is unverified — see [pitfalls.md](pitfalls.md) |
 | #1 | decide the licence-check service, and what it costs the "no network calls" promise | blocked: waiting on research. A licence check would be Ponte's first network call |
-| waveform-ios#2 | make the orb's render independent of ambient graphics state | upstream: in-process renders vary, so some assertions have to be made through the CLI |
+| waveform#2 | make the orb's render independent of ambient graphics state | upstream: in-process renders vary, so some assertions have to be made through the CLI |
 
 ## Waiting on a human
 

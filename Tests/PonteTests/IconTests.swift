@@ -52,7 +52,7 @@ final class IconTests: XCTestCase {
         //     Ponte --icon /tmp/orb.png orb 512      # 16 % of its ink at full strength
         //     Ponte --icon /tmp/orb.png orb 16       # 84 % — a flat, dense disc
         //
-        // Making this measurable in-process is waveform-ios#2.
+        // Making this measurable in-process is waveform#2.
     }
 
     /// The dots are an absolute point size in `WaveformUI`, so the multiplier must fall as the tile

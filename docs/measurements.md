@@ -135,7 +135,7 @@ The 512 px render is not reproducible inside a test process — it depends on wh
 about "the large one is shaded, the small one is flat" cannot be made from in-process measurements. **Through
 the command line the same render is byte-identical** (five runs, one hash), and that is what writes the
 `.icns`. The test suite therefore asserts only the invariants that held in every run, and the shading is
-checked with `Ponte --icon /tmp/orb.png orb 512`. Making it measurable in-process is `waveform-ios#2`.
+checked with `Ponte --icon /tmp/orb.png orb 512`. Making it measurable in-process is `waveform#2`.
 
 ## What the log says about real use
 

@@ -15,7 +15,7 @@ Two consequences:
 
 - **Reading `Sources/Ponte/` will not tell you what the audio path does.** If a recording is the wrong shape,
   or ends early, the reason is in the package.
-- **The package is a released dependency** (`github.com/charlesponti/waveform-ios`, `from: "0.2.0"`). Changing
+- **The package is a released dependency** (`github.com/charlesponti/waveform`, `from: "0.2.0"`). Changing
   the capture means a package release and a version bump here, not an edit in this repository.
 
 ### What the capture gives back

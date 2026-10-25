@@ -36,7 +36,7 @@ is built from the CLI. So:
 - **Invariants may be asserted** in-process: sizes, centring, template-ness, that a state's tint is the colour
   it claims.
 - **Shading and coverage may not.** Render them with `Ponte --icon` and read the numbers.
-- Determinism in-process is tracked as `waveform-ios#2`.
+- Determinism in-process is tracked as `waveform#2`.
 
 `Probe.inkGroups` is what lets a spacing test be a test: it renders a frame into an explicit `NSBitmapImageRep`
 and reports the rows where ink starts and stops, so "the label has 18 pt below it" is a measurement rather than a
