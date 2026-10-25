@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ponte — one window (settings + history)</title>
+<style>
+  :root{
+    --ink: rgba(255,255,255,.96);
+    --ink-2: rgba(255,255,255,.62);
+    --ink-3: rgba(255,255,255,.40);
+    --mint: #66d4cf;
+    --amber: #e0b25a;
+    --line: rgba(255,255,255,.075);
+    --win: #131315;
+    --side: #1a1a1d;
+    --chrome: #1c1c1f;
+    --sel: rgba(102,212,207,.13);
+    --ctl: rgba(255,255,255,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:#0a0a0b;color:var(--ink);
+    font:13px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    font-feature-settings:"tnum" 1;
+    padding:44px 40px 72px;
+  }
+  .board-head{max-width:1320px;margin:0 auto 40px}
+  .board-head h1{font-size:26px;font-weight:600;letter-spacing:-.02em}
+  .board-head .surface{margin-top:10px;font-size:14px;color:var(--ink-2);max-width:74ch}
+  .board-head .surface b{color:var(--ink);font-weight:560}
+  .facts{display:flex;gap:28px;margin-top:22px;flex-wrap:wrap}
+  .fact{border-left:2px solid var(--line);padding-left:12px}
+  .fact dt{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+  .fact dd{font-size:13px;margin-top:3px;color:var(--ink)}
+  .fact dd span{color:var(--ink-3)}
+
+  .opt{max-width:1320px;margin:0 auto 54px}
+  .opt-head{display:flex;align-items:baseline;gap:14px;margin-bottom:14px}
+  .opt-mark{
+    font-size:11px;font-weight:700;letter-spacing:.1em;color:#0a0a0b;
+    background:var(--mint);border-radius:3px;padding:3px 7px;position:relative;top:-1px;
+  }
+  .opt-head h2{font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .opt-head .thesis{color:var(--ink-2);font-size:13px}
+  .opt-head .cost{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+  .frames{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .frame-cap{font-size:11px;color:var(--ink-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+
+  /* ---- the window ---- */
+  .win{
+    width:860px;height:560px;background:var(--win);border-radius:12px;overflow:hidden;
+    display:flex;flex-direction:column;position:relative;
+    box-shadow:0 24px 60px rgba(0,0,0,.62), 0 0 0 1px rgba(255,255,255,.09);
+  }
+  .bar{
+    height:38px;flex:0 0 38px;display:flex;align-items:center;padding:0 13px;gap:8px;
+    background:var(--chrome);border-bottom:1px solid var(--line);
+  }
+  .lights{display:flex;gap:8px}
+  .lights i{width:12px;height:12px;border-radius:50%;display:block;opacity:.85}
+  .l1{background:#ff5f57}.l2{background:#febc2e}.l3{background:#28c840}
+  .bar .title{flex:1;text-align:center;font-weight:600;font-size:13px;margin-left:-56px}
+  .body{flex:1;display:flex;min-height:0}
+  .side{
+    width:176px;flex:0 0 176px;background:var(--side);border-right:1px solid var(--line);
+    padding:12px 0;display:flex;flex-direction:column;gap:2px;
+  }
+  .side .grp{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding:14px 16px 5px}
+  .side .it{
+    display:flex;align-items:center;gap:8px;padding:6px 12px 6px 16px;margin:0 8px;
+    border-radius:6px;color:var(--ink-2);font-size:13px;
+  }
+  .side .it.on{background:var(--sel);color:var(--mint);font-weight:560}
+  .side .it .n{margin-left:auto;font-size:11px;color:var(--ink-3)}
+  .side .it.on .n{color:var(--mint);opacity:.8}
+  .side .spacer{flex:1}
+  .side .ver{font-size:10.5px;color:var(--ink-3);padding:0 16px;line-height:1.5}
+
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .search{
+    display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid var(--line);
+    flex:0 0 auto;
+  }
+  .search .glass{width:13px;height:13px;border:1.6px solid var(--ink-3);border-radius:50%;position:relative}
+  .search .glass:after{content:"";position:absolute;width:5.5px;height:1.6px;background:var(--ink-3);transform:rotate(45deg);right:-4px;bottom:-1.5px;border-radius:1px}
+  .search .q{flex:1;color:var(--ink-3);font-size:13px}
+  .search .count{font-size:11.5px;color:var(--ink-3)}
+
+  .rows{flex:1;overflow:hidden}
+  .row{display:flex;gap:12px;padding:9px 18px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.035)}
+  .row .t{font-size:12px;color:var(--ink-3);width:74px;flex:0 0 74px;font-variant-numeric:tabular-nums}
+  .row .d{font-size:11.5px;color:var(--ink-3);width:40px;flex:0 0 40px;text-align:right}
+  .row .x{
+    flex:1;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;mask-image:linear-gradient(to right,#000 92%,transparent)
+  }
+  .row.on{background:var(--sel)}
+  .row.on .x{color:var(--mint)}
+  .foot{flex:0 0 30px;display:flex;align-items:center;padding:0 18px;font-size:11.5px;color:var(--ink-3);border-top:1px solid var(--line)}
+
+  /* ---- settings pane ---- */
+  .pane{padding:22px 26px;overflow:hidden;flex:1}
+  .pane h3{font-size:15px;font-weight:600;margin-bottom:3px;letter-spacing:-.01em}
+  .pane .sub{font-size:12px;color:var(--ink-3);margin-bottom:18px}
+  .group{max-width:560px}
+  .group + .group{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+  .line{display:flex;align-items:center;gap:14px;padding:7px 0;min-height:34px}
+  .line .lab{flex:0 0 132px;font-size:13px;color:var(--ink)}
+  .line .val{flex:1;font-size:13px;color:var(--ink-2);display:flex;align-items:center;gap:9px}
+  .line .hint{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.4}
+  .line .hint.amber{color:var(--amber)}
+  .btn{
+    border:1px solid rgba(255,255,255,.13);background:var(--ctl);border-radius:6px;
+    padding:4px 11px;font-size:12px;color:var(--ink);white-space:nowrap;
+  }
+  .btn.mint{border-color:rgba(102,212,207,.45);color:var(--mint);background:rgba(102,212,207,.10)}
+  .keys{display:flex;gap:5px}
+  .key{
+    min-width:26px;height:26px;padding:0 7px;border-radius:5px;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(#2b2b2f,#242428);border:1px solid rgba(255,255,255,.13);
+    box-shadow:0 1px 0 rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06);
+    font-size:12.5px;color:var(--ink);font-weight:500;
+  }
+  .key.wide{min-width:44px}
+  .sw{width:34px;height:20px;border-radius:10px;background:rgba(255,255,255,.13);position:relative;flex:0 0 34px}
+  .sw:after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#f4f4f5;top:2px;left:2px;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+  .sw.on{background:var(--mint)}
+  .sw.on:after{left:16px}
+  .about{max-width:560px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--ink-3);line-height:1.55}
+
+  /* vocabulary */
+  .rule{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .rule .from{color:var(--ink-2);min-width:120px}
+  .rule .arrow{color:var(--ink-3);font-size:11px}
+  .rule .to{color:var(--mint)}
+  .rule .x{margin-left:auto;font-size:11px;color:var(--ink-3)}
+
+  /* ledger/inspector */
+  .table{flex:1;min-width:0;display:flex;flex-direction:column}
+  .thead{display:flex;gap:12px;padding:8px 18px;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);border-bottom:1px solid var(--line)}
+  .thead .t{width:88px;flex:0 0 88px}.thead .d{width:52px;flex:0 0 52px;text-align:right}.thead .e{width:96px;flex:0 0 96px}
+  .insp{width:330px;flex:0 0 330px;border-left:1px solid var(--line);background:#161619;padding:16px 18px;display:flex;flex-direction:column}
+  .insp .when{font-size:11px;color:var(--ink-3);letter-spacing:.03em}
+  .insp .text{font-size:13.5px;line-height:1.6;color:var(--ink);margin:12px 0 16px}
+  .insp .meta{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:11.5px;color:var(--ink-3);border-top:1px solid var(--line);padding-top:12px}
+  .insp .meta b{font-weight:500;color:var(--ink-2)}
+  .insp .acts{display:flex;gap:7px;margin-top:auto;padding-top:14px}
+
+  /* command */
+  .cmd{padding:16px 18px;border-bottom:1px solid var(--line)}
+  .field{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);border-radius:8px;padding:9px 12px}
+  .field .caret{color:var(--mint);font-weight:300}
+  .field .ph{flex:1;font-size:13px;color:var(--ink)}
+  .field .ph small{color:var(--ink-3)}
+  .sect{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding:12px 18px 4px}
+  .crow{display:flex;align-items:center;gap:12px;padding:8px 18px;font-size:13px}
+  .crow.on{background:var(--sel)}
+  .crow .nm{flex:1}
+  .crow .vl{color:var(--ink-3);font-size:12px}
+  .crow.on .nm{color:var(--mint)}
+
+  /* decision block */
+  .dec{max-width:1320px;margin:0 auto;border-top:1px solid var(--line);padding-top:26px}
+  .dec h2{font-size:15px;font-weight:600;margin-bottom:12px}
+  .dec ol{list-style:none;display:grid;gap:10px;max-width:96ch}
+  .dec li{font-size:13px;color:var(--ink-2);padding-left:26px;position:relative}
+  .dec li b{color:var(--ink);font-weight:560}
+  .dec li:before{content:attr(data-n);position:absolute;left:0;top:0;font-size:11px;color:var(--mint);font-weight:600}
+  .pin{margin-top:26px;font-size:11px;color:var(--ink-3);max-width:96ch;line-height:1.6}
+  .pin code{color:var(--ink-2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px}
+</style>
+</head>
+<body>
+
+<div class="board-head">
+  <h1>Ponte — one window</h1>
+  <p class="surface">
+    <b>Surface: Configure.</b> The window's job is to be the place everything about Ponte lives: history first,
+    then the things that were in the menu. Density and legibility beat decoration — no hero, no cards, no icons
+    above headings. Every row states one fact and, where it needs to, one line explaining itself.
+  </p>
+  <dl class="facts">
+    <div class="fact"><dt>window</dt><dd>860 × 560 <span>· today 780 × 500</span></dd></div>
+    <div class="fact"><dt>dictations on disk</dt><dd>46 <span>· real</span></dd></div>
+    <div class="fact"><dt>palette</dt><dd>mint #66d4cf <span>· ink .96/.62/.40</span></dd></div>
+    <div class="fact"><dt>type</dt><dd>SF Pro 13 <span>· tabular numbers for times</span></dd></div>
+    <div class="fact"><dt>copy</dt><dd>from the 46 notes <span>· verbatim, warts and all</span></dd></div>
+  </dl>
+</div>
+
+<!-- A -->
+<section class="opt">
+  <div class="opt-head">
+    <span class="opt-mark">A</span>
+    <h2>Sidebar + panes</h2>
+    <span class="thesis">The native shape: what Settings.app and Mail taught everyone.</span>
+    <span class="cost">lowest risk · most legible · least surprising</span>
+  </div>
+  <div class="frames">
+
+    <div>
+      <div class="frame-cap">A1 · Dictations</div>
+      <div class="win">
+        <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><div class="title">Ponte</div></div>
+        <div class="body">
+          <div class="side">
+            <div class="it on" style="margin-top:4px">Dictations<span class="n">46</span></div>
+            <div class="grp">Settings</div>
+            <div class="it">General</div>
+            <div class="it">Speech</div>
+            <div class="it">Vocabulary</div>
+            <div class="it">Updates</div>
+            <div class="it">About</div>
+            <div class="spacer"></div>
+            <div class="ver">1.0.1 (77)<br>Your audio and text<br>never leave the Mac.</div>
+          </div>
+          <div class="main">
+            <div class="search">
+              <span class="glass"></span>
+              <span class="q">Search the dictations</span>
+              <span class="count">46 of 46</span>
+            </div>
+            <div class="rows">
+              <div class="row on"><span class="t">16:19</span><span class="d">13.9s</span><span class="x">What's up, homie? Where are you going?</span></div>
+              <div class="row"><span class="t">14:48</span><span class="d">4.5s</span><span class="x">What's my name, ho?</span></div>
+              <div class="row"><span class="t">12:08</span><span class="d">9.9s</span><span class="x">The quick brown fox jumps over the lazy dog, and it keeps on running.</span></div>
+              <div class="row"><span class="t">07:27</span><span class="d">5.5s</span><span class="x">This text came out of the menu's retake, from a take whose first attempt</span></div>
+              <div class="row"><span class="t">22:34</span><span class="d">9.0s</span><span class="x">This dictation came from Parakeet on the neural engine, now that it is</span></div>
+              <div class="row"><span class="t">19:48</span><span class="d">6.9s</span><span class="x">Starting immediately, so the opening word is the test.</span></div>
+              <div class="row"><span class="t">14:23</span><span class="d">7.7s</span><span class="x">The normal path is untouched by the first run gate.</span></div>
+              <div class="row"><span class="t">12:15</span><span class="d">8.9s</span><span class="x">A normal voice near the microphone should never be warned about.</span></div>
+              <div class="row"><span class="t">12:10</span><span class="d">7.7s</span><span class="x">A normal voice near the microphone should never be warned about.</span></div>
+              <div class="row"><span class="t">11:02</span><span class="d">7.1s</span><span class="x">A new build, and the permission still holds.</span></div>
+            </div>
+            <div class="foot">Double-click to copy · ↩ copies, ⌘↩ transcribes again</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="frame-cap">A2 · General</div>
+      <div class="win">
+        <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><div class="title">Ponte</div></div>
+        <div class="body">
+          <div class="side">
+            <div class="it" style="margin-top:4px">Dictations<span class="n">46</span></div>
+            <div class="grp">Settings</div>
+            <div class="it on">General</div>
+            <div class="it">Speech</div>
+            <div class="it">Vocabulary</div>
+            <div class="it">Updates</div>
+            <div class="it">About</div>
+            <div class="spacer"></div>
+            <div class="ver">1.0.1 (77)<br>Your audio and text<br>never leave the Mac.</div>
+          </div>
+          <div class="main">
+            <div class="pane">
+              <h3>General</h3>
+              <div class="sub">What Ponte does when you press the key, and what it starts up with.</div>
+              <div class="group">
+                <div class="line">
+                  <span class="lab">Hotkey</span>
+                  <span class="val">
+                    <span class="keys"><span class="key">⌥</span><span class="key">⌘</span><span class="key wide">space</span></span>
+                    <span class="btn">Record…</span>
+                  </span>
+                </div>
+                <div class="line">
+                  <span class="lab">Microphone</span>
+                  <span class="val">System default — MacBook Pro Microphone
+                    <span class="hint amber">Your pinned AirPods aren't connected; using the built-in mic.</span>
+                  </span>
+                  <span class="btn">Change…</span>
+                </div>
+              </div>
+              <div class="group">
+                <div class="line"><span class="lab">Paste after</span><span class="val">On — at the cursor, in whatever you're writing</span><span class="sw on"></span></div>
+                <div class="line"><span class="lab">Keep audio</span><span class="val">Off — takes are deleted once transcribed</span><span class="sw"></span></div>
+                <div class="line"><span class="lab">At login</span><span class="val">On — Ponte starts with your Mac</span><span class="sw on"></span></div>
+                <div class="line"><span class="lab">Sound</span><span class="val">Off — a click when recording starts and stops</span><span class="sw"></span></div>
+              </div>
+              <div class="about">
+                Ponte 1.0.1 (77) · Parakeet Ultra on the Neural Engine · English.<br>
+                Your audio and text never leave the Mac. The only request Ponte makes is checking for its own updates.
+              </div>
+            </div>
+            <div class="foot">Settings save as you change them — there is no Save button.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- A3 -->
+<section class="opt">
+  <div class="opt-head">
+    <span class="opt-mark">A</span>
+    <h2>Vocabulary, as a pane</h2>
+    <span class="thesis">Two rules, read-only in the window, edited in the file — the pane shows what will actually happen.</span>
+    <span class="cost">the list is the point: seeing the rule beats a menu item that opens JSON</span>
+  </div>
+  <div class="frames">
+    <div>
+      <div class="frame-cap">A3 · Vocabulary</div>
+      <div class="win">
+        <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><div class="title">Ponte</div></div>
+        <div class="body">
+          <div class="side">
+            <div class="it" style="margin-top:4px">Dictations<span class="n">46</span></div>
+            <div class="grp">Settings</div>
+            <div class="it">General</div>
+            <div class="it">Speech</div>
+            <div class="it on">Vocabulary</div>
+            <div class="it">Updates</div>
+            <div class="it">About</div>
+            <div class="spacer"></div>
+            <div class="ver">1.0.1 (77)<br>Your audio and text<br>never leave the Mac.</div>
+          </div>
+          <div class="main">
+            <div class="pane">
+              <h3>Vocabulary</h3>
+              <div class="sub">Said one way, written another. Whole words only, case-insensitive, longest phrase first.</div>
+              <div class="group">
+                <div class="rule"><span class="from">parakeet</span><span class="arrow">→</span><span class="to">Parakeet</span><span class="x">applies</span></div>
+                <div class="rule"><span class="from">ponte</span><span class="arrow">→</span><span class="to">Ponte</span><span class="x">applies</span></div>
+                <div class="line" style="padding-top:14px">
+                  <span class="val" style="color:var(--ink-3);font-size:12px">Stored in <code style="font-family:ui-monospace,Menlo,monospace">vocabulary.json</code> — plain text you own.</span>
+                  <span class="btn mint">Edit rules…</span>
+                </div>
+              </div>
+              <div class="group">
+                <div class="line">
+                  <span class="lab">Heard as</span>
+                  <span class="val">"The parakeet writes to ponte every morning."<span class="hint">Becomes: "The Parakeet writes to Ponte every morning."</span></span>
+                </div>
+              </div>
+            </div>
+            <div class="foot">Whole-word, so "parakeets" is left alone. A broken file means no rules, never a failed dictation.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section class="opt">
+  <div class="opt-head">
+    <span class="opt-mark">B</span>
+    <h2>Ledger + inspector</h2>
+    <span class="thesis">History is the window; settings are a sheet you pull over it.</span>
+    <span class="cost">divergent · best at reading old takes · settings less discoverable</span>
+  </div>
+  <div class="frames">
+    <div>
+      <div class="frame-cap">B1 · The ledger</div>
+      <div class="win">
+        <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><div class="title">Dictations</div><div class="btn" style="margin-left:auto">Settings</div></div>
+        <div class="body">
+          <div class="table">
+            <div class="search">
+              <span class="glass"></span><span class="q">Search 46 dictations</span><span class="count">46</span>
+            </div>
+            <div class="thead"><span class="t">when</span><span class="d">length</span><span class="e">engine</span><span style="flex:1">said</span></div>
+            <div class="rows">
+              <div class="row on"><span class="t">16:19</span><span class="d">13.9s</span><span class="x">What's up, homie? Where are you going?</span></div>
+              <div class="row"><span class="t">14:48</span><span class="d">4.5s</span><span class="x">What's my name, ho?</span></div>
+              <div class="row"><span class="t">12:08</span><span class="d">9.9s</span><span class="x">The quick brown fox jumps over the lazy dog, and it keeps on running.</span></div>
+              <div class="row"><span class="t">07:27</span><span class="d">5.5s</span><span class="x">This text came out of the menu's retake, from a take whose first attempt</span></div>
+              <div class="row"><span class="t">22:34</span><span class="d">9.0s</span><span class="x">This dictation came from Parakeet on the neural engine, now that it is</span></div>
+              <div class="row"><span class="t">19:48</span><span class="d">6.9s</span><span class="x">Starting immediately, so the opening word is the test.</span></div>
+              <div class="row"><span class="t">14:23</span><span class="d">7.7s</span><span class="x">The normal path is untouched by the first run gate.</span></div>
+              <div class="row"><span class="t">12:15</span><span class="d">8.9s</span><span class="x">A normal voice near the microphone should never be warned about.</span></div>
+              <div class="row"><span class="t">12:10</span><span class="d">7.7s</span><span class="x">A normal voice near the microphone should never be warned about.</span></div>
+            </div>
+            <div class="foot">46 dictations · 24 October 2026</div>
+          </div>
+          <div class="insp">
+            <div class="when">24 October 2026, 16:19 · #46</div>
+            <div class="text">What's up, homie? Where are you going?</div>
+            <div class="meta">
+              <span>Length</span><b>13.9 s</b>
+              <span>Transcribed</span><b>0.1 s · parakeet-ultra</b>
+              <span>Language</span><b>en</b>
+              <span>Audio</span><b>deleted after transcription</b>
+              <span>Rules applied</span><b>2</b>
+            </div>
+            <div class="acts"><span class="btn mint">Copy</span><span class="btn">Transcribe again</span><span class="btn">Show note</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- C -->
+<section class="opt">
+  <div class="opt-head">
+    <span class="opt-mark">C</span>
+    <h2>One field for everything</h2>
+    <span class="thesis">Search and settings share a field: type "hot" and the hotkey row comes to you.</span>
+    <span class="cost">divergent · fastest for the tenth visit · worst for the first</span>
+  </div>
+  <div class="frames">
+    <div>
+      <div class="frame-cap">C1 · Command first</div>
+      <div class="win">
+        <div class="bar"><div class="lights"><i class="l1"></i><i class="l2"></i><i class="l3"></i></div><div class="title">Ponte</div></div>
+        <div class="body" style="flex-direction:column">
+          <div class="cmd">
+            <div class="field">
+              <span class="caret">▏</span>
+              <span class="ph">hot</span>
+              <span class="count">⌘F</span>
+            </div>
+          </div>
+          <div class="sect">Setting</div>
+          <div class="crow on"><span class="nm">Hotkey</span><span class="vl">⌥⌘Space</span><span class="btn">Record…</span></div>
+          <div class="sect">Dictations mentioning "hot"</div>
+          <div class="crow"><span class="nm">16:19 · 13.9s — "What's <u>hot</u>, homie? Where are you going?"</span></div>
+          <div class="crow"><span class="nm">14:48 · 4.5s — "What's my name, <u>ho</u>?"</span></div>
+          <div class="sect">Everything else</div>
+          <div class="crow"><span class="nm">Microphone</span><span class="vl">System default</span></div>
+          <div class="crow"><span class="nm">Speech model</span><span class="vl">Parakeet Ultra</span></div>
+          <div class="crow"><span class="nm">Vocabulary</span><span class="vl">2 rules</span></div>
+          <div class="crow"><span class="nm">Keep audio</span><span class="vl">Off</span></div>
+          <div class="crow"><span class="nm">Check for updates</span><span class="vl">Automatic</span></div>
+          <div class="foot" style="margin-top:auto">Return runs the first match · Esc clears the field</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- decisions -->
+<section class="dec">
+  <h2>What I need from you</h2>
+  <ol>
+    <li data-n="1"><b>A, B or C.</b> My recommendation is A — the truncated ellipsis rows and the settings rows are the same language, and a buyer who has used a Mac already knows where to click.</li>
+    <li data-n="2"><b>Does the window keep one name?</b> A makes "Ponte" the window title with Dictations as a pane; B calls it "Dictations" and hides settings behind a button. You said history should be where everything lives — A is that, literally.</li>
+    <li data-n="3"><b>860 × 560, or stay at 780 × 500?</b> Grown for the sidebar and a settings pane that does not scroll.</li>
+    <li data-n="4"><b>Vocabulary as a pane, or just a button that opens the file?</b> The board shows the pane: seeing the two rules beats a menu item that opens JSON.</li>
+  </ol>
+  <p class="pin">
+    Nothing here is built. This board is one file — <code>design/settings-window.html</code> — and no app binary, no
+    install and no permission was touched while it was made. The hotkey keys, the 46 dictations, their durations and
+    their text are read from this Mac's own files; the microphone note is written for the case the pin falls back,
+    which is issue #14.
+  </p>
+</section>
+
+</body>
+</html>

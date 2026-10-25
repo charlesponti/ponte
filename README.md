@@ -479,12 +479,30 @@ single identity, every grant survives every future update — the requirement na
 
 ## Menu
 
-- Start / Stop recording (shows the current hotkey)
-- Copy last transcript · **Transcribe the last take again** · Open notes folder · Open audio folder
-- **Language** — 15 languages incl. auto-detect (mapped onto Parakeet's language hint)
-- **Speech model** — Parakeet Ultra (default) / v3 / v2 / Redux; download, or unload it from memory
-- Auto-paste into frontmost app · Keep audio files · Launch at Login
-- **Permissions** — mic + accessibility status and shortcuts to Settings
+Four items, because everything else moved into the window:
+
+- Start / Stop recording (shows the current hotkey), plus a state line while a take is in flight
+- **Copy last transcript** · **Transcribe the last take again**
+- **Open Ponte…** (⌘,) — the window: dictations first, then the settings
+- **Quit Ponte** (⌘Q)
+
+A found update adds one line here, because a menu-bar app has nowhere else visible to say it.
+
+## The window
+
+One window, opened with **⌘,** or *Open Ponte…*, and it is where everything lives:
+
+| pane | what's in it |
+|---|---|
+| **Dictations** | every note in `~/Documents/Ponte`, searchable. Double-click copies; ⇧⌘C copies, ⌘↩ transcribes again, **Show note** opens the Markdown |
+| **General** | hotkey (with a recorder), microphone, auto-paste, keep-audio, launch at login, and the vocabulary list |
+| **Speech** | the model, whether it is downloaded, and the language |
+| **Updates** | automatic checks, the last check, and the version |
+| **About** | where the files are, and the two permissions with a repair that clears a stale grant |
+
+The window refuses to open while a dictation is in flight, and says so in the HUD rather than in an error colour. A
+window takes focus, and focus is where the paste goes: opening it mid-take would paste into itself. Every setting is
+saved as you change it — there is no Save button, and a control that needs one is a worse control.
 
 ## Keys
 
@@ -505,7 +523,18 @@ one is not going to become one.
 
 ## Setting the hotkey
 
-Two defaults, then restart the app (the hotkey is registered at launch):
+**Open Ponte… → General → Record…**, then press the chord you want. Esc cancels. It applies immediately, without a
+relaunch.
+
+- A chord another app already owns is **refused with the reason**, and the old one is kept — a failed attempt never
+  leaves you without a hotkey. The same is true if the registration fails at launch, which is logged.
+- It needs ⌘, ⌥ or ⌃ (or a bare function key like F13). A plain letter is refused on purpose: a global hotkey on `A`
+  would take `A` away from every application on the machine, and ⇧ alone does not help, because ⇧A is a capital A.
+- While the recorder is open the current hotkey is unregistered, so pressing the chord you already have is captured
+  instead of starting a dictation.
+
+The two defaults still work, for a script or a fresh machine — but a change made with `defaults` needs a relaunch,
+since the chord is registered at startup:
 
 ```bash
 # ⌃⌥D = kVK_ANSI_D (2) with controlKey (4096) + optionKey (2048)
@@ -522,7 +551,7 @@ defaults delete com.ponti.ponte hotKeyCode
 defaults delete com.ponti.ponte hotKeyMods
 ```
 
-If another app already owns the chord, Ponte logs `hotkey registration failed`, posts a
+At launch, if another app already owns the chord, Ponte logs `hotkey registration failed`, posts a
 notification, and the menu item still works — pick a different chord.
 
 ### Modifier masks

@@ -33,6 +33,8 @@ let knownFlags: Set<String> = [
     "--words", "--since", "--rate",
     // --record's live transcript, and the scripted HUD
     "--live", "--hud-demo", "--history-window",
+    // the window: open it, or render a still of it at exact pixels
+    "--settings", "--settings-render", "--pane",
 ]
 
 for argument in argv.dropFirst() where argument.hasPrefix("--") {
@@ -719,17 +721,52 @@ func runCLI() -> Int32? {
         tick.invalidate()
         return 0
 
-    case "--history-window":
-        // The real window, for a few seconds, so its layout can be photographed. `ImageRenderer` cannot draw a
-        // `List` or an `HSplitView` — it substitutes placeholder symbols — so a still of this view has to come from
-        // the window server, not from the renderer.
-        let seconds = Double(value(of: "--history-window") ?? "") ?? 8
+    case "--settings", "--history-window":
+        // The real window, for a few seconds, so its geometry can be measured from outside the process.
+        let seconds = Double(value(of: "--settings") ?? value(of: "--history-window") ?? "") ?? 8
         return MainActor.assumeIsolated {
             NSApplication.shared.setActivationPolicy(.accessory)
-            let history = HistoryWindow()
-            history.show()
+            let window = PonteWindow()
+            window.show()
+            if let live = NSApplication.shared.windows.first(where: { $0.title == "Ponte" }) {
+                print("settings window frame=\(live.frame) content=\(live.contentLayoutRect.size)")
+            }
             let deadline = Date().addingTimeInterval(seconds)
             while Date() < deadline { RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05)) }
+            return 0
+        }
+
+    case "--settings-render":
+        // A still of the window, at 2x. The old history window could not be rendered — `ImageRenderer` substitutes
+        // placeholders for `List` and `HSplitView` — and the replacement has neither, so this one can be rendered
+        // with exact pixels instead of photographed through a screen-capture permission.
+        let out = value(of: "--settings-render") ?? "/tmp/ponte-settings.png"
+        let paneName = value(of: "--pane") ?? "dictations"
+        let pane = Pane(rawValue: paneName)
+        guard pane != nil else {
+            print("error: --pane takes one of: \(Pane.allCases.map(\.rawValue).joined(separator: " "))")
+            return 2
+        }
+        return MainActor.assumeIsolated {
+            let model = PonteWindowModel()
+            model.refresh()
+            model.pane = pane!
+            let renderer = ImageRenderer(content:
+                PonteRootView(model: model)
+                    .frame(width: UI.size.width, height: UI.size.height)
+            )
+            renderer.scale = 2
+            guard let image = renderer.nsImage,
+                  let tiff = image.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let png = rep.representation(using: .png, properties: [:]) else {
+                print("error: could not render the window")
+                return 1
+            }
+            do { try png.write(to: URL(fileURLWithPath: out)) } catch {
+                print("error: \(error.localizedDescription)"); return 1
+            }
+            print("rendered \(out) \(rep.pixelsWide)x\(rep.pixelsHigh) pane=\(paneName)")
             return 0
         }
 

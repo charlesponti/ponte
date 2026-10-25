@@ -12,7 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     private let live = LiveTranscript()
     /// The dictations already on disk, in a window opened deliberately. Made on first use, inside the main actor,
     /// because this delegate is not itself main-actor isolated and its initialiser is not a safe place for a window.
-    private var historyWindow: HistoryWindow?
+    /// The one window: dictations and settings. Made lazily, inside the main actor, and never released on close.
+    private var mainWindow: PonteWindow?
+    /// Set when Sparkle finds an update, so the menu can say so and the window can show it.
+    private var updateFound: String?
     /// The updater. Sparkle's standard controller owns the schedule and the UI; the app supplies only where to look
     /// (`SUFeedURL`) and what to trust (`SUPublicEDKey`), both in Info.plist.
     private var updater: SPUStandardUpdaterController?
@@ -601,35 +604,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
         menu.addItem(retake)
 
         menu.addItem(.separator())
-        menu.addItem(item("Open Notes Folder", #selector(openNotes), nil))
-        menu.addItem(item("Open Audio Folder", #selector(openAudio), nil))
-        // Terms can be added without a rebuild: the file is read at every transcription.
-        menu.addItem(item("Vocabulary: Edit Replacement List…", #selector(editVocabulary), nil))
-        menu.addItem(item("History…", #selector(showHistory), "y"))
+
+        // Everything else moved into the window. What is left is the menu's actual job: act on the last dictation,
+        // open the settings, quit. The hotkey, the model, the language, the folders, the permissions and the update
+        // check all live where they can be seen, explained and changed in one place.
+        let open = NSMenuItem(title: "Open Ponte…", action: #selector(showMain), keyEquivalent: ",")
+        open.target = self
+        menu.addItem(open)
+
+        // The one thing worth saying in the menu that is not an action: an update exists. Sparkle schedules checks
+        // in the background and a menu-bar app has nowhere else to put that fact.
+        if let updateFound {
+            menu.addItem(.separator())
+            versionItem = hint("\(updateFound) available — open Ponte")
+            menu.addItem(versionItem!)
+        }
 
         menu.addItem(.separator())
-        menu.addItem(languageMenu())
-        menu.addItem(speechModelMenu())
-
-        menu.addItem(.separator())
-        menu.addItem(check("Auto-paste into frontmost app", Settings.autoPaste, #selector(toggleAutoPaste)))
-        menu.addItem(check("Keep audio files", Settings.keepAudio, #selector(toggleKeepAudio)))
-        menu.addItem(loginItem())
-
-        menu.addItem(.separator())
-        menu.addItem(permissionsMenu())
-        menu.addItem(.separator())
-
-        menu.addItem(item("Check for Updates…", #selector(checkForUpdates), nil))
-        let version = NSMenuItem(title: "Ponte \(AppPaths.Version.display)", action: nil, keyEquivalent: "")
-        version.isEnabled = false
-        menu.addItem(version)
-        versionItem = version
-        menu.addItem(.separator())
-        let dev = NSMenuItem(title: "Mic: \(AVCaptureDevice.default(for: .audio)?.localizedName ?? "none")", action: nil, keyEquivalent: "")
-        dev.isEnabled = false
-        menu.addItem(dev)
-
         let quit = NSMenuItem(title: "Quit Ponte", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
     }
@@ -737,11 +728,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     /// search is the whole point of having them.
     @objc private func checkForUpdates() { updater?.checkForUpdates(nil) }
 
-    @objc private func showHistory() {
-        MainActor.assumeIsolated {
-            if historyWindow == nil { historyWindow = HistoryWindow() }
-            historyWindow?.show()
+    @objc private func showMain() {
+        // A window takes focus, and focus is the paste target: opening settings mid-dictation would paste into the
+        // settings window. Refuse in the app, not in a comment — and say so calmly rather than in the error colour.
+        guard state == .idle else {
+            vlog("window: refused while \(state) — a take is in flight")
+            hudProgress("Finish the dictation first")
+            return
         }
+        MainActor.assumeIsolated {
+            if mainWindow == nil {
+                let window = PonteWindow()
+                window.model.actions = windowActions()
+                mainWindow = window
+            }
+            mainWindow?.model.updateAvailable = updateFound
+            mainWindow?.model.languages = languages
+            mainWindow?.show()
+        }
+    }
+
+    /// What the window may ask the app to do. Closures, so the window owns presentation and the app keeps the
+    /// behaviour — including the parts that touch Carbon, the engine and TCC.
+    private func windowActions() -> WindowActions {
+        var actions = WindowActions()
+        actions.beginHotKeyRecording = { [weak self] in
+            // Unregister first: otherwise pressing the chord you already have starts a dictation instead of being
+            // captured by the recorder.
+            self?.hotKey = nil
+            vlog("hotkey: recording, previous chord released")
+        }
+        actions.endHotKeyRecording = { [weak self] in self?.reregisterHotKey() }
+        actions.changeHotKey = { [weak self] chord in self?.applyHotKey(chord) ?? false }
+        actions.setModel = { [weak self] model in self?.useModel(model) }
+        actions.downloadModel = { [weak self] model in self?.downloadModel(model) }
+        actions.openNotes = { [weak self] in self?.openNotes() }
+        actions.openAudio = { [weak self] in self?.openAudio() }
+        actions.revealModels = { [weak self] in self?.openParakeetModels() }
+        actions.editVocabulary = { [weak self] in self?.editVocabulary() }
+        actions.checkForUpdates = { [weak self] in self?.checkForUpdates() }
+        actions.grantMicrophone = { [weak self] in self?.requestMic() }
+        actions.grantAccessibility = { [weak self] in self?.grantAccessibility() }
+        actions.repairPermissions = { [weak self] in self?.repairAccessibility() }
+        actions.openSite = { NSWorkspace.shared.open(URL(string: "https://charlesponti.github.io/ponte/")!) }
+        return actions
+    }
+
+    /// A new chord: register it *before* releasing the old one, so a refusal leaves the app with a working hotkey
+    /// rather than none. Returns false when the chord belongs to another app.
+    func applyHotKey(_ chord: HotKeyChord) -> Bool {
+        let current = HotKeyChord(keyCode: Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode),
+                                  modifiers: Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers))
+        if chord == current, hotKey != nil { return true }
+
+        guard let next = GlobalHotKey(keyCode: chord.keyCode, modifiers: chord.modifiers,
+                                     action: { [weak self] in self?.toggle() }) else {
+            vlog("hotkey: \(chord.display) refused — already registered elsewhere")
+            return false
+        }
+        hotKey = nil                 // unregisters the previous chord
+        hotKey = next
+        UserDefaults.standard.set(Int(chord.keyCode), forKey: SettingKey.hotKeyCode)
+        UserDefaults.standard.set(Int(chord.modifiers), forKey: SettingKey.hotKeyMods)
+        vlog("hotkey: now \(chord.display)")
+        return true
+    }
+
+    /// Put the stored chord back, for a recorder that was cancelled.
+    func reregisterHotKey() {
+        guard hotKey == nil else { return }
+        let code = Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode)
+        let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
+        hotKey = GlobalHotKey(keyCode: code, modifiers: mods) { [weak self] in self?.toggle() }
+        vlog("hotkey: restored \(HotKeySpec.describe(keyCode: code, modifiers: mods))")
     }
 
     /// Opens the replacement list, writing a small example the first time so there is something to edit rather
@@ -817,6 +876,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     @objc private func selectParakeetModel(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
               let model = ParakeetModel(rawValue: raw) else { return }
+        useModel(model)
+    }
+
+    /// Switch the model: persist, drop the resident one, then warm the new one behind the HUD. Shared by the menu
+    /// and the window so a switch behaves the same however it was asked for.
+    func useModel(_ model: ParakeetModel) {
         Settings.parakeetModel = model
         ParakeetEngine.shared.unload()
         vlog("parakeet model set to \(model.shortLabel)")
@@ -835,7 +900,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     }
 
     @objc private func downloadParakeet() {
-        let model = Settings.parakeetModel
+        downloadModel(Settings.parakeetModel)
+    }
+
+    func downloadModel(_ model: ParakeetModel) {
         hudProgress("Downloading \(model.shortLabel)…")
         DispatchQueue.global(qos: .utility).async { [weak self] in
             do {
@@ -881,9 +949,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
 extension AppDelegate {
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         vlog("updater: found \(item.displayVersionString) build \(item.versionString)")
-        let found = "\(item.displayVersionString) available"
+        let found = "Ponte \(item.displayVersionString)"
+        updateFound = found
         DispatchQueue.main.async { [weak self] in
-            self?.versionItem?.title = "Ponte \(AppPaths.Version.display) — \(found)"
+            self?.versionItem?.title = "\(found) available — open Ponte"
+            self?.mainWindow?.model.updateAvailable = found
         }
     }
 
