@@ -111,6 +111,7 @@ final class PonteWindowModel: ObservableObject {
     let history = HistoryModel()
 
     @Published var hotKey = HotKeyChord.default
+    @Published var hotKeyMode = Settings.hotKeyModeSetting
     @Published var recording = false
     @Published var recorderMessage: String?
 
@@ -166,6 +167,7 @@ final class PonteWindowModel: ObservableObject {
         Settings.registerDefaults()
         variant = .current
         history.reload()
+        hotKeyMode = Settings.hotKeyModeSetting
         hotKey = HotKeyChord(
             keyCode: Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode),
             modifiers: Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
@@ -208,6 +210,11 @@ final class PonteWindowModel: ObservableObject {
     func setAutoChecks(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: "SUEnableAutomaticChecks")
         autoChecks = value
+    }
+
+    func setHotKeyMode(_ mode: HotKeyMode) {
+        Settings.hotKeyModeSetting = mode
+        hotKeyMode = mode
     }
 
     func setInput(_ uid: String) {
@@ -850,6 +857,24 @@ private struct GeneralPane: View {
                         .padding(.bottom, 4)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                HStack(alignment: .center, spacing: 14) {
+                    Text("Dictation key")
+                        .font(.system(size: 13)).foregroundStyle(UI.ink)
+                        .frame(width: 132, alignment: .leading)
+                    Picker("", selection: Binding(get: { model.hotKeyMode },
+                                                  set: { model.setHotKeyMode($0) })) {
+                        ForEach(HotKeyMode.allCases, id: \.self) { mode in
+                            Text(mode.label).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 320, alignment: .leading)
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 34)
+                .padding(.vertical, 7)
 
                 Line(label: "Microphone") {
                     Text("System input — \(model.deviceName)")

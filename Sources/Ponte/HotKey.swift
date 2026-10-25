@@ -8,19 +8,26 @@ final class GlobalHotKey {
     private let id: UInt32
     private static var installed = false
     private static var actions: [UInt32: () -> Void] = [:]
+    /// Key-*up* handlers, for hold-to-talk. Separate from `actions` on purpose: toggle mode ignores a release, so a
+    /// chord registered without one must not gain behaviour it did not ask for.
+    private static var releases: [UInt32: () -> Void] = [:]
     private static var handlerRef: EventHandlerRef?
+    private static var releaseHandlerRef: EventHandlerRef?
     private static var nextID: UInt32 = 1
 
     private(set) var keyCode: UInt32
     private(set) var modifiers: UInt32
 
-    init?(keyCode: UInt32, modifiers: UInt32, action: @escaping () -> Void) {
+    init?(keyCode: UInt32, modifiers: UInt32,
+          action: @escaping () -> Void,
+          onRelease: (() -> Void)? = nil) {
         Self.installHandlerIfNeeded()
         self.keyCode = keyCode
         self.modifiers = modifiers
         self.id = Self.nextID
         Self.nextID += 1
         Self.actions[id] = action
+        if let onRelease { Self.releases[id] = onRelease }
 
         let hotKeyID = EventHotKeyID(signature: OSType(0x564E4F54), id: id) // 'VNOT'
         let status = RegisterEventHotKey(keyCode, modifiers, hotKeyID,
@@ -36,6 +43,7 @@ final class GlobalHotKey {
     deinit {
         if let ref { UnregisterEventHotKey(ref) }
         GlobalHotKey.actions[id] = nil
+        GlobalHotKey.releases[id] = nil
     }
 
     private static func installHandlerIfNeeded() {
@@ -59,6 +67,27 @@ final class GlobalHotKey {
             }
             return OSStatus(eventNotHandledErr)
         }, 1, &spec, nil, &handlerRef)
+
+        // The key-up, which Carbon delivers as its own event kind.
+        var releaseSpec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                                        eventKind: UInt32(kEventHotKeyReleased))
+        InstallEventHandler(GetApplicationEventTarget(), { _, event, _ -> OSStatus in
+            guard let event else { return OSStatus(eventNotHandledErr) }
+            var hkID = EventHotKeyID()
+            let err = GetEventParameter(event,
+                                        EventParamName(kEventParamDirectObject),
+                                        EventParamType(typeEventHotKeyID),
+                                        nil,
+                                        MemoryLayout<EventHotKeyID>.size,
+                                        nil,
+                                        &hkID)
+            if err == noErr, let release = GlobalHotKey.releases[hkID.id] {
+                vlog("hotkey: key-up received id=\(hkID.id)")
+                DispatchQueue.main.async { release() }
+                return noErr
+            }
+            return OSStatus(eventNotHandledErr)
+        }, 1, &releaseSpec, nil, &releaseHandlerRef)
     }
 }
 

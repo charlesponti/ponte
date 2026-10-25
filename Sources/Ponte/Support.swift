@@ -70,6 +70,7 @@ enum SettingKey {
     static let parakeetModel = "parakeetModel"
     /// nil means the system default input — which is what everyone had before there was a choice.
     static let inputDeviceUID = "inputDeviceUID"
+    static let hotKeyMode = "hotKeyMode"
 }
 
 enum Settings {
@@ -93,6 +94,11 @@ enum Settings {
     static var keepAudio: Bool {
         get { UserDefaults.standard.bool(forKey: SettingKey.keepAudio) }
         set { UserDefaults.standard.set(newValue, forKey: SettingKey.keepAudio) }
+    }
+
+    static var hotKeyModeSetting: HotKeyMode {
+        get { HotKeyMode.current }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: SettingKey.hotKeyMode) }
     }
 
     static var inputDeviceUID: String? {

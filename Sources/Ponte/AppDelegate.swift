@@ -28,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     /// Watches the input while recording, so a take producing nothing says so in time (see `InputWatch`).
     private var inputWatch: InputWatch?
     private var watchTimer: Timer?
+    /// Ends a take that outlives the ceiling, so a lost key-up cannot record forever.
+    private var ceilingTimer: Timer?
 
     /// Esc and Return, held only while a dictation is in flight — see `DictationKey`.
     private var dictationKeys: [GlobalHotKey] = []
@@ -40,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
         didSet {
             // The keys are grabbed for exactly as long as there is a dictation to cancel.
             if state == .idle { releaseDictationKeys() } else { grabDictationKeys() }
+            if state == .recording { scheduleCeiling() } else { ceilingTimer?.invalidate(); ceilingTimer = nil }
         }
     }
 
@@ -96,7 +99,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
 
         let code = Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode)
         let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
-        hotKey = GlobalHotKey(keyCode: code, modifiers: mods) { [weak self] in self?.toggle() }
+        hotKey = GlobalHotKey(keyCode: code, modifiers: mods,
+                              action: { [weak self] in self?.dictationKeyDown() },
+                              onRelease: { [weak self] in self?.dictationKeyUp() })
         if hotKey == nil {
             Shell.notify("Ponte", "Hotkey \(HotKeySpec.describe(keyCode: code, modifiers: mods)) is taken — use the menu icon.")
         }
@@ -130,6 +135,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     }
 
     // MARK: - Recording flow
+
+    /// The dictation key went down. In toggle mode that is the whole interaction; in push-to-talk it starts a take,
+    /// which the release then ends. The decision itself lives in `PushToTalk`, where it is tested.
+    private func dictationKeyDown() {
+        let now = Date()
+        if now.timeIntervalSince(lastHotKeyAt) < hotKeyDebounce {
+            vlog("duplicate hotkey event ignored (\(String(format: "%.0f", now.timeIntervalSince(lastHotKeyAt) * 1000))ms)")
+            return
+        }
+        lastHotKeyAt = now
+
+        let mode = Settings.hotKeyModeSetting
+        switch PushToTalk.action(mode: mode, state: state, event: .press) {
+        case .start:
+            guard readiness.allowsDictation else { declineWhileGettingReady(); return }
+            startRecording()
+        case .finish:
+            stopAndTranscribe()
+        case .cancel:
+            cancel()
+        case .none:
+            vlog("dictation key press ignored in state \(state) mode=\(mode.rawValue)")
+        }
+    }
+
+    /// The key came up. Only push-to-talk cares: in toggle mode a release is the key-up of a chord that already did
+    /// its work, and treating it as an instruction is how a take ends a moment after it started.
+    private func dictationKeyUp() {
+        let mode = Settings.hotKeyModeSetting
+        vlog("dictation key up: mode=\(mode.rawValue) state=\(state)")
+        guard mode == .pushToTalk else { return }
+        switch PushToTalk.action(mode: mode, state: state, event: .release) {
+        case .finish:
+            stopAndTranscribe()
+        case .cancel:
+            // A tap shorter than the engine's floor: nothing was recorded, so nothing is thrown away either.
+            vlog("push-to-talk: released while starting — the take was too short and is cancelled")
+            cancel()
+        case .start, .none:
+            break
+        }
+    }
+
+    /// A take that runs past the ceiling ends itself. Three ordinary things lose the key-up — switching app
+    /// mid-hold, a secure input field, the keyboard going away — and without this the microphone stays open.
+    private func scheduleCeiling() {
+        ceilingTimer?.invalidate()
+        let timer = Timer(timeInterval: PushToTalk.ceiling, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            guard self.state == .recording || self.state == .starting else { return }
+            vlog("ceiling: take reached \(Int(PushToTalk.ceiling))s — ending it without a key-up")
+            self.stopAndTranscribe()
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        ceilingTimer = timer
+    }
 
     @objc private func toggle() {
         let now = Date()
@@ -839,7 +900,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
         if chord == current, hotKey != nil { return true }
 
         guard let next = GlobalHotKey(keyCode: chord.keyCode, modifiers: chord.modifiers,
-                                     action: { [weak self] in self?.toggle() }) else {
+                                     action: { [weak self] in self?.dictationKeyDown() },
+                                     onRelease: { [weak self] in self?.dictationKeyUp() }) else {
             vlog("hotkey: \(chord.display) refused — already registered elsewhere")
             return false
         }
@@ -856,7 +918,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
         guard hotKey == nil else { return }
         let code = Settings.hotKey(SettingKey.hotKeyCode, default: HotKeySpec.defaultKeyCode)
         let mods = Settings.hotKey(SettingKey.hotKeyMods, default: HotKeySpec.defaultModifiers)
-        hotKey = GlobalHotKey(keyCode: code, modifiers: mods) { [weak self] in self?.toggle() }
+        hotKey = GlobalHotKey(keyCode: code, modifiers: mods,
+                              action: { [weak self] in self?.dictationKeyDown() },
+                              onRelease: { [weak self] in self?.dictationKeyUp() })
         vlog("hotkey: restored \(HotKeySpec.describe(keyCode: code, modifiers: mods))")
     }
 
