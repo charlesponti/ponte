@@ -83,6 +83,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
             vlog("adopted \(Retake.describe(adopted)) as a retake candidate")
         }
 
+        installMainMenu()
+
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateIcon()
 
@@ -689,6 +691,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     private func loginItem() -> NSMenuItem {
         let enabled = SMAppService.mainApp.status == .enabled
         return check("Launch at Login", enabled, #selector(toggleLogin))
+    }
+
+    /// Key equivalents default to plain ⌘; `Hide Others` is ⌥⌘H.
+    private func menuItem(_ title: String, _ action: Selector?, _ key: String,
+                          _ modifiers: NSEvent.ModifierFlags = [.command]) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
+        item.target = nil
+        return item
+    }
+
+    /// A minimal main menu, which an accessory app does not get for free.
+    ///
+    /// Without one, ⌘W does nothing: the only ⌘W in this app is a key equivalent on a status-menu item, and those
+    /// fire only while that menu is open. The same was true of ⌘, — the standard shortcuts people expect in a window
+    /// are menu items with a nil target, so they travel the responder chain to whichever window is key.
+    private func installMainMenu() {
+        let main = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "Ponte")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let open = NSMenuItem(title: "Open Ponte…", action: #selector(showMain), keyEquivalent: ",")
+        open.target = self
+        appMenu.addItem(open)
+        appMenu.addItem(.separator())
+
+        let hide = NSMenuItem(title: "Hide Ponte", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        hide.target = nil
+        appMenu.addItem(hide)
+        appMenu.addItem(menuItem("Hide Others", #selector(NSApplication.hideOtherApplications(_:)), "h", [.command, .option]))
+        appMenu.addItem(menuItem("Show All", #selector(NSApplication.unhideAllApplications(_:)), ""))
+        appMenu.addItem(.separator())
+
+        let quit = NSMenuItem(title: "Quit Ponte", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.target = nil
+        appMenu.addItem(quit)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowItem.submenu = windowMenu
+        main.addItem(windowItem)
+
+        // nil targets: performClose:/performMiniaturize: are answered by the key window, which is the point.
+        let minimise = NSMenuItem(title: "Minimise", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        minimise.target = nil
+        windowMenu.addItem(minimise)
+        let close = NSMenuItem(title: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        close.target = nil
+        windowMenu.addItem(close)
+
+        NSApp.mainMenu = main
+        NSApp.windowsMenu = windowMenu
     }
 
     private func item(_ title: String, _ action: Selector?, _ key: String?, represented: Any? = nil) -> NSMenuItem {
