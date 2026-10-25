@@ -10,7 +10,7 @@ let package = Package(
         // Parakeet TDT / Unified ASR on the Apple Neural Engine via CoreML.
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.17.0"),
         // The orb maths, the orb view and the recording engine, shared with Thames.
-        .package(url: "https://github.com/charlesponti/waveform.git", from: "0.5.0"),
+        .package(url: "https://github.com/charlesponti/waveform.git", from: "0.5.3"),
         // Updates. The one network request the app makes, and only to fetch its own appcast — see #6. Sparkle's
         // product is a prebuilt binary target, so this pulls a signed framework rather than compiling one.
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),

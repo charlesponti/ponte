@@ -1,5 +1,5 @@
 {
-  "originHash" : "4e549bc2b991edd6507fbe314f2abc9ff57209a8427e8f333df5a00e1611a634",
+  "originHash" : "ad214ea8e4e29ecad91df086ec46abdd42ded85abe9e2f6cf41b345325709f0c",
   "pins" : [
     {
       "identity" : "fluidaudio",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/charlesponti/waveform.git",
       "state" : {
-        "revision" : "66e4f66b04cf16351e82944f0174383d3848b893",
-        "version" : "0.5.0"
+        "revision" : "8e4974bb8f9464777320d9501457350fa3523638",
+        "version" : "0.5.3"
       }
     }
   ],
