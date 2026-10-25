@@ -416,7 +416,10 @@ private struct Sidebar: View {
             // `.interactive()` because every row here is clickable: the spec says interaction feedback belongs to
             // glass used as a background for interactive controls.
             Color.clear
-                .glassEffect(.regular.tint(UI.glassTint).interactive(), in: .rect(cornerRadius: 14))
+                .glassEffect(UI.theme.glassStyle == .clear
+                             ? .clear.tint(UI.glassTint).interactive()
+                             : .regular.tint(UI.glassTint).interactive(),
+                             in: .rect(cornerRadius: 14))
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
                         .stroke(UI.hairline, lineWidth: 1)

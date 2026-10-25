@@ -25,6 +25,11 @@ struct WindowTheme {
     let backdrop: Color?
     /// Drives the window's appearance (so the material resolves dark or light), and the scrim's colour.
     let isDark: Bool
+    /// Which glass. `tint` only shifts hue — it takes no opacity — so it cannot make glass lighter; the *style* is
+    /// what controls weight. `regular` carries its own darkening, which a dark ground needs and a light one does not.
+    let glassStyle: GlassStyle
+
+    enum GlassStyle: String, Sendable { case regular, clear }
 
     static var current: WindowTheme {
         WindowTheme(rawValue: UserDefaults.standard.string(forKey: "windowTheme") ?? "")
@@ -103,12 +108,14 @@ struct WindowTheme {
         control: Color(hex: 0x1D1A16).opacity(0.05),
         controlBorder: Color(hex: 0x8A6A3B).opacity(0.28),
         backdrop: Color(hex: 0xF7F2E8).opacity(0.94),
-        isDark: false
+        isDark: false,
+        glassStyle: .clear
     )
 
     init(rawValue: String, window: Color, sidebar: Color, glassTint: Color, ink: Color, ink2: Color, ink3: Color,
          accent: Color, accentSoft: Color, brass: Color, line: Color, hairline: Color, control: Color,
-         controlBorder: Color, backdrop: Color?, isDark: Bool) {
+         controlBorder: Color, backdrop: Color?, isDark: Bool,
+         glassStyle: GlassStyle = .regular) {
         self.rawValue = rawValue
         self.name = rawValue
         self.window = window
@@ -126,5 +133,6 @@ struct WindowTheme {
         self.controlBorder = controlBorder
         self.backdrop = backdrop
         self.isDark = isDark
+        self.glassStyle = glassStyle
     }
 }
