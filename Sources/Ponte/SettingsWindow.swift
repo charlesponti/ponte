@@ -121,6 +121,13 @@ final class PonteWindowModel: ObservableObject {
     @Published var updateAvailable: String?
     @Published var vocabCount = 0
     @Published var deviceName = "—"
+    @Published var inputs: [AudioInput] = []
+    @Published var inputUID: String?
+    @Published var inputCount = 0
+    @Published var systemDefaultName = "the system input"
+    /// A pin that is no longer connected: the window says so instead of quietly recording from something else.
+    @Published var micFellBack = false
+    @Published var pinnedName: String?
     @Published var languages: [(code: String, label: String)] = []
     @Published var micGranted = false
     @Published var accessibilityGranted = false
@@ -166,7 +173,17 @@ final class PonteWindowModel: ObservableObject {
         autoChecks = (UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") as? Bool) ?? true
         atLogin = SMAppService.mainApp.status == .enabled
         vocabCount = Vocabulary.load().rules.count
-        deviceName = AVCaptureDevice.default(for: .audio)?.localizedName ?? "no input device"
+        // What is actually live is the system default unless a pin is connected — the same resolution the recorder
+        // does, so the window cannot disagree with the take.
+        inputs = AudioInputs.available()
+        let defaultUID = AudioInputs.systemDefaultUID()
+        systemDefaultName = inputs.first { $0.uid == defaultUID }?.name ?? "the system input"
+        let resolved = AudioInputs.resolve(pinned: Settings.inputDeviceUID, available: inputs, defaultUID: defaultUID)
+        deviceName = resolved.input?.name ?? "no input device"
+        micFellBack = resolved.fellBack
+        pinnedName = Settings.inputDeviceUID
+        inputUID = Settings.inputDeviceUID
+        inputCount = inputs.count
         micGranted = Recorder.isAuthorized
         accessibilityGranted = AXIsProcessTrusted()
     }
@@ -187,6 +204,11 @@ final class PonteWindowModel: ObservableObject {
     func setAutoChecks(_ value: Bool) {
         UserDefaults.standard.set(value, forKey: "SUEnableAutomaticChecks")
         autoChecks = value
+    }
+
+    func setInput(_ uid: String) {
+        Settings.inputDeviceUID = uid.isEmpty ? nil : uid
+        refresh()   // re-resolve, so the row immediately tells the truth about what is live
     }
 
     func setLanguage(_ code: String) { Settings.language = code; language = code }
@@ -809,13 +831,14 @@ private struct GeneralPane: View {
                 }
 
                 Line(label: "Microphone") {
-                    Text(model.micLine)
+                    Text("System input — \(model.deviceName)")
                 }
-                Text("A pinned microphone arrives with the settings work in #14 — today Ponte records from the system input.")
+                Text("\(model.inputCount) inputs available. Choosing one needs the capture engine to be device-aware — issue #19 records why, with the exact crash.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(UI.ink3)
                     .padding(.leading, 146)
                     .padding(.bottom, 6)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Split()
 

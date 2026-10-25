@@ -65,8 +65,20 @@ final class Recorder {
         guard Self.isAuthorized else { throw PonteError.recordFailed }
         try FileManager.default.createDirectory(at: AppPaths.audio, withIntermediateDirectories: true)
 
-        // Which mic? Honour the system default input; log it so history is traceable.
-        let device = AVCaptureDevice.default(for: .audio)?.localizedName ?? "unknown"
+        // Which mic? The take follows the system input: repointing an `AVAudioEngine` at another device after its
+        // graph exists aborts inside AVFAudio (`format.sampleRate == inputHWFormat.sampleRate`), which is issue #19.
+        // The name written to the log is resolved through CoreAudio — the same list the window shows — so it is the
+        // device that was actually opened rather than the one that was hoped for.
+        // The system default is what the engine opens, so that is the only name that may be logged. Resolving the pin
+        // here would name a device nothing recorded from — the log would read as proof of a feature that is not
+        // working yet.
+        let inputs = AudioInputs.available()
+        let defaultUID = AudioInputs.systemDefaultUID()
+        let device = inputs.first { $0.uid == defaultUID }?.name ?? "unknown"
+        if let pin = Settings.inputDeviceUID, pin != defaultUID {
+            vlog("record: a microphone is pinned (\(pin)) but the engine cannot be repointed yet — see #19; using \(device)")
+        }
+
         let url = AppPaths.audio.appendingPathComponent("rec-\(AppPaths.stamp()).wav")
 
         let recorder = EngineRecorder(settings: .localTranscription)
@@ -74,7 +86,9 @@ final class Recorder {
         engine = recorder
         currentURL = url
         deviceName = device
-        vlog("record start device=\(device) file=\(url.lastPathComponent) format=16kHz-mono-wav")
+        // The hardware's own answer, a moment after the tap is installed.
+        let running = AudioInputs.runningInputNames()
+        vlog("record start device=\(device) file=\(url.lastPathComponent) format=16kHz-mono-wav running=\(running.isEmpty ? "none" : running.joined(separator: ", "))")
         return url
     }
 

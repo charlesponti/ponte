@@ -34,7 +34,7 @@ let knownFlags: Set<String> = [
     // --record's live transcript, and the scripted HUD
     "--live", "--hud-demo", "--history-window",
     // the window: open it, or render a still of it at exact pixels
-    "--settings", "--settings-render", "--pane", "--variant", "--theme",
+    "--settings", "--settings-render", "--pane", "--variant", "--theme", "--mic",
 ]
 
 for argument in argv.dropFirst() where argument.hasPrefix("--") {
@@ -76,14 +76,20 @@ func usage() {
 }
 
 func listDevices() {
-    let session = AVCaptureDevice.DiscoverySession(
-        deviceTypes: [.microphone, .external],
-        mediaType: .audio,
-        position: .unspecified)
+    // The same list the recorder chooses from and the window shows: CoreAudio, so what is printed here is exactly
+    // what a pin can name. AVCaptureDevice has its own idea of the devices and would have been a second truth.
+    let defaultUID = AudioInputs.systemDefaultUID()
+    let pinned = Settings.inputDeviceUID
     print("audio input devices:")
-    for (i, d) in session.devices.enumerated() {
-        let isDefault = d.uniqueID == AVCaptureDevice.default(for: .audio)?.uniqueID
-        print("  [\(i)] \(d.localizedName)\(isDefault ? "   (system default)" : "")")
+    for (i, input) in AudioInputs.available().enumerated() {
+        var notes: [String] = []
+        if input.uid == defaultUID { notes.append("system default") }
+        if input.uid == pinned { notes.append("pinned") }
+        let suffix = notes.isEmpty ? "" : "   (\(notes.joined(separator: ", ")))"
+        print("  [\(i)] \(input.name)  \(input.uid)\(suffix)")
+    }
+    if let pin = pinned, !AudioInputs.available().contains(where: { $0.uid == pin }) {
+        print("  ! the pinned microphone (\(pin)) is not connected — take from the system default")
     }
     print("speech model: \(ParakeetEngine.shared.installPath(Settings.parakeetModel).path)")
 }
@@ -676,6 +682,7 @@ func runCLI() -> Int32? {
         return writeHUDSheet(to: argv[2])
 
     case "--record":
+        if let mic = value(of: "--mic") { Settings.inputDeviceUID = mic }
         let seconds = Double(value(of: "--record") ?? "") ?? 5
         let out = value(of: "--out").map { URL(fileURLWithPath: $0) }
         guard requestMicBlocking() else { print("error: microphone access denied"); return 1 }
@@ -743,7 +750,7 @@ func runCLI() -> Int32? {
         return MainActor.assumeIsolated {
             NSApplication.shared.setActivationPolicy(.accessory)
             let window = PonteWindow()
-            window.show()
+            window.show(pane: value(of: "--pane").flatMap(Pane.init(rawValue:)) ?? .dictations)
             if let live = NSApplication.shared.windows.first(where: { $0.title == "Ponte" }) {
                 print("settings window frame=\(live.frame) content=\(live.contentLayoutRect.size)")
             }
