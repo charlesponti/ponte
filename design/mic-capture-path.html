@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Ponte — why the microphone picker needs a new capture path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#020617; --card:#0b1220; --line:#1e293b;
+    --ink:#e2e8f0; --muted:#94a3b8;
+    --rose:#fb7185; --emerald:#34d399; --amber:#fbbf24; --cyan:#22d3ee; --violet:#a78bfa;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;
+       padding:36px 32px 48px;letter-spacing:.1px}
+  .wrap{max-width:1280px;margin:0 auto}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--emerald);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35;transform:scale(.85)}50%{opacity:1;transform:scale(1)}}
+  h1{font-size:17px;font-weight:700;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:11.5px;margin:0 0 22px 21px;line-height:1.6}
+  .frame{background:linear-gradient(180deg,#0a1120,#080e1a);border:1px solid var(--line);border-radius:14px;padding:10px}
+  svg{display:block;width:100%;height:auto}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .card-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .card-dot{width:7px;height:7px;border-radius:50%}
+  .card h3{font-size:11.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--ink)}
+  .card li{font-size:10.5px;color:var(--muted);line-height:1.75;list-style:none}
+  .card li b{color:var(--ink);font-weight:500}
+  footer{margin-top:14px;color:#475569;font-size:9.5px}
+  .rose{color:var(--rose)} .emerald{color:var(--emerald)} .amber{color:var(--amber)} .cyan{color:var(--cyan)}
+  .d-rose{background:var(--rose)} .d-emerald{background:var(--emerald)} .d-amber{background:var(--amber)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="dot"></span><h1>Ponte · why a mic picker needs a new capture path</h1></header>
+  <p class="sub">Issue #19 · the left column is what the code does today; the right is the seam the spike proved out.</p>
+
+  <div class="frame">
+  <svg viewBox="0 0 1240 700" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#0f1a2e" stroke-width="0.5"/>
+      </pattern>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+      </marker>
+      <marker id="arrowRose" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+      </marker>
+      <marker id="arrowEmerald" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="#34d399"/>
+      </marker>
+    </defs>
+
+    <rect width="1240" height="700" fill="url(#grid)"/>
+
+    <!-- ============ boundaries ============ -->
+    <rect x="24" y="24" width="588" height="560" rx="12" fill="none" stroke="#fb7185" stroke-opacity=".45"
+          stroke-width="1" stroke-dasharray="8,4"/>
+    <text x="44" y="50" fill="#fb7185" font-size="11" font-weight="700" letter-spacing="1.4">TODAY · REPOINT AN AVAudioEngine</text>
+
+    <rect x="628" y="24" width="588" height="560" rx="12" fill="none" stroke="#34d399" stroke-opacity=".45"
+          stroke-width="1" stroke-dasharray="8,4"/>
+    <text x="648" y="50" fill="#34d399" font-size="11" font-weight="700" letter-spacing="1.4">AFTER · DEVICE-FIRST CAPTURE</text>
+
+    <!-- ============ LEFT: the broken path ============ -->
+    <!-- arrows first, so boxes draw over them -->
+    <line x1="318" y1="152" x2="318" y2="176" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="318" y1="248" x2="318" y2="272" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="318" y1="344" x2="318" y2="368" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="318" y1="440" x2="318" y2="464" stroke="#fb7185" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrowRose)"/>
+
+    <!-- boxes -->
+    <g>
+      <rect x="128" y="98" width="380" height="54" rx="6" fill="#0f172a"/>
+      <rect x="128" y="98" width="380" height="54" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="150" y="121" fill="#e2e8f0" font-size="12" font-weight="500">Recorder.start()</text>
+      <text x="150" y="138" fill="#94a3b8" font-size="9">asks the engine for a take; device name only logged</text>
+    </g>
+    <g>
+      <rect x="128" y="194" width="380" height="54" rx="6" fill="#0f172a"/>
+      <rect x="128" y="194" width="380" height="54" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="150" y="217" fill="#e2e8f0" font-size="12" font-weight="500">AVAudioEngine</text>
+      <text x="150" y="234" fill="#94a3b8" font-size="9">builds its graph on first access to inputNode</text>
+    </g>
+    <g>
+      <rect x="128" y="290" width="380" height="54" rx="6" fill="#0f172a"/>
+      <rect x="128" y="290" width="380" height="54" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="150" y="313" fill="#e2e8f0" font-size="12" font-weight="500">inputNode.audioUnit (AUHAL)</text>
+      <text x="150" y="330" fill="#94a3b8" font-size="9">CurrentDevice set here — hardware really switches</text>
+    </g>
+    <g>
+      <rect x="128" y="386" width="380" height="54" rx="6" fill="#0f172a"/>
+      <rect x="128" y="386" width="380" height="54" rx="6" fill="rgba(120,53,15,.3)" stroke="#fbbf24" stroke-width="1.5"/>
+      <text x="150" y="409" fill="#e2e8f0" font-size="12" font-weight="500">installTap(format: outputFormat)</text>
+      <text x="150" y="426" fill="#94a3b8" font-size="9">graph still describes the previous device: 24 kHz</text>
+    </g>
+
+    <!-- the failure badge -->
+    <g>
+      <rect x="128" y="470" width="380" height="86" rx="6" fill="#0f172a"/>
+      <rect x="128" y="470" width="380" height="86" rx="6" fill="rgba(136,19,55,.42)" stroke="#fb7185" stroke-width="1.5"/>
+      <text x="150" y="492" fill="#fb7185" font-size="11" font-weight="700">✕ AVFAudio asserts</text>
+      <text x="150" y="510" fill="#e2e8f0" font-size="9.5">required condition is false:</text>
+      <text x="150" y="524" fill="#e2e8f0" font-size="9.5">format.sampleRate == inputHWFormat.sampleRate</text>
+      <text x="150" y="542" fill="#94a3b8" font-size="9">Objective-C exception · uncatchable from Swift</text>
+    </g>
+
+    <text x="128" y="580" fill="#94a3b8" font-size="9">Tried: uninitialise → set → prepare ✗ · set → uninitialise → prepare ✗</text>
+    <text x="128" y="596" fill="#94a3b8" font-size="9">So the pin cannot be applied. Recorder logs that it is being ignored.</text>
+
+    <!-- ============ RIGHT: the seam ============ -->
+    <line x1="742" y1="170" x2="742" y2="208" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="1102" y1="170" x2="1102" y2="208" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="922" y1="268" x2="922" y2="300" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="760" y1="396" x2="760" y2="430" stroke="#64748b" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <line x1="1084" y1="396" x2="1084" y2="430" stroke="#34d399" stroke-width="1.4" marker-end="url(#arrowEmerald)"/>
+
+    <g>
+      <rect x="676" y="98" width="132" height="64" rx="6" fill="#0f172a"/>
+      <rect x="676" y="98" width="132" height="64" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="694" y="122" fill="#e2e8f0" font-size="11.5" font-weight="500">Ponte</text>
+      <text x="694" y="139" fill="#94a3b8" font-size="9">dictation</text>
+    </g>
+    <g>
+      <rect x="1036" y="98" width="132" height="64" rx="6" fill="#0f172a"/>
+      <rect x="1036" y="98" width="132" height="64" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/>
+      <text x="1054" y="122" fill="#e2e8f0" font-size="11.5" font-weight="500">Thames</text>
+      <text x="1054" y="139" fill="#94a3b8" font-size="9">streaming</text>
+    </g>
+
+    <g>
+      <rect x="676" y="214" width="492" height="54" rx="6" fill="#0f172a"/>
+      <rect x="676" y="214" width="492" height="54" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="698" y="237" fill="#e2e8f0" font-size="12" font-weight="500">EngineRecorder · unchanged</text>
+      <text x="698" y="254" fill="#94a3b8" font-size="9">converter → column builder → writer → ballistics → route handling</text>
+    </g>
+
+    <!-- the seam -->
+    <g>
+      <rect x="676" y="306" width="492" height="46" rx="6" fill="#0f172a"/>
+      <rect x="676" y="306" width="492" height="46" rx="6" fill="rgba(251,146,60,.22)" stroke="#fb923c" stroke-width="1.5"/>
+      <text x="698" y="326" fill="#e2e8f0" font-size="11.5" font-weight="700">protocol AudioSource</text>
+      <text x="698" y="343" fill="#94a3b8" font-size="9">start(onBuffer:) · stop() — the only thing the recorder asks of a microphone</text>
+    </g>
+
+    <g>
+      <rect x="676" y="362" width="176" height="34" rx="6" fill="#0f172a"/>
+      <rect x="676" y="362" width="176" height="34" rx="6" fill="rgba(30,41,59,.6)" stroke="#94a3b8" stroke-width="1.5"/>
+      <text x="694" y="383" fill="#e2e8f0" font-size="10.5" font-weight="500">EngineSource</text>
+    </g>
+    <g>
+      <rect x="986" y="362" width="196" height="34" rx="6" fill="#0f172a"/>
+      <rect x="986" y="362" width="196" height="34" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="1004" y="383" fill="#e2e8f0" font-size="10.5" font-weight="500">CaptureSource · new</text>
+    </g>
+
+    <text x="676" y="418" fill="#94a3b8" font-size="9">today's engine + tap</text>
+    <text x="676" y="432" fill="#94a3b8" font-size="9">Thames untouched</text>
+
+    <g>
+      <rect x="986" y="436" width="196" height="58" rx="6" fill="#0f172a"/>
+      <rect x="986" y="436" width="196" height="58" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/>
+      <text x="1004" y="456" fill="#e2e8f0" font-size="10" font-weight="500">AVCaptureSession</text>
+      <text x="1004" y="471" fill="#94a3b8" font-size="9">AVCaptureDeviceInput(device)</text>
+      <text x="1004" y="485" fill="#94a3b8" font-size="9">→ 16 kHz mono Int16</text>
+    </g>
+
+    <text x="676" y="466" fill="#94a3b8" font-size="9">system default input</text>
+    <text x="676" y="480" fill="#94a3b8" font-size="9">no device knowledge</text>
+
+    <!-- proven badge -->
+    <g>
+      <rect x="676" y="512" width="492" height="52" rx="6" fill="#0f172a"/>
+      <rect x="676" y="512" width="492" height="52" rx="6" fill="rgba(6,78,59,.28)" stroke="#34d399" stroke-width="1.2"
+            stroke-dasharray="5,3"/>
+      <text x="698" y="533" fill="#34d399" font-size="10.5" font-weight="700">✓ spike 002a — proved, not argued</text>
+      <text x="698" y="551" fill="#e2e8f0" font-size="9.5">Wave Link chosen while the built-in was default · 3.02 s · 48 378 frames</text>
+    </g>
+
+    <!-- legend, outside every boundary -->
+    <g>
+      <text x="44" y="626" fill="#94a3b8" font-size="9">LEGEND</text>
+      <rect x="44" y="634" width="120" height="26" rx="5" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.2"/>
+      <text x="58" y="651" fill="#e2e8f0" font-size="9.5">app</text>
+      <rect x="176" y="634" width="150" height="26" rx="5" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.2"/>
+      <text x="190" y="651" fill="#e2e8f0" font-size="9.5">kept as is</text>
+      <rect x="338" y="634" width="170" height="26" rx="5" fill="rgba(251,146,60,.22)" stroke="#fb923c" stroke-width="1.2"/>
+      <text x="352" y="651" fill="#e2e8f0" font-size="9.5">the new seam</text>
+      <rect x="520" y="634" width="200" height="26" rx="5" fill="rgba(136,19,55,.42)" stroke="#fb7185" stroke-width="1.2"/>
+      <text x="534" y="651" fill="#e2e8f0" font-size="9.5">where it fails today</text>
+      <text x="44" y="680" fill="#475569" font-size="8.5">one process · no network · 16 kHz mono 16-bit throughout</text>
+    </g>
+  </svg>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-header"><div class="card-dot d-rose"></div><h3>The problem, in one line</h3></div>
+      <ul>
+        <li>• An <b>AVAudioEngine</b> builds its graph the first moment you touch <b>inputNode</b>.</li>
+        <li>• Setting the device afterwards is accepted — the hardware switches — but the graph keeps the old format.</li>
+        <li>• The tap is then created with the new format and <b>AVFAudio aborts</b>.</li>
+        <li>• It is an Objective-C exception, so Swift cannot catch it. The only safe move is not to try.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot d-emerald"></div><h3>What the spike proved</h3></div>
+      <ul>
+        <li>• A chosen <b>AVCaptureDevice</b> records with no graph to repoint.</li>
+        <li>• <b>audioSettings</b> gives 16 kHz mono 16-bit directly — no converter.</li>
+        <li>• 3.023625 s of audio from a non-default device, valid WAV, 96 756 bytes.</li>
+        <li>• Five traps documented so the real build doesn't rediscover them.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-dot d-amber"></div><h3>The plan</h3></div>
+      <ul>
+        <li>• <b>AudioSource</b> seam: start(onBuffer:) · stop().</li>
+        <li>• <b>EngineSource</b> = today's path, so Thames is untouched.</li>
+        <li>• <b>CaptureSource</b> = session + device UID.</li>
+        <li>• Then <b>#14</b>'s picker has something real to write to.</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>Ponte · issue #19 · spike at ~/Developer/Waveform/spikes/002a-capture-session/ · nothing here ships</footer>
+</div>
+</body>
+</html>

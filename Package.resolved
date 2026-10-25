@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/charlesponti/waveform-ios.git",
       "state" : {
-        "revision" : "cda2732b1aedf663fb8e95d038676fde789e8db4",
-        "version" : "0.2.0"
+        "revision" : "1a0d80cb4c593f20bfc539299ecb4e693f921543",
+        "version" : "0.4.0"
       }
     }
   ],

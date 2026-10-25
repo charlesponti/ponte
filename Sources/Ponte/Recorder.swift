@@ -65,30 +65,35 @@ final class Recorder {
         guard Self.isAuthorized else { throw PonteError.recordFailed }
         try FileManager.default.createDirectory(at: AppPaths.audio, withIntermediateDirectories: true)
 
-        // Which mic? The take follows the system input: repointing an `AVAudioEngine` at another device after its
-        // graph exists aborts inside AVFAudio (`format.sampleRate == inputHWFormat.sampleRate`), which is issue #19.
-        // The name written to the log is resolved through CoreAudio — the same list the window shows — so it is the
-        // device that was actually opened rather than the one that was hoped for.
-        // The system default is what the engine opens, so that is the only name that may be logged. Resolving the pin
-        // here would name a device nothing recorded from — the log would read as proof of a feature that is not
-        // working yet.
+        // Which mic? A pinned device records through the capture session — device-first, so there is no engine graph
+        // to disagree with it (#19). No pin keeps the engine path exactly as it was, which is what everyone had before
+        // there was a choice. The name logged is resolved through CoreAudio, the same list the window shows.
         let inputs = AudioInputs.available()
-        let defaultUID = AudioInputs.systemDefaultUID()
-        let device = inputs.first { $0.uid == defaultUID }?.name ?? "unknown"
-        if let pin = Settings.inputDeviceUID, pin != defaultUID {
-            vlog("record: a microphone is pinned (\(pin)) but the engine cannot be repointed yet — see #19; using \(device)")
+        let resolved = AudioInputs.resolve(pinned: Settings.inputDeviceUID,
+                                           available: inputs,
+                                           defaultUID: AudioInputs.systemDefaultUID())
+        var device = resolved.input?.name ?? "unknown"
+        if resolved.fellBack, let pin = Settings.inputDeviceUID {
+            device += " (\(pin) is not connected)"
+            vlog("record: pinned microphone \(pin) is not connected — falling back to \(resolved.input?.name ?? "the system input")")
         }
 
         let url = AppPaths.audio.appendingPathComponent("rec-\(AppPaths.stamp()).wav")
 
-        let recorder = EngineRecorder(settings: .localTranscription)
+        let source = AudioSourceChoice.make(settings: .localTranscription, deviceUID: Settings.inputDeviceUID)
+        vlog("record: source=\(type(of: source)) pinned=\(Settings.inputDeviceUID ?? "none")")
+        let recorder = EngineRecorder(settings: .localTranscription, audioSource: source)
         try recorder.start(to: url)
         engine = recorder
         currentURL = url
         deviceName = device
-        // The hardware's own answer, a moment after the tap is installed.
-        let running = AudioInputs.runningInputNames()
-        vlog("record start device=\(device) file=\(url.lastPathComponent) format=16kHz-mono-wav running=\(running.isEmpty ? "none" : running.joined(separator: ", "))")
+        vlog("record start device=\(device) file=\(url.lastPathComponent) format=16kHz-mono-wav")
+        // The hardware's own answer, asked a second in — a capture session starts asynchronously, so asking now would
+        // report nothing and read like a take that never opened a device.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            let running = AudioInputs.runningInputNames()
+            vlog("record running=\(running.isEmpty ? "none" : running.joined(separator: ", "))")
+        }
         return url
     }
 

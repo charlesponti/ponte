@@ -920,15 +920,34 @@ private struct GeneralPane: View {
                 .frame(minHeight: 34)
                 .padding(.vertical, 7)
 
-                Line(label: "Microphone") {
-                    Text("System input — \(model.deviceName)")
+                HStack(alignment: .center, spacing: 14) {
+                    Text("Microphone")
+                        .font(.system(size: 13)).foregroundStyle(UI.ink)
+                        .frame(width: 132, alignment: .leading)
+                    Picker("", selection: Binding(get: { model.inputUID ?? "" },
+                                                  set: { model.setInput($0) })) {
+                        Text("System default — \(model.systemDefaultName)").tag("")
+                        Divider()
+                        ForEach(model.inputs) { input in
+                            Text(input.name).tag(input.uid)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 320, alignment: .leading)
+                    Spacer(minLength: 0)
                 }
-                Text("\(model.inputCount) inputs available. Choosing one needs the capture engine to be device-aware — issue #19 records why, with the exact crash.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(UI.ink3)
-                    .padding(.leading, 146)
-                    .padding(.bottom, 6)
-                    .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 34)
+                .padding(.vertical, 7)
+
+                if model.micFellBack {
+                    Text("\(model.pinnedName ?? "The chosen microphone") isn't connected — this take uses \(model.deviceName).")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(UI.amber)
+                        .padding(.leading, 146)
+                        .padding(.bottom, 6)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 Split()
 
