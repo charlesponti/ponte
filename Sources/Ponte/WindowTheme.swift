@@ -27,7 +27,7 @@ struct WindowTheme {
     let isDark: Bool
 
     static var current: WindowTheme {
-        WindowTheme(rawValue: UserDefaults.standard.string(forKey: "windowTheme") ?? "") ?? .mint
+        WindowTheme(rawValue: UserDefaults.standard.string(forKey: "windowTheme") ?? "")
     }
 
     enum Keys { static let theme = "windowTheme" }
@@ -38,7 +38,8 @@ struct WindowTheme {
         switch rawValue {
         case "maison": self = .maison
         case "parchment", "light": self = .parchment
-        default: self = .mint
+        case "mint": self = .mint
+        default: self = .parchment
         }
     }
 
