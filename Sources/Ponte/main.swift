@@ -32,7 +32,7 @@ let knownFlags: Set<String> = [
     // --hud-render's transcript: what was heard, when it started, and how fast it was spoken
     "--words", "--since", "--rate",
     // --record's live transcript, and the scripted HUD
-    "--live", "--live-file", "--hud-demo", "--history-window",
+    "--live", "--live-file", "--trim", "--hud-demo", "--history-window",
     // the window: open it, or render a still of it at exact pixels
     "--settings", "--settings-render", "--pane", "--variant", "--theme", "--mic",
 ]
@@ -753,6 +753,28 @@ func runCLI() -> Int32? {
     case "--hud-strip":
         guard argv.count > 2 else { print("usage: Ponte --hud-strip <out.png>"); return 2 }
         return writeHUDSheet(to: argv[2])
+
+    case "--trim":
+        // What the silence measurement says about a take, and what would be sent to the engine.
+        guard argv.count > 2, FileManager.default.fileExists(atPath: argv[2]) else {
+            print("usage: Ponte --trim <take.wav>"); return 2
+        }
+        do {
+            let measured = try Silence.speechEnd(of: URL(fileURLWithPath: argv[2]))
+            let verdict: String
+            if measured.end == 0 {
+                verdict = "the whole take is silent — nothing would be sent, and it says \"nothing was recorded\""
+            } else if measured.duration - measured.end > 0.3 {
+                verdict = String(format: "%.2fs of trailing silence would be skipped",
+                                 measured.duration - measured.end)
+            } else {
+                verdict = "nothing to skip"
+            }
+            print(String(format: "take %.2fs · speech ends %.2fs · %@", measured.duration, measured.end, verdict))
+            return measured.end > 0 ? 0 : 1
+        } catch {
+            print("error: \(error.localizedDescription)"); return 1
+        }
 
     case "--live-file":
         // Replay a take through the live path at the pace it was spoken, so a bad take can be diagnosed

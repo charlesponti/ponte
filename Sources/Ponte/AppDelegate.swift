@@ -495,8 +495,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
+            // How much of the take is actually speech. A person stops talking before they let go of the key, and that
+            // dead air costs the engine time and occasionally comes back as a word nobody said. The take keeps its
+            // length: only the transcription is trimmed.
+            var trimmed: URL?
+            var toTranscribe = url
             do {
-                let result = try AsrEngine.transcribe(wav: url) { message in
+                let measured = try Silence.speechEnd(of: url)
+                if measured.end == 0, measured.duration > 0 {
+                    vlog(String(format: "take %.2fs is silent — not transcribing", measured.duration))
+                    DispatchQueue.main.async {
+                        self.hud.showError("Nothing was recorded — check the microphone")
+                        self.cleanUp(audio: url)
+                        self.state = .idle
+                        self.updateIcon()
+                    }
+                    return
+                }
+                if measured.duration - measured.end > 0.3 {
+                    trimmed = try Silence.trimmed(url: url, end: measured.end)
+                    toTranscribe = trimmed ?? url
+                    vlog(String(format: "trim: keeping %.2fs of %.2fs — %.2fs of trailing silence skipped",
+                                measured.end, measured.duration, measured.duration - measured.end))
+                }
+            } catch {
+                // A measurement that fails must not cost the person their dictation: transcribe the whole take.
+                vlog("trim: could not measure silence (\(error.localizedDescription)) — transcribing the whole take")
+            }
+            defer { trimmed.map { try? FileManager.default.removeItem(at: $0) } }
+            do {
+                let result = try AsrEngine.transcribe(wav: toTranscribe) { message in
                     DispatchQueue.main.async { self.hudProgress(message) }
                 }
                 DispatchQueue.main.async {
