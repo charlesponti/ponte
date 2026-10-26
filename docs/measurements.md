@@ -58,6 +58,23 @@ Reading it:
 - **Times are not ratios.** The same 6-minute row has measured 1.85 s, 2.14 s and 10.30 s; the same 76 s
   whisper row 4.29 s, 6.50 s and 17.77 s. Under load, it is a factor of five, not the "half" an earlier version
   of this paragraph claimed. Read them as seconds; the counts are what must not move.
+- **A real take costs about five times a generated one.** The same release binary, the same engine, the same
+  machine: 371 s of repeated synthetic speech transcribes in 1.87 s, and 360 s of a real dictation in 9.05 s
+  (11.27 s on another run). The tables above are the right stress test for text going missing at a seam and
+  the wrong material for pricing a live pass.
+
+### What a live pass costs on real speech
+
+`Ponte --transcribe` on a real take looped to length, release build, the engine's own elapsed count:
+
+| audio | 60 s | 180 s | 360 s | 600 s |
+|---|---|---|---|---|
+| one pass | 1.9 s | 4.6 s | 9.1 s | 13.5 s |
+
+Roughly **1.4 s of engine time per minute of audio**, linear in length. The live line waits twice the last
+pass's cost (`LiveTranscript.interval`), so the preview's own lag is double the figure above: about 3 s at
+30 s of audio, 9 s at three minutes, and 27 s at nine. That lag — not a round number of minutes — is what
+the 180 s cap is really protecting, and why the 1.85 s row above must never be used to price the line.
 
 ## Idle cost
 
