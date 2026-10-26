@@ -91,6 +91,10 @@ enum TranscriptReveal {
         return (incoming, shared)
     }
 
+    /// Whether a snapshot kept this word or replaced it: case, punctuation and spacing are not a new word, and
+    /// the reveal must not start again for one.
+    static func sameWord(_ a: String, _ b: String) -> Bool { normalise(a) == normalise(b) }
+
     private static func normalise(_ word: String) -> String {
         word.lowercased().filter { $0.isLetter || $0.isNumber || $0 == "'" }
     }

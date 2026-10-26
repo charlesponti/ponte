@@ -93,12 +93,14 @@ final class LiveTranscript {
 
     private func tick() {
         guard let audio else { return }
+        let now = Date()
+        // Due first, then busy: asking busy before the schedule logged "skipping" for every tick that was simply
+        // not due yet, which buried the real skips — 64 of them in one 24-second take.
+        guard now >= nextPassAt else { return }
         guard !busy else {
             onTrace?("live: a pass is still running — skipping this tick")
             return
         }
-        let now = Date()
-        guard now >= nextPassAt else { return }
         guard now.timeIntervalSince(started) < Self.longestTake else {
             vlog("live transcript: past \(Int(Self.longestTake))s of audio, no more live passes")
             stop()

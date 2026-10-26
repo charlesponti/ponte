@@ -45,9 +45,19 @@ final class LiveTimingsTests: XCTestCase {
         let made = try! XCTUnwrap(report)
         XCTAssertEqual(made.words, 5)
         XCTAssertEqual(made.rate, 2.5, accuracy: 1e-9)
-        // Nothing is settled on the first snapshot, so every word is still being revealed.
         XCTAssertEqual(made.fresh, 5)
-        XCTAssertGreaterThan(made.reveal, 0)
+        // Every one of those words was spoken before it arrived, so the reveal owes nothing: the figure is how long
+        // the last word must still wait, not how long pacing would take.
+        XCTAssertEqual(made.reveal, 0, accuracy: 1e-9)
+    }
+
+    func testWordsAheadOfTheirSpokenMomentAreHeldBackAndSaidSo() {
+        var live = LiveText()
+        // Ten words inside one second of audio: the tail was spoken later than it arrived, so the line holds it and
+        // the log must report how long for.
+        let report = try! XCTUnwrap(
+            live.absorb((0..<10).map { "w\($0)" }.joined(separator: " "), seconds: 1, at: 1))
+        XCTAssertGreaterThan(report.reveal, 0, "a word ahead of its spoken moment is waited on")
     }
 
     func testASecondSnapshotOfTheSameWordsSettlesThem() {
@@ -57,6 +67,19 @@ final class LiveTimingsTests: XCTestCase {
         XCTAssertEqual(second.words, 3)
         XCTAssertEqual(second.stable, 3, "a repeated snapshot settles the prefix rather than changing it")
         XCTAssertEqual(second.fresh, 0)
+    }
+
+    func testARevisionDoesNotRestartTheWordsThatSurvivedIt() {
+        var live = LiveText()
+        _ = live.absorb("the quick brown fox jumps", seconds: 2, at: 2)
+        let before = (0..<5).map { live.arrival($0) }
+        // A later snapshot capitalises one word and adds another: this is the shape that used to restamp the whole
+        // tail and demand twelve seconds of animation for words already on screen.
+        _ = live.absorb("the quick Brown fox jumps over", seconds: 3, at: 3)
+        XCTAssertEqual(live.arrival(0), before[0])
+        XCTAssertEqual(live.arrival(2), before[2], "a capital is not a new word, so it must not animate again")
+        XCTAssertEqual(live.arrival(4), before[4], "a revision earlier in the line must not restamp what follows")
+        XCTAssertEqual(live.arrival(5), 3, "the genuinely new word arrived now")
     }
 
     // MARK: - The take

@@ -37,8 +37,19 @@ struct LiveText: Equatable {
         let before = words.count
         let merged = TranscriptReveal.merge(shown: words, incoming: incoming)
         if merged.words != words {
-            var next = Array(arrivals.prefix(merged.stable))
-            while next.count < merged.words.count { next.append(now) }
+            // Keep the arrival of every word that survived the revision where it was. The merged words can change
+            // anywhere — a capital, an apostrophe, "there" becoming "their" — and restamping the whole tail from
+            // that point made a single edit animate words that were already on screen: the measured cause of a
+            // twelve-second reveal after a twenty-four-word burst.
+            var next: [TimeInterval] = []
+            for index in 0..<merged.words.count {
+                if index < words.count, index < arrivals.count,
+                   TranscriptReveal.sameWord(words[index], merged.words[index]) {
+                    next.append(arrivals[index])
+                } else {
+                    next.append(now)
+                }
+            }
             arrivals = next
         }
         words = merged.words
@@ -46,12 +57,20 @@ struct LiveText: Equatable {
         // that is already on screen.
         let measured = TranscriptReveal.rate(words: words.count, seconds: seconds)
         rate = wasEmpty ? measured : rate * 0.6 + measured * 0.4
-        // What just arrived, and how long the reveal will spend showing it at the pace it was spoken. This is the
-        // last stage of the chain, and the only one the person watching can attribute to anything.
+        // What just arrived. The reveal is *not* paced by count: a word is shown at the moment it was spoken, so a
+        // lump delivered late is already overdue and appears at once. `reveal` therefore measures how long the
+        // last unsettled word still has to wait — the honest figure — not how long pacing would take.
         let fresh = max(0, words.count - merged.stable)
+        var untilLastVisible: TimeInterval = 0
+        if fresh > 0, words.count > 0 {
+            let last = words.count - 1
+            let due = TranscriptReveal.start(
+                wordIndex: last, arrival: arrivals[last], rate: rate)
+            untilLastVisible = max(0, due - now)
+        }
         return AbsorbReport(
             words: words.count, fresh: max(fresh, max(0, words.count - before)), stable: merged.stable,
-            rate: rate, reveal: Double(fresh) * TranscriptReveal.slot(rate: rate))
+            rate: rate, reveal: untilLastVisible)
     }
 }
 
