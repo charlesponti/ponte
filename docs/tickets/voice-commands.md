@@ -1,5 +1,7 @@
 # Voice commands and snippets — full ticket
 
+**Linear: WYA-218** · https://linear.app/wyattbose/issue/WYA-218
+
 **Status: parked by Charles on 26 October 2026.** He is not comfortable with the idea yet and wants to revisit it.
 This file exists so the thinking, the spec and the open decisions survive until then. GitHub #16 tracks the same
 work; it stays open and unstarted.
