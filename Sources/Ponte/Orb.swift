@@ -86,6 +86,10 @@ enum HudSpec {
     static let liveBox = CGSize(width: 330, height: 156)
     /// The transcript's type. The same size as the pill's label: it is the same kind of text, arriving early.
     static let transcriptSize: CGFloat = 12.5
+    /// The line before the engine has anything: a breath, not a warning. Amber is the app's colour for a real
+    /// problem, and waiting half a second for speech is not one.
+    static let listeningLabel = "listening…"
+    static let listeningAlpha = 0.42
     /// One line's frame, never wrapped. Older words slide out to the left behind `transcriptFade`.
     static let transcriptLineHeight: CGFloat = 17
     static let transcriptFade: CGFloat = 34

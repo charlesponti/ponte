@@ -176,6 +176,11 @@ struct HudBox: View {
                                 .font(.system(size: HudSpec.transcriptSize, weight: .semibold))
                                 .foregroundStyle(Color(nsColor: HudSpec.amber))
                                 .fixedSize()
+                        } else if live.words.isEmpty {
+                            // The engine needs about half a second of speech before it has a word to show, and a
+                            // person needs to see the app is listening during it. Dimmest ink, breathing from the
+                            // clock: "working", where amber would say "wrong".
+                            ListeningLine(takeElapsed: transcriptClock)
                         } else {
                             TranscriptLine(words: live.words, arrivals: live.arrivals,
                                            takeElapsed: transcriptClock, rate: live.rate, width: lineWidth)
@@ -194,6 +199,27 @@ struct HudBox: View {
         }
         .frame(width: geometry.box.width, height: geometry.box.height)
         .opacity(geometry.hudAlpha)
+    }
+}
+
+/// The line before there are words: proof the app heard the key and is working.
+///
+/// A slow breath rather than a spinner or a blinking caret — the orb above is already moving, and a second piece
+/// of motion competing with it would read as a fault. Pure in `takeElapsed`, like everything else here, so any
+/// frame can be rendered and a still says something true.
+struct ListeningLine: View {
+    var takeElapsed: TimeInterval
+
+    /// 0.9…1.0 of the base opacity, one breath every 1.6 s.
+    static func breath(at elapsed: TimeInterval) -> Double {
+        0.9 + 0.1 * sin(elapsed * 2 * .pi / 1.6)
+    }
+
+    var body: some View {
+        Text(HudSpec.listeningLabel)
+            .font(.system(size: HudSpec.transcriptSize, weight: .semibold))
+            .foregroundStyle(Color.white.opacity(HudSpec.listeningAlpha * Self.breath(at: takeElapsed)))
+            .fixedSize()
     }
 }
 
