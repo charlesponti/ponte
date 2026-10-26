@@ -150,6 +150,45 @@ add one line per pass:
 live: pass took 0.57s over 10.2s audio — next in 1.14s, showing 9.8s
 ```
 
+## Reading the log
+
+`ponte.log` now carries one line per live pass and one per absorb into the HUD:
+
+```
+live: pass 38  late +65ms  snapshot 1ms  engine 322ms  hop 0ms  cover 16.0s  disk 16.1s  behind 0.13s  28w 185c  "…and then i said"
+live: hud  28w (0 fresh, 28 settled)  rate 2.0 w/s  absorb 0.0ms  reveal 0.00s
+live: first word shown at 3.28s of the take
+live: take 16.1s — 51 passes · engine mean 252ms max 640ms · behind mean 0.23s max 0.69s · absorb mean 0.0ms max 0.1ms · reveal mean 0.40s · first word 3.28s
+```
+
+What owns what:
+
+| field | what it is | if it is large |
+|---|---|---|
+| `late` | the ticker fired late | the main run loop is busy drawing, not the engine |
+| `snapshot` | copying the WAV and fixing its header | disk, or a very long take (38 MB at 20 min) |
+| `engine` | the transcription | the model, or a take long enough to matter |
+| `hop` | waiting for the main queue after the engine finished | the HUD is drawing too much |
+| `behind` | audio on disk minus audio this pass described | **how far behind the voice the line is** |
+| `absorb` | main-thread work folding words into the HUD, vocabulary included | the vocabulary list is huge |
+| `reveal` | how long the pacing animation takes to show what arrived | words are arriving in bursts |
+| `first word` | the delay a person reads as "it isn't working" | warm-up, or the take starting with silence |
+
+Replay a bad take through the same path without a microphone, at the pace it was spoken:
+
+```sh
+.build/release/Ponte --live-file ~/Library/Application\ Support/Ponte/audio/<take>.wav
+```
+
+### First measurement through the replay
+
+16 s take, real time: engine mean **252 ms** (max 640 ms), line **0.23 s** behind on average (max 0.69 s),
+absorb **0.0 ms**, reveal mean **0.40 s**, **first word at 3.28 s**.
+
+So at this length the engine is not the bottleneck and the line is barely behind the voice. Whatever a person
+notices as lag here is the first-word delay and the reveal pacing — which is where the next look should go,
+and it is a different answer from the one the three-minute cap suggested.
+
 ## The two fixes, in order of cost
 
 **1. Tune the throttle (minutes).** `costMultiple = 2` is the biggest single contributor at short lengths. At

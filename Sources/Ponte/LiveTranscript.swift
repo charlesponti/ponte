@@ -48,6 +48,7 @@ final class LiveTranscript {
     private var timer: DispatchSourceTimer?
     private var generation = 0
     private var busy = false
+    private var passIndex = 0
     private var audio: URL?
     private var started = Date()
     private var language = "en"
@@ -57,6 +58,8 @@ final class LiveTranscript {
     /// rate comes from.
     var onText: ((String, TimeInterval) -> Void)?
     var onTrace: ((String) -> Void)?
+    /// Every pass, timed stage by stage. Goes to the log, not the HUD: it is for diagnosing a slow line.
+    var onTiming: ((PassTiming) -> Void)?
 
     var isRunning: Bool { timer != nil }
 
@@ -102,11 +105,14 @@ final class LiveTranscript {
             return
         }
         let interval = Self.interval(sinceLastPass: lastPassCost)
+        // How late the pass is against the schedule it set for itself. The timer ticks four times a second, so
+        // anything much beyond that is a main run loop that was busy drawing.
+        let late = nextPassAt == .distantPast ? 0 : max(0, now.timeIntervalSince(nextPassAt))
         // No duration check here: the only trustworthy measure of a file that is still being written is its
         // payload, and `snapshot`/`patched` already refuse anything the engine would refuse. Asking AVFoundation
         // instead is how this silently never ran — a WAV whose size fields are zero reads as zero seconds.
         nextPassAt = now.addingTimeInterval(interval)
-        run(audio: audio)
+        run(audio: audio, late: late)
     }
 
     /// The timer ticks four times a second so a change of interval is honoured promptly, while the passes
@@ -115,7 +121,7 @@ final class LiveTranscript {
     /// What the last pass cost, which is what the next interval is derived from.
     private var lastPassCost: TimeInterval?
 
-    private func run(audio url: URL) {
+    private func run(audio url: URL, late: TimeInterval = 0) {
         busy = true
         let mine = generation
         let code = language
@@ -126,7 +132,7 @@ final class LiveTranscript {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let began = Date()
             defer {
-                // The engine's own time, not counting the hop back to the main queue: see the note at the trace.
+                // The engine's own time, not counting the hop back to the main queue: see the note below.
                 let cost = Date().timeIntervalSince(began)
                 DispatchQueue.main.async { [weak self] in
                     self?.lastPassCost = cost
@@ -134,28 +140,40 @@ final class LiveTranscript {
                 }
             }
             do {
+                let snapshotBegan = Date()
                 let snap = try Self.snapshot(of: url)
+                let snapshotCost = Date().timeIntervalSince(snapshotBegan)
 
                 defer { try? FileManager.default.removeItem(at: snap.url) }
+                let engineBegan = Date()
                 let result = try AsrEngine.transcribe(wav: snap.url,
                                                        parakeetModel: Settings.parakeetModel,
                                                        language: code)
+                let engineCost = Date().timeIntervalSince(engineBegan)
+                let finished = Date()
                 let words = result.text.split(whereSeparator: { $0 == " " || $0 == "\n" }).count
                 // Timed here, not at the trace: the trace hops to the main queue, where the HUD is drawing sixty
                 // times a second, and folding that wait into the cost made the app throttle itself four times
                 // harder than the engine needed. The cost decides the next interval, so it has to be the engine's.
-                let cost = Date().timeIntervalSince(began)
-                DispatchQueue.main.async {
-                    guard let self, self.generation == mine else { return }
-                    self.onTrace?(String(format: "live: pass %.2fs over %.2fs of audio, %d words",
-                                         cost, snap.seconds, words))
-                }
-                guard !result.text.isEmpty else { return }
+                let cost = finished.timeIntervalSince(began)
+                _ = cost
+                // How much audio exists *now*, against how much this pass described: the difference is what the
+                // person is still waiting to see. Read from the file, because a WAV being written has no duration.
+                let onDisk = Self.secondsOnDisk(of: url)
+                var timing = PassTiming(
+                    index: 0, tickDelay: late, snapshot: snapshotCost, engine: engineCost, hop: 0,
+                    covered: snap.seconds, onDisk: onDisk, words: words, chars: result.text.count,
+                    tail: Self.tail(of: result.text))
+
                 DispatchQueue.main.async {
                     guard let self, self.generation == mine else { return }   // the take ended; drop it
-                    // Logged whether or not anything was heard: the cost is what the next interval is derived
-                    // from, and what decides whether the read-out is fast enough.
-                    self.onText?(result.text, snap.seconds)
+                    // The hop is the wait for the main queue, measured rather than assumed: it is the one stage
+                    // the engine cannot see, and the one that grows when the HUD is drawing a lot.
+                    timing.hop = Date().timeIntervalSince(finished)
+                    self.passIndex += 1
+                    timing.index = self.passIndex
+                    self.onTiming?(timing)
+                    if !result.text.isEmpty { self.onText?(result.text, snap.seconds) }
                 }
             } catch {
                 // A live pass is an optimisation. If it fails, the final transcription is unaffected and the
@@ -166,6 +184,19 @@ final class LiveTranscript {
                 }
             }
         }
+    }
+
+    /// How much audio is on disk, from the WAV's size: 16 kHz mono 16-bit is 32 000 bytes a second, and the
+    /// header is 44. Reading the size is safe while the file is still being written; asking AVFoundation for its
+    /// duration is not, which is why this is here at all.
+    static func secondsOnDisk(of url: URL) -> TimeInterval {
+        let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+        return Double(max(0, size - 44)) / 32_000
+    }
+
+    /// The last few words, so the log records what arrived and not only how much.
+    static func tail(of text: String, words limit: Int = 5) -> String {
+        text.split(whereSeparator: { $0 == " " || $0 == "\n" }).suffix(limit).joined(separator: " ")
     }
 
     // MARK: - The snapshot

@@ -29,10 +29,12 @@ struct LiveText: Equatable {
     /// The settled prefix is kept, anything new — including a tail a later snapshot revised — is stamped with the
     /// moment it arrived, and the speaking rate is re-measured and smoothed. All of that is here rather than in
     /// `HUD` so the live line can be driven and measured without a window on screen.
-    mutating func absorb(_ text: String, seconds: TimeInterval, at now: TimeInterval) {
+    @discardableResult
+    mutating func absorb(_ text: String, seconds: TimeInterval, at now: TimeInterval) -> AbsorbReport? {
         let incoming = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
-        guard !incoming.isEmpty else { return }
+        guard !incoming.isEmpty else { return nil }
         let wasEmpty = words.isEmpty
+        let before = words.count
         let merged = TranscriptReveal.merge(shown: words, incoming: incoming)
         if merged.words != words {
             var next = Array(arrivals.prefix(merged.stable))
@@ -44,6 +46,12 @@ struct LiveText: Equatable {
         // that is already on screen.
         let measured = TranscriptReveal.rate(words: words.count, seconds: seconds)
         rate = wasEmpty ? measured : rate * 0.6 + measured * 0.4
+        // What just arrived, and how long the reveal will spend showing it at the pace it was spoken. This is the
+        // last stage of the chain, and the only one the person watching can attribute to anything.
+        let fresh = max(0, words.count - merged.stable)
+        return AbsorbReport(
+            words: words.count, fresh: max(fresh, max(0, words.count - before)), stable: merged.stable,
+            rate: rate, reveal: Double(fresh) * TranscriptReveal.slot(rate: rate))
     }
 }
 

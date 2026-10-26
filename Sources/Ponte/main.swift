@@ -32,7 +32,7 @@ let knownFlags: Set<String> = [
     // --hud-render's transcript: what was heard, when it started, and how fast it was spoken
     "--words", "--since", "--rate",
     // --record's live transcript, and the scripted HUD
-    "--live", "--hud-demo", "--history-window",
+    "--live", "--live-file", "--hud-demo", "--history-window",
     // the window: open it, or render a still of it at exact pixels
     "--settings", "--settings-render", "--pane", "--variant", "--theme", "--mic",
 ]
@@ -117,16 +117,87 @@ func recordSync(seconds: Double, out: URL?) throws -> URL {
 /// This exists so the live path can be exercised without a GUI and without a human: the app's HUD and this
 /// loop share `LiveTranscript`, so what the log shows here is what the HUD fills from. The elapsed time on
 /// each line is the point — it proves the words arrived *before* the recording ended.
+/// Feed an existing take to the live path at the speed it was spoken.
+///
+/// A recording is a file that grows; this makes one grow the same way, 32 000 bytes a second (16 kHz mono
+/// 16-bit), so the timings are the timings a person would have experienced. The WAV's size fields start at zero
+/// and `LiveTranscript.snapshot` corrects them, which is exactly what happens during a real take.
+func replayWithLive(source: URL, language: String) -> Int32 {
+    let data = (try? Data(contentsOf: source)) ?? Data()
+    guard data.count > 44 else { print("error: no audio in \(source.lastPathComponent)"); return 1 }
+    let tmp = FileManager.default.temporaryDirectory
+        .appendingPathComponent("ponte-replay-\(UUID().uuidString).wav")
+    guard FileManager.default.createFile(atPath: tmp.path, contents: data.prefix(44)) else {
+        print("error: could not stage the replay"); return 1
+    }
+    defer { try? FileManager.default.removeItem(at: tmp) }
+
+    let live = LiveTranscript()
+    let timings = LiveTimings(log: { print("    \($0)") })
+    var line = LiveText()
+    let began = Date()
+    var lastPassAt = Date()
+    live.onTiming = { timing in
+        lastPassAt = Date()
+        timings.pass(timing)
+    }
+    live.onText = { text, audio in
+        let absorbBegan = Date()
+        guard let report = line.absorb(text, seconds: audio,
+                                       at: Date().timeIntervalSince(began)) else { return }
+        timings.absorbed(report, mainThread: Date().timeIntervalSince(absorbBegan))
+        timings.firstWord(at: audio)
+    }
+    live.start(audio: tmp, language: language)
+
+    let bytesPerSecond = 32_000
+    var written = 44
+    while written < data.count {
+        let target = min(data.count, 44 + Int(Date().timeIntervalSince(began) * Double(bytesPerSecond)))
+        if target > written {
+            if let handle = try? FileHandle(forWritingTo: tmp) {
+                try? handle.seekToEndOfFile()
+                try? handle.write(contentsOf: data[written..<target])
+                try? handle.close()
+            }
+            written = target
+        }
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
+    }
+    // Let the passes finish: the last one is the one a person would still be waiting for when they let go of
+    // the key. Wait for a gap rather than a fixed time, and give up rather than hang.
+    let deadline = Date().addingTimeInterval(15)
+    while Date() < deadline && Date().timeIntervalSince(lastPassAt) < 2 {
+        RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
+        // The file is fully delivered and the line has had a pass since: nothing more is coming.
+        if written >= data.count && Date().timeIntervalSince(lastPassAt) < 0.4 { break }
+    }
+    live.stop()
+    print("    \(timings.summary(take: Double(data.count - 44) / Double(bytesPerSecond)))")
+    return 0
+}
+
 func recordWithLive(seconds: Double, out: URL?, language: String) throws -> URL {
     let rec = Recorder()
     let url = try rec.start()
     let live = LiveTranscript()
     let began = Date()
     var passes = 0
+    // The same timings the app writes to `ponte.log`, printed here so a take can be diagnosed from a terminal.
+    let timings = LiveTimings(log: { print("    \($0)") })
+    // One live line, kept across passes, so the absorb report describes the same merge the HUD would do.
+    var line = LiveText()
     live.onTrace = { print("    \($0)") }
+    live.onTiming = { timings.pass($0) }
     live.onText = { text, audio in
         passes += 1
         let at = Date().timeIntervalSince(began)
+        let absorbBegan = Date()
+        let report = line.absorb(text, seconds: audio, at: at)
+        if let report {
+            timings.absorbed(report, mainThread: Date().timeIntervalSince(absorbBegan))
+            timings.firstWord(at: audio)
+        }
         print(String(format: "[+%.2fs] %d words over %.2fs of audio: %@",
                      at, text.split(separator: " ").count, audio, text))
     }
@@ -137,6 +208,7 @@ func recordWithLive(seconds: Double, out: URL?, language: String) throws -> URL 
     }
     live.stop()
     rec.stop()
+    print("    \(timings.summary(take: Date().timeIntervalSince(began)))")
     print("live passes: \(passes)")
     if let out {
         try? FileManager.default.removeItem(at: out)
@@ -680,6 +752,15 @@ func runCLI() -> Int32? {
     case "--hud-strip":
         guard argv.count > 2 else { print("usage: Ponte --hud-strip <out.png>"); return 2 }
         return writeHUDSheet(to: argv[2])
+
+    case "--live-file":
+        // Replay a take through the live path at the pace it was spoken, so a bad take can be diagnosed
+        // without a microphone: the same `LiveTranscript` the app runs, on audio already on disk.
+        guard argv.count > 2, FileManager.default.fileExists(atPath: argv[2]) else {
+            print("usage: Ponte --live-file <take.wav>"); return 2
+        }
+        return replayWithLive(source: URL(fileURLWithPath: argv[2]),
+                              language: value(of: "--language") ?? "en")
 
     case "--record":
         if let mic = value(of: "--mic") { Settings.inputDeviceUID = mic }

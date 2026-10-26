@@ -43,11 +43,13 @@ final class HUD {
     /// can change: `TranscriptReveal.merge` keeps the settled prefix and replaces what follows it.
     ///
     /// `seconds` is the audio the pass ran over, which is how the speaking rate is measured rather than assumed.
-    func pushTranscript(_ text: String, seconds: TimeInterval) {
-        guard model.state == .recording || model.state == .working else { return }
+    @discardableResult
+    func pushTranscript(_ text: String, seconds: TimeInterval) -> AbsorbReport? {
+        guard model.state == .recording || model.state == .working else { return nil }
         var live = model.live
-        live.absorb(text, seconds: seconds, at: Date().timeIntervalSince(model.takeStartedAt))
+        let report = live.absorb(text, seconds: seconds, at: Date().timeIntervalSince(model.takeStartedAt))
         model.live = live
+        return report
     }
 
     /// Working: the orb turns at the model's calm rate, label is an ellipsis.

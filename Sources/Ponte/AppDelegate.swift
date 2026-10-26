@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     private let hud = HUD()
     /// The live transcript: the engine run over the audio so far, while it is still being recorded.
     private let live = LiveTranscript()
+    /// Per-pass timings for the live line. Written to the log, not shown: see `LiveTimings`.
+    private let timings = LiveTimings()
     /// The dictations already on disk, in a window opened deliberately. Made on first use, inside the main actor,
     /// because this delegate is not itself main-actor isolated and its initialiser is not a safe place for a window.
     /// The one window: dictations and settings. Made lazily, inside the main actor, and never released on close.
@@ -432,10 +434,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
             }
             self.hud.beginRecording()
             self.live.onTrace = { vlog($0) }
+            self.live.onTiming = { [weak self] timing in self?.timings.pass(timing) }
             self.live.onText = { [weak self] text, seconds in
+                guard let self else { return }
                 // The same replacements the final transcript gets: what you watch on the line should be what lands
                 // in the document, not a preview of a different spelling.
-                self?.hud.pushTranscript(Vocabulary.load().applied(to: text), seconds: seconds)
+                // The whole main-thread cost is measured, vocabulary pass included: it is part of getting words on
+                // screen, and a log that excluded it would credit the app with time it does not have.
+                let began = Date()
+                let applied = Vocabulary.load().applied(to: text)
+                guard let report = self.hud.pushTranscript(applied, seconds: seconds) else { return }
+                self.timings.absorbed(report, mainThread: Date().timeIntervalSince(began))
+                self.timings.firstWord(at: seconds)
             }
             self.live.start(audio: url, language: Settings.language)
             self.startWatchingInput()
@@ -448,6 +458,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
         // Stop the live passes before the final one is asked for: they share the engine, and a live pass in
         // flight would delay the result the person is waiting for.
         live.stop()
+        // The take's totals land before the final transcription is asked for, so the two are not confused in the
+        // log: everything above this line is the live line, everything below is the answer.
+        vlog(timings.summary(take: elapsed))
+        timings.reset()
         guard let url = recorder.stop() else {
             state = .idle
             updateIcon()
