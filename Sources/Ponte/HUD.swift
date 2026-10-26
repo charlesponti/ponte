@@ -52,6 +52,14 @@ final class HUD {
         return report
     }
 
+    /// The live preview has stopped on a long take: say so, then let the frozen words come back.
+    func pausePreview() {
+        guard model.state == .recording else { return }
+        var live = model.live
+        live.pausePreview(at: Date().timeIntervalSince(model.takeStartedAt))
+        model.live = live
+    }
+
     /// Working: the orb turns at the model's calm rate, label is an ellipsis.
     func showWorking() {
         model.spinRate = HudSpec.workingSpin

@@ -17,6 +17,19 @@ struct LiveText: Equatable {
     var rate: Double = 2.5
     var isEmpty: Bool { words.isEmpty }
 
+    /// When the live passes stopped, in take time. Nil while they are running.
+    ///
+    /// The passes stop at `LiveTranscript.longestTake` because by then each one costs more than the read-out is
+    /// worth. The dictation itself carries on, and a line that simply freezes looks like a crash — so the line
+    /// says it is paused, in dim ink, and then gets out of the way again.
+    var pausedAt: TimeInterval?
+
+    /// Note that the passes have stopped, so the row can say so.
+    mutating func pausePreview(at takeTime: TimeInterval) {
+        guard pausedAt == nil else { return }
+        pausedAt = takeTime
+    }
+
     /// A word with no recorded arrival is treated as due when it was spoken, which is the pacing default.
     /// The `>= 0` matters: callers ask for the newest word, and with no words yet that index is -1, which the
     /// obvious bounds check lets through.
@@ -176,6 +189,8 @@ struct HudBox: View {
                                 .font(.system(size: HudSpec.transcriptSize, weight: .semibold))
                                 .foregroundStyle(Color(nsColor: HudSpec.amber))
                                 .fixedSize()
+                        } else if PauseNoticeLine.isShowing(paused: live.pausedAt, at: transcriptClock) {
+                            PauseNoticeLine(takeElapsed: transcriptClock - (live.pausedAt ?? 0))
                         } else if live.words.isEmpty {
                             // The engine needs about half a second of speech before it has a word to show, and a
                             // person needs to see the app is listening during it. Dimmest ink, breathing from the
@@ -199,6 +214,30 @@ struct HudBox: View {
         }
         .frame(width: geometry.box.width, height: geometry.box.height)
         .opacity(geometry.hudAlpha)
+    }
+}
+
+/// The line when the live preview has hit its ceiling: the take continues, the read-out does not.
+///
+/// Deliberately not the amber hint. Amber is the app's colour for something actually wrong, and a preview that
+/// stopped by design on a long take is not wrong — it is the take outgrowing the courtesy. Static, unlike the
+/// listening line: nothing is in progress here, so nothing should look like it is.
+struct PauseNoticeLine: View {
+    var takeElapsed: TimeInterval
+
+    /// How long the notice stays up before the frozen words come back.
+    static let seconds: TimeInterval = 5
+
+    static func isShowing(paused: TimeInterval?, at takeElapsed: TimeInterval) -> Bool {
+        guard let paused else { return false }
+        return takeElapsed - paused < seconds
+    }
+
+    var body: some View {
+        Text(HudSpec.pauseNoticeLabel)
+            .font(.system(size: HudSpec.transcriptSize, weight: .semibold))
+            .foregroundStyle(Color.white.opacity(HudSpec.listeningAlpha))
+            .fixedSize()
     }
 }
 

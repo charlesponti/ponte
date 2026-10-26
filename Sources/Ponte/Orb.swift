@@ -90,6 +90,8 @@ enum HudSpec {
     /// problem, and waiting half a second for speech is not one.
     static let listeningLabel = "listening…"
     static let listeningAlpha = 0.42
+    /// Said once when the live preview stops on a long take. The words already heard stay on the line.
+    static let pauseNoticeLabel = "preview paused · still recording"
     /// One line's frame, never wrapped. Older words slide out to the left behind `transcriptFade`.
     static let transcriptLineHeight: CGFloat = 17
     static let transcriptFade: CGFloat = 34

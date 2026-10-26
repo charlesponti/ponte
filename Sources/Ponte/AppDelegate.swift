@@ -435,6 +435,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
             self.hud.beginRecording()
             self.live.onTrace = { vlog($0) }
             self.live.onTiming = { [weak self] timing in self?.timings.pass(timing) }
+            self.live.onPaused = { [weak self] in self?.hud.pausePreview() }
             self.live.onText = { [weak self] text, seconds in
                 guard let self else { return }
                 // The same replacements the final transcript gets: what you watch on the line should be what lands

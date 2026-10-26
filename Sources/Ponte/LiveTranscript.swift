@@ -60,6 +60,8 @@ final class LiveTranscript {
     var onTrace: ((String) -> Void)?
     /// Every pass, timed stage by stage. Goes to the log, not the HUD: it is for diagnosing a slow line.
     var onTiming: ((PassTiming) -> Void)?
+    /// The passes have stopped because the take outgrew them. The dictation is unaffected.
+    var onPaused: (() -> Void)?
 
     var isRunning: Bool { timer != nil }
 
@@ -102,7 +104,10 @@ final class LiveTranscript {
             return
         }
         guard now.timeIntervalSince(started) < Self.longestTake else {
-            vlog("live transcript: past \(Int(Self.longestTake))s of audio, no more live passes")
+            // Said out loud as well as in the log: a line that freezes without a word looks like a crash, and this is
+            // the one thing the live line does that a person cannot tell from a failure.
+            vlog("live transcript: past \(Int(Self.longestTake))s of audio, preview paused — the take continues")
+            onPaused?()
             stop()
             return
         }

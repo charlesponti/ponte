@@ -141,6 +141,7 @@ func replayWithLive(source: URL, language: String) -> Int32 {
         lastPassAt = Date()
         timings.pass(timing)
     }
+    live.onPaused = { print("    live: preview paused — the take continues to the end") }
     live.onText = { text, audio in
         let absorbBegan = Date()
         guard let report = line.absorb(text, seconds: audio,
