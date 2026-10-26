@@ -180,6 +180,26 @@ Replay a bad take through the same path without a microphone, at the pace it was
 .build/release/Ponte --live-file ~/Library/Application\ Support/Ponte/audio/<take>.wav
 ```
 
+No take to hand? `./scripts/speech-samples.sh` writes 10, 30 and 90 seconds of public-domain Harvard
+sentences at 170 words a minute — ordinary dictation pace — in the same 16 kHz mono WAV Ponte records:
+
+```sh
+./scripts/speech-samples.sh /tmp/ponte-speech
+.build/release/Ponte --live-file /tmp/ponte-speech/speech-90s.wav
+```
+
+### Measured on synthesised speech, which starts talking at 0.0 s
+
+| take | passes | engine mean / max | behind mean / max | reveal mean | **first word** |
+|---|---|---|---|---|---|
+| 10 s | 21 | 186 / 552 ms | 0.18 / 0.55 s | 0.01 s | **0.51 s** |
+| 90 s | 105 | 403 / 1220 ms | 0.39 / 1.20 s | 0.01 s | **0.51 s** |
+
+Two things this settles. The first word arrives at **0.51 s** when speech begins at 0.0 s — so the 2.1-2.3 s
+seen in real takes was mostly the speaker not having started yet, not the engine waiting for context. And
+`reveal` is now 0.01 s against 1.64 s mean / 12 s max before the arrival fix, which confirms the re-animation
+bug was real and is gone.
+
 ### First measurement through the replay
 
 16 s take, real time: engine mean **252 ms** (max 640 ms), line **0.23 s** behind on average (max 0.69 s),
