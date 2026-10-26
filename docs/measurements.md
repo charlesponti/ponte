@@ -71,6 +71,8 @@ Reading it:
 |---|---|---|---|---|
 | one pass | 1.9 s | 4.6 s | 9.1 s | 13.5 s |
 
+Full investigation, with every measurement and the two false starts: [`live-transcript-lag.md`](live-transcript-lag.md).
+
 Roughly **1.4 s of engine time per minute of audio**, linear in length. The live line waits twice the last
 pass's cost (`LiveTranscript.interval`), so the preview's own lag is double the figure above: about 3 s at
 30 s of audio, 9 s at three minutes, and 27 s at nine. That lag — not a round number of minutes — is what
