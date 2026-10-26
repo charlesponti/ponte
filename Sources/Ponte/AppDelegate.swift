@@ -501,7 +501,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
             var trimmed: URL?
             var toTranscribe = url
             do {
-                let measured = try Silence.speechEnd(of: url)
+                let measured = try Silence.speechRange(of: url)
                 if measured.end == 0, measured.duration > 0 {
                     vlog(String(format: "take %.2fs is silent — not transcribing", measured.duration))
                     DispatchQueue.main.async {
@@ -512,11 +512,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
                     }
                     return
                 }
-                if measured.duration - measured.end > 0.3 {
-                    trimmed = try Silence.trimmed(url: url, end: measured.end)
+                // Both ends: the silence before the first word is where a room's noise becomes a word nobody said,
+                // and the silence after the last one is dead air the engine is paid for at both ends.
+                let lead = measured.start
+                let tail = measured.duration - measured.end
+                if lead > 0.3 || tail > 0.3 {
+                    trimmed = try Silence.trimmed(url: url, start: measured.start, end: measured.end)
                     toTranscribe = trimmed ?? url
-                    vlog(String(format: "trim: keeping %.2fs of %.2fs — %.2fs of trailing silence skipped",
-                                measured.end, measured.duration, measured.duration - measured.end))
+                    vlog(String(format: "trim: keeping %.2fs of %.2fs — %.2fs lead and %.2fs tail skipped",
+                                measured.end - measured.start, measured.duration, lead, tail))
                 }
             } catch {
                 // A measurement that fails must not cost the person their dictation: transcribe the whole take.

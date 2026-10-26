@@ -760,17 +760,20 @@ func runCLI() -> Int32? {
             print("usage: Ponte --trim <take.wav>"); return 2
         }
         do {
-            let measured = try Silence.speechEnd(of: URL(fileURLWithPath: argv[2]))
+            let measured = try Silence.speechRange(of: URL(fileURLWithPath: argv[2]))
+            let lead = measured.start
+            let tail = measured.duration - measured.end
             let verdict: String
             if measured.end == 0 {
-                verdict = "the whole take is silent — nothing would be sent, and it says \"nothing was recorded\""
-            } else if measured.duration - measured.end > 0.3 {
-                verdict = String(format: "%.2fs of trailing silence would be skipped",
-                                 measured.duration - measured.end)
+                verdict = "the whole take is silent — it would say \"nothing was recorded\""
+            } else if lead > 0.3 || tail > 0.3 {
+                verdict = String(format: "keep %.2fs · %.2fs lead and %.2fs tail would be skipped",
+                                 measured.end - measured.start, lead, tail)
             } else {
                 verdict = "nothing to skip"
             }
-            print(String(format: "take %.2fs · speech ends %.2fs · %@", measured.duration, measured.end, verdict))
+            print(String(format: "take %.2fs · speech %.2f–%.2fs · %@",
+                         measured.duration, measured.start, measured.end, verdict))
             return measured.end > 0 ? 0 : 1
         } catch {
             print("error: \(error.localizedDescription)"); return 1
