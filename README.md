@@ -385,7 +385,7 @@ the app makes, and it is worth being precise about what it contains:
 | sent | not sent |
 |---|---|
 | a GET for `https://charlesponti.github.io/ponte/appcast.xml` | anything you have dictated |
-| a User-Agent naming the app and version (`Ponte/1.0.1 Sparkle/2.x`) | your audio, transcripts, vocabulary, or usage |
+| a User-Agent naming the app and version (`Ponte/1.1.0 Sparkle/2.x`) | your audio, transcripts, vocabulary, or usage |
 | — | any account, key, or identifier |
 
 The server sees an IP address and a time, as it would for any request. System profiling is off, so not even the OS
