@@ -64,6 +64,17 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Ponte "$APP/Contents/MacOS/Ponte"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# Stamp the version, exactly as build-app.sh does. The template plist carries CFBundleVersion 1, and without this
+# every disk image shipped with build 1 — which Sparkle compares against the installed build, so a new release
+# looked older than the one already on the Mac and the update never fired.
+STAMP_SHORT="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+STAMP_BUILD="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 0)"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $STAMP_SHORT" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $STAMP_BUILD" "$APP/Contents/Info.plist"
+if [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.plist")" != "$STAMP_BUILD" ]; then
+  echo "!! build number did not stamp: wanted $STAMP_BUILD"; exit 1
+fi
+echo "    stamped $STAMP_SHORT ($STAMP_BUILD)"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 for bundle in .build/release/*.bundle; do
   [ -e "$bundle" ] || continue
