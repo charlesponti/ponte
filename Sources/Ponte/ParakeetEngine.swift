@@ -74,6 +74,17 @@ enum AsrEngine {
 /// Wraps FluidAudio's `AsrManager` and keeps the loaded CoreML models resident,
 /// so only the first transcription pays the model-load cost.
 final class ParakeetEngine {
+    private enum ManagerLoad {
+        case ready(AsrManager)
+        case loading(Task<AsrManager, Error>, model: ParakeetModel, ticket: UUID)
+    }
+
+    private enum Installation {
+        case existing(AsrManager)
+        case stale(cleanup: Bool)
+        case installed(old: AsrManager?)
+    }
+
     static let shared = ParakeetEngine()
 
     private let lock = NSLock()
@@ -81,6 +92,8 @@ final class ParakeetEngine {
     private var loadedModel: ParakeetModel?
     private var loadTask: Task<AsrManager, Error>?
     private var loadingModel: ParakeetModel?
+    private var loadTicket: UUID?
+    private var discardedLoadTickets: Set<UUID> = []
 
     var modelsRoot: URL {
         AsrModels.defaultCacheDirectory(for: .ultra).deletingLastPathComponent()
@@ -143,7 +156,7 @@ final class ParakeetEngine {
 
         Task.detached(priority: .utility) {
             do {
-                _ = try await AsrModels.downloadAndLoad(
+                _ = try await AsrModels.download(
                     version: model.version,
                     progressHandler: Self.handler(progress)
                 )
@@ -185,11 +198,14 @@ final class ParakeetEngine {
     func unload() {
         lock.lock()
         let existing = manager
+        let pending = loadTask
+        loadTicket = UUID()
         manager = nil
         loadedModel = nil
         loadTask = nil
         loadingModel = nil
         lock.unlock()
+        pending?.cancel()
         if let existing {
             Task.detached { await existing.cleanup() }
         }
@@ -218,54 +234,85 @@ final class ParakeetEngine {
 
     private func asrManager(for model: ParakeetModel,
                             progress: ((String) -> Void)?) async throws -> AsrManager {
-        lock.lock()
-        if let manager, loadedModel == model {
-            lock.unlock()
-            return manager
+        while true {
+            let state = lock.withLock { () -> ManagerLoad in
+                if let manager, loadedModel == model { return .ready(manager) }
+                if let task = loadTask, let activeModel = loadingModel, let ticket = loadTicket {
+                    return .loading(task, model: activeModel, ticket: ticket)
+                }
+
+                // Publish the task while holding the lock. Creating it after unlocking left a race where two
+                // callers both observed an empty slot and each started a full model load.
+                let ticket = UUID()
+                let installed = isInstalled(model)
+                let task = Task { () throws -> AsrManager in
+                    progress?(installed ? "Loading Parakeet models…" : "Downloading Parakeet models…")
+                    vlog("parakeet load start model=\(model.shortLabel) installed=\(installed)")
+                    let models = try await AsrModels.downloadAndLoad(
+                        version: model.version,
+                        progressHandler: Self.handler(progress)
+                    )
+                    return AsrManager(config: .default, models: models)
+                }
+                loadTask = task
+                loadingModel = model
+                loadTicket = ticket
+                return .loading(task, model: model, ticket: ticket)
+            }
+
+            switch state {
+            case .ready(let manager):
+                return manager
+            case .loading(let task, let activeModel, let ticket):
+                do {
+                    // All callers await the same task. Any waiter may install its result, so a cancelled or
+                    // delayed initiating caller cannot strand a completed model load.
+                    let fresh = try await task.value
+                    let installed = try await install(fresh, model: activeModel, ticket: ticket)
+                    if activeModel == model { return installed }
+                } catch {
+                    clearFailedLoad(ticket: ticket)
+                    if activeModel == model { throw error }
+                }
+                continue
+            }
         }
-        // One load at a time: a launch-time preload and a dictation can race.
-        if let loadTask, loadingModel == model {
-            lock.unlock()
-            return try await loadTask.value
-        }
-        let installed = isInstalled(model)
-        lock.unlock()
+    }
 
-        progress?(installed ? "Loading Parakeet models…" : "Downloading Parakeet models…")
-        vlog("parakeet load start model=\(model.shortLabel) installed=\(installed)")
-
-        let task = Task { () throws -> AsrManager in
-            let models = try await AsrModels.downloadAndLoad(
-                version: model.version,
-                progressHandler: Self.handler(progress)
-            )
-            return AsrManager(config: .default, models: models)
-        }
-
-        lock.lock()
-        loadTask = task
-        loadingModel = model
-        lock.unlock()
-
-        do {
-            let fresh = try await task.value
-            lock.lock()
+    private func install(_ fresh: AsrManager, model: ParakeetModel, ticket: UUID) async throws -> AsrManager {
+        let result = lock.withLock { () -> Installation in
+            if let manager, loadedModel == model { return .existing(manager) }
+            guard loadTicket == ticket else {
+                return .stale(cleanup: discardedLoadTickets.insert(ticket).inserted)
+            }
             let old = manager
             manager = fresh
             loadedModel = model
             loadTask = nil
             loadingModel = nil
-            lock.unlock()
+            return .installed(old: old)
+        }
+
+        switch result {
+        case .existing(let manager):
+            return manager
+        case .stale(let shouldClean):
+            if shouldClean { await fresh.cleanup() }
+            throw CancellationError()
+        case .installed(let old):
             if let old { await old.cleanup() }
             vlog("parakeet models ready model=\(model.shortLabel)")
             return fresh
-        } catch {
-            lock.lock()
+        }
+    }
+
+    private func clearFailedLoad(ticket: UUID) {
+        lock.lock()
+        if loadTicket == ticket {
             loadTask = nil
             loadingModel = nil
-            lock.unlock()
-            throw error
         }
+        lock.unlock()
     }
 
     private static func handler(_ progress: ((String) -> Void)?) -> ProgressHandler? {

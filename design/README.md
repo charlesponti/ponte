@@ -30,6 +30,7 @@ installs Ponte — it exists so a design can be agreed on before any code change
 | `hud-b.html` | B alone, with the Waveform orb in the waiting state. Four orb sizes at true size — **decided: 64 px orb**. |
 | `hud-b-lifecycle.html` | Orb lifecycle v1: recording spins fast, working calm, done fades green, error throbs red three times. |
 | `hud-b-lifecycle-v2.html` | Orb lifecycle v2: the **box collapses with the orb** — done ends at text + 16 px padding, error holds through the throbs then collapses as the orb exits. |
+| `site-studio-v2.html` | Full public-site redesign study: centered product demo, honest trust details, problem-led story, FAQs and repeated download action. |
 
 ## Open questions
 

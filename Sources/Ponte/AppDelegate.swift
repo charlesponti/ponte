@@ -61,6 +61,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
 
     /// Whether the engine's models are on disk and loaded — see `Readiness`.
     private var readiness: Readiness = .ready
+    /// Ignore progress and completions from a model preparation superseded by a later selection.
+    private var enginePreparationID = UUID()
 
     private let languages: [(code: String, label: String)] = [
         ("en", "English"), ("auto", "Auto-detect"), ("es", "Spanish"), ("fr", "French"),
@@ -257,43 +259,74 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     /// Called at launch and whenever the model changes. An installed model is warmed silently —
     /// it costs a fraction of a second and pays for the Neural Engine compile. A missing one is fetched
     /// with its progress on screen, and dictation is declined until it is done.
-    private func prepareEngine() {
+    private func prepareEngine(showProgress: Bool = false) {
         let model = Settings.parakeetModel
+        let preparationID = UUID()
+        enginePreparationID = preparationID
+        let note = "Getting the speech model"
+
+        let report: (String) -> Void = { [weak self] message in
+            let percent = Readiness.percent(in: message)
+            DispatchQueue.main.async {
+                guard let self, self.enginePreparationID == preparationID,
+                      Settings.parakeetModel == model else { return }
+                self.setReadiness(.preparing(percent: percent, note: note))
+                if showProgress { self.hudProgress(message) }
+            }
+        }
+
         if ParakeetEngine.shared.isInstalled(model) {
-            setReadiness(.ready)
-            // preload logs its own timing
-            DispatchQueue.global(qos: .utility).async {
+            if showProgress {
+                setReadiness(.preparing(percent: nil, note: "Loading \(model.shortLabel)"))
+            } else {
+                // Keep startup responsive; the engine's single-flight load is shared with an early dictation.
+                setReadiness(.ready)
+            }
+            DispatchQueue.global(qos: .utility).async { [weak self] in
                 do {
-                    try ParakeetEngine.shared.preload(model: model)
+                    try ParakeetEngine.shared.preload(model: model, progress: showProgress ? report : nil)
+                    if showProgress {
+                        DispatchQueue.main.async {
+                            guard let self, self.enginePreparationID == preparationID,
+                                  Settings.parakeetModel == model else { return }
+                            self.setReadiness(.ready)
+                            self.hud.showDone("\(model.shortLabel) ready ✓")
+                        }
+                    }
                 } catch {
                     vlog("preload failed: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        guard let self, self.enginePreparationID == preparationID,
+                              Settings.parakeetModel == model else { return }
+                        self.setReadiness(.failed("Could not load \(model.shortLabel)"))
+                        if showProgress { self.hud.showError("Could not load \(model.shortLabel)") }
+                    }
                 }
             }
             return
         }
 
-        let note = "Getting the speech model"
         setReadiness(.preparing(percent: nil, note: note))
         vlog("parakeet models missing for \(model.shortLabel) — fetching before any dictation")
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let report: (String) -> Void = { message in
-                let percent = Readiness.percent(in: message)
-                DispatchQueue.main.async {
-                    self?.setReadiness(.preparing(percent: percent, note: note))
-                }
-            }
             do {
                 try ParakeetEngine.shared.download(model: model, progress: report)
                 try ParakeetEngine.shared.preload(model: model, progress: report)
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self, self.enginePreparationID == preparationID,
+                          Settings.parakeetModel == model else { return }
                     self.setReadiness(.ready)
+                    if showProgress { self.hud.showDone("\(model.shortLabel) ready ✓") }
                     Shell.notify("Ponte", "Ready — \(self.hotKeyDescription) starts a dictation.")
                 }
             } catch {
                 vlog("model preparation failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
-                    self?.setReadiness(.failed("Could not fetch the speech model"))
+                    guard let self, self.enginePreparationID == preparationID else { return }
+                    self.setReadiness(.failed("Could not fetch the speech model"))
+                    if showProgress {
+                        self.hud.showError("Could not load \(model.shortLabel)")
+                    }
                     Shell.notify("Ponte", "Ponte could not fetch its speech model: \(error.localizedDescription)")
                 }
             }
@@ -590,7 +623,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
         if finalText != text { vlog("vocabulary: replaced in \(text.count) -> \(finalText.count) chars") }
 
         lastTranscript = finalText
-        Transcriber.save(transcript: finalText, audio: audio, elapsed: elapsed, took: took, engine: engine)
+        do {
+            try Transcriber.save(transcript: finalText, audio: audio, elapsed: elapsed, took: took, engine: engine)
+        } catch {
+            // Keep the dictation usable even if Documents is unavailable, but make the missing history entry clear.
+            vlog("note save failed: \(error.localizedDescription)")
+            Shell.notify("Ponte", "The transcript was copied, but its note could not be saved: \(error.localizedDescription)")
+        }
         vlog(String(format: "transcribed %.1fs audio in %.1fs -> %d chars [%@]",
                     elapsed, took, finalText.count, engine))
 
@@ -1050,21 +1089,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, SPUUpd
     /// Switch the model: persist, drop the resident one, then warm the new one behind the HUD. Shared by the menu
     /// and the window so a switch behaves the same however it was asked for.
     func useModel(_ model: ParakeetModel) {
+        guard model != Settings.parakeetModel else { return }
         Settings.parakeetModel = model
         ParakeetEngine.shared.unload()
         vlog("parakeet model set to \(model.shortLabel)")
-        prepareEngine()
-        hudProgress("Loading \(model.shortLabel)…")
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            do {
-                try ParakeetEngine.shared.preload(model: model) { message in
-                    DispatchQueue.main.async { self?.hudProgress(message) }
-                }
-                DispatchQueue.main.async { self?.hud.showDone("\(model.shortLabel) ready ✓") }
-            } catch {
-                DispatchQueue.main.async { self?.hud.showError("Could not load \(model.shortLabel)") }
-            }
-        }
+        prepareEngine(showProgress: true)
     }
 
     @objc private func downloadParakeet() {

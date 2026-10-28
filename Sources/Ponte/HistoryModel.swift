@@ -4,13 +4,26 @@ import SwiftUI
 /// The state behind the Dictations pane: what is on disk, what is being searched for, and what has been re-run.
 @MainActor
 final class HistoryModel: ObservableObject {
+    struct Retranscription: Equatable {
+        let noteID: History.Note.ID
+        let text: String
+    }
+
     @Published var notes: [History.Note] = []
     @Published var query = ""
-    @Published var selection: History.Note.ID?
+    @Published var selection: History.Note.ID? {
+        didSet {
+            guard selection != oldValue else { return }
+            latestRetranscriptionID = nil
+            retranscribed = nil
+            if message == "transcribing…" { message = nil }
+        }
+    }
     /// The last thing that happened, said plainly in the footer rather than as a dialog.
     @Published var message: String?
     /// A fresh transcription of the selected take, when one has been asked for.
-    @Published var retranscribed: String?
+    @Published var retranscribed: Retranscription?
+    private var latestRetranscriptionID: UUID?
 
     var filtered: [History.Note] {
         let needle = query.trimmingCharacters(in: .whitespaces)
@@ -44,24 +57,48 @@ final class HistoryModel: ObservableObject {
             message = "the audio for this take was deleted"
             return
         }
-        retranscribed = nil
-        message = "transcribing…"
+        let requestID = beginRetranscription(for: note.id)
         Task.detached(priority: .userInitiated) {
             do {
                 let result = try AsrEngine.transcribe(wav: audio, parakeetModel: Settings.parakeetModel,
                                                       language: Settings.language)
                 let fresh = Vocabulary.load().applied(to: result.text)
                 await MainActor.run {
-                    self.retranscribed = fresh
-                    self.message = String(format: "transcribed again in %.2fs — copied", result.seconds)
+                    guard self.acceptRetranscription(fresh, for: note.id,
+                                                     requestID: requestID, seconds: result.seconds) else { return }
                     let pb = NSPasteboard.general
                     pb.clearContents()
                     pb.setString(fresh, forType: .string)
                 }
             } catch {
-                await MainActor.run { self.message = "could not transcribe it again: \(error.localizedDescription)" }
+                await MainActor.run {
+                    guard self.latestRetranscriptionID == requestID, self.selection == note.id else { return }
+                    self.latestRetranscriptionID = nil
+                    self.message = "could not transcribe it again: \(error.localizedDescription)"
+                }
             }
         }
+    }
+
+    /// Apply a completion only while it still belongs to the selected note and latest request.
+    /// Kept separate from the engine call so the stale-result rule can be tested without loading a model.
+    func beginRetranscription(for noteID: History.Note.ID) -> UUID {
+        selection = noteID
+        let requestID = UUID()
+        latestRetranscriptionID = requestID
+        retranscribed = nil
+        message = "transcribing…"
+        return requestID
+    }
+
+    @discardableResult
+    func acceptRetranscription(_ text: String, for noteID: History.Note.ID,
+                               requestID: UUID, seconds: Double) -> Bool {
+        guard latestRetranscriptionID == requestID, selection == noteID else { return false }
+        latestRetranscriptionID = nil
+        retranscribed = Retranscription(noteID: noteID, text: text)
+        message = String(format: "transcribed again in %.2fs — copied", seconds)
+        return true
     }
 
     func reveal(_ note: History.Note) {

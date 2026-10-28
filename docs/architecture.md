@@ -36,13 +36,17 @@ is the only time the app touches the network at all — see `Readiness`).
 
 | file | lines | what lives there |
 |---|---:|---|
-| `AppDelegate.swift` | 870 | the app's spine: menu bar, hotkey handling, the recording lifecycle, the menu, permissions, the model and engine switches |
-| `main.swift` | 644 | the CLI — flag parsing, the renderers, and the helpers the tests use (`hudImage`, `voiceRing`) |
-| `ParakeetEngine.swift` | ~320 | FluidAudio's `AsrManager` kept resident, model download/load, and `AsrEngine`, the single entry point |
+| `AppDelegate.swift` | 1,164 | the app's spine: menu bar, hotkey handling, the recording lifecycle, permissions, and model changes |
+| `main.swift` | 644 | CLI dispatch and command implementations |
+| `CLICommandOptions.swift` | 25 | command-specific option validation, so recognized flags cannot silently apply to the wrong command |
+| `CLIRenderers.swift` | 304 | still-image and contact-sheet renderers, including the helpers the tests use (`hudImage`, `voiceRing`) |
+| `ParakeetEngine.swift` | 380 | FluidAudio's `AsrManager` kept resident, coordinated model download/load, and `AsrEngine`, the single entry point |
+| `SettingsWindow.swift` | 708 | settings window shell, shared theme, window model, sidebar, and shared controls |
+| `SettingsPanes.swift` | 576 | the Dictations, General, Speech, Updates, and About pane content |
 | `Icon.swift` | 318 | the app icon's four marks and the menu bar's five, drawn from maths rather than borrowed from SF Symbols |
 | `Orb.swift` | 259 | `HudSpec` (every colour and duration), `HudLifecycle` (geometry and colour per frame), `HudState` |
 | `Support.swift` | ~190 | `AppPaths`, `Settings`, `SettingKey`, logging, notifications, the shell helper |
-| `Transcriber.swift` | ~130 | `Result`, and the note format: markdown with frontmatter carrying engine, timings and confidence |
+| `Transcriber.swift` | ~130 | `Result`, and the note format: markdown with frontmatter carrying engine, timings and confidence; note writes fail visibly rather than being swallowed |
 | `Retake.swift` | ~55 | whether a failed take is still worth offering, and what the menu should call it |
 | `HUD.swift` | 136 | the panel, `show*` entry points, the hide timer |
 | `HudView.swift` | 105 | the SwiftUI box and the live view that ticks it |

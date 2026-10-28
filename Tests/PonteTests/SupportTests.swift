@@ -38,9 +38,9 @@ final class SupportTests: XCTestCase {
     func testANoteRecordsItsFrontmatterAndTranscript() throws {
         let directory = try temporaryDirectory()
         let when = Date(timeIntervalSince1970: 1_700_000_000)
-        let url = Transcriber.save(transcript: "Ship it before lunch.",
-                                   audio: nil, elapsed: 12.3, took: 0.2,
-                                   engine: "parakeet-ultra", directory: directory, now: when)
+        let url = try Transcriber.save(transcript: "Ship it before lunch.",
+                                       audio: nil, elapsed: 12.3, took: 0.2,
+                                       engine: "parakeet-ultra", directory: directory, now: when)
         let note = try XCTUnwrap(url)
         XCTAssertTrue(note.lastPathComponent.hasPrefix("note-"), note.lastPathComponent)
         XCTAssertEqual(note.deletingLastPathComponent().path, directory.path)
@@ -56,10 +56,10 @@ final class SupportTests: XCTestCase {
 
     func testTheRollingIndexStaysBesideItsNotes() throws {
         let directory = try temporaryDirectory()
-        Transcriber.save(transcript: "First thought.", audio: nil, elapsed: 1,
-                         took: 0.1, directory: directory)
-        Transcriber.save(transcript: "Second thought.", audio: nil, elapsed: 1,
-                         took: 0.1, directory: directory)
+        try Transcriber.save(transcript: "First thought.", audio: nil, elapsed: 1,
+                             took: 0.1, directory: directory)
+        try Transcriber.save(transcript: "Second thought.", audio: nil, elapsed: 1,
+                             took: 0.1, directory: directory)
         let index = try String(contentsOf: directory.appendingPathComponent("all-notes.md"),
                                encoding: .utf8)
         XCTAssertTrue(index.contains("First thought."))
@@ -70,10 +70,29 @@ final class SupportTests: XCTestCase {
 
     func testNothingHeardMeansNoNote() throws {
         let directory = try temporaryDirectory()
-        XCTAssertNil(Transcriber.save(transcript: "", audio: nil, elapsed: 3,
-                                      took: 0.1, directory: directory))
+        XCTAssertNil(try Transcriber.save(transcript: "", audio: nil, elapsed: 3,
+                                          took: 0.1, directory: directory))
         let written = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         XCTAssertTrue(written.isEmpty, "an empty transcript should leave nothing behind: \(written)")
+    }
+
+    func testNotesWithTheSameTimestampNeverReplaceEachOther() throws {
+        let directory = try temporaryDirectory()
+        let when = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = try XCTUnwrap(Transcriber.save(transcript: "First.", audio: nil, elapsed: 1,
+                                                    took: 0.1, directory: directory, now: when))
+        let second = try XCTUnwrap(Transcriber.save(transcript: "Second.", audio: nil, elapsed: 1,
+                                                     took: 0.1, directory: directory, now: when))
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(History.notes(in: directory).map(\.text).sorted(), ["First.", "Second."])
+    }
+
+    func testNoteWriteFailureIsReturnedToTheCaller() throws {
+        let parent = try temporaryDirectory()
+        let blocker = parent.appendingPathComponent("not-a-directory")
+        try Data("file".utf8).write(to: blocker)
+        XCTAssertThrowsError(try Transcriber.save(transcript: "Keep this.", audio: nil, elapsed: 1,
+                                                    took: 0.1, directory: blocker))
     }
 
     // MARK: - The hotkey

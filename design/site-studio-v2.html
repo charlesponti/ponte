@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Push-to-talk dictation for Mac. Speak in any app and Ponte puts the words at your cursor, processed on your Mac.">
+  <title>Ponte — Words off leash</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bowlby+One+SC&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #26191d;
+      --paper: #fff8ea;
+      --sun: #f7d74a;
+      --hot: #c8442a;
+      --blue: #c5e5e6;
+      --muted: #6f6265;
+      --line: #d6c9b6;
+      --white: #fffdf8;
+      --orb: #dda82c;
+      --display: "Bowlby One SC", Impact, sans-serif;
+      --body: "DM Sans", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, monospace;
+      --page: 1180px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+    body { margin: 0; color: var(--ink); background: var(--paper); font: 400 16px/1.55 var(--body); -webkit-font-smoothing: antialiased; }
+    a { color: inherit; text-decoration: none; }
+    a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+    .download :focus-visible { outline-color: var(--sun); }
+    button { color: inherit; font: inherit; }
+    svg, canvas { display: block; }
+    .wrap { width: min(calc(100% - 48px), var(--page)); margin-inline: auto; }
+    .mono { font: 500 12px/1.4 var(--mono); letter-spacing: .055em; }
+    .sr-only { position: absolute; inline-size: 1px; block-size: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+    .topbar { min-height: 76px; display: flex; align-items: center; gap: 28px; border-bottom: 1px solid var(--line); }
+    .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; letter-spacing: -.055em; }
+    .dog-mark { width: 34px; height: 30px; }
+    .nav { display: flex; align-items: center; gap: clamp(16px, 3vw, 34px); margin-inline-start: auto; font: 500 12px/1 var(--mono); text-transform: uppercase; letter-spacing: .035em; }
+    .nav a:not(.nav-cta) { text-underline-offset: 5px; }
+    .nav a:not(.nav-cta):hover { text-decoration: underline; }
+
+    .button { min-height: 50px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 0 24px; border: 2px solid var(--ink); border-radius: 6px; background: var(--hot); color: var(--white); font: 600 13px/1 var(--mono); letter-spacing: .015em; box-shadow: 4px 4px 0 var(--ink); transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease; }
+    .button:hover { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--ink); background: #a83926; }
+    .button--small { min-height: 40px; padding-inline: 15px; font-size: 11px; box-shadow: 3px 3px 0 var(--ink); }
+    .button--large { min-height: 60px; padding-inline: 30px; font-size: 14px; }
+    .button--ink { background: var(--ink); color: var(--paper); }
+
+    .hero { padding-block: clamp(56px, 9vw, 108px) 0; overflow: clip; background: var(--sun); }
+    .hero-copy { max-width: 900px; margin-inline: auto; text-align: center; }
+    .hero-orb { width: clamp(180px, 28vw, 238px); aspect-ratio: 1; margin: 0 auto 16px; }
+    .hero-orb canvas { width: 100%; height: 100%; }
+    h1, h2, h3, p { margin-block-start: 0; }
+    h1, h2, h3 { text-wrap: balance; }
+    h1 { max-width: 900px; margin: 0 auto 18px; font: 400 clamp(54px, 10vw, 124px)/.9 var(--display); letter-spacing: -.045em; }
+    .hero-lede { max-width: 625px; margin: 0 auto 28px; font-size: clamp(17px, 2vw, 21px); line-height: 1.45; }
+    .hero-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 18px; }
+    .hero-meta { margin: 16px 0 0; font: 500 11px/1.5 var(--mono); }
+    .hero-art { position: relative; max-width: 940px; margin: clamp(48px, 8vw, 82px) auto 0; }
+    .app-window { position: relative; overflow: hidden; border: 2px solid var(--ink); border-radius: 13px 13px 0 0; background: var(--white); box-shadow: 10px 10px 0 rgba(38, 25, 29, .2); }
+    .window-top { height: 48px; display: flex; align-items: center; gap: 8px; padding-inline: 17px; border-bottom: 1px solid var(--line); background: #f4eee3; }
+    .traffic { width: 9px; height: 9px; border: 1px solid var(--ink); border-radius: 50%; background: var(--hot); }
+    .traffic:nth-child(2) { background: var(--sun); }
+    .traffic:nth-child(3) { background: #77bfa2; }
+    .window-title { margin-inline: auto; padding-inline-end: 34px; color: var(--muted); font: 500 11px/1 var(--mono); }
+    .document { min-height: 328px; padding: clamp(28px, 6vw, 64px) clamp(24px, 8vw, 96px) 100px; text-align: left; }
+    .document h2 { margin-bottom: 28px; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+    .document p { max-width: 590px; margin-bottom: 15px; color: #594e50; font-size: clamp(15px, 2vw, 18px); }
+    .inserted { color: var(--ink) !important; font-weight: 600; }
+    .cursor { display: inline-block; width: 2px; height: 1em; margin-inline-start: 2px; transform: translateY(2px); background: var(--hot); }
+    .demo-hud { position: absolute; z-index: 2; inset-inline-start: 50%; inset-block-end: 14px; width: 92px; height: 92px; display: grid; place-items: center; padding: 0; transform: translateX(-50%); border: 2px solid var(--ink); border-radius: 50%; background: var(--paper); box-shadow: 4px 4px 0 var(--ink); cursor: pointer; transition: width 220ms ease, height 220ms ease, border-radius 220ms ease, background-color 180ms ease, transform 180ms ease; }
+    .demo-hud:hover { transform: translate(-50%, -2px); }
+    .demo-hud:focus-visible { outline: 3px solid var(--blue); outline-offset: 5px; }
+    .demo-hud canvas { width: 76px; height: 76px; transition: opacity 180ms ease, transform 180ms ease; }
+    .demo-hud__status { display: none; font: 600 11px/1 var(--mono); white-space: nowrap; }
+    .demo-hud[data-state="listening"] { background: #fff2d2; }
+    .demo-hud[data-state="listening"] canvas { transform: scale(1.12); }
+    .demo-hud[data-state="transcribing"] canvas { opacity: .62; }
+    .demo-hud[data-state="done"] { width: 142px; height: 48px; border-radius: 24px; background: var(--white); }
+    .demo-hud[data-state="done"] canvas { width: 28px; height: 28px; opacity: .45; }
+    .demo-hud[data-state="done"] .demo-hud__status { display: block; }
+    .caption { max-width: 940px; margin: 17px auto 0; display: flex; justify-content: flex-start; gap: 16px; color: #534644; font: 500 11px/1.5 var(--mono); }
+    @media (max-width: 620px) { .caption { font-size: 10px; } .demo-hud { width: 78px; height: 78px; } .demo-hud canvas { width: 64px; height: 64px; } }
+
+    .proof { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+    .proof-item { min-height: 93px; display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-inline-end: 1px solid var(--line); font-size: 13px; font-weight: 600; line-height: 1.3; }
+    .proof-item:last-child { border-inline-end: 0; }
+    .proof-icon { width: 29px; height: 29px; flex: 0 0 29px; display: grid; place-items: center; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--sun); font: 600 12px/1 var(--mono); }
+
+    .section { padding-block: clamp(76px, 10vw, 132px); }
+    .section-heading { max-width: 760px; margin-bottom: 52px; }
+    .section-heading h2 { margin-bottom: 18px; font: 400 clamp(38px, 6.4vw, 76px)/.98 var(--display); letter-spacing: -.035em; }
+    .section-heading p { max-width: 570px; margin: 0; color: var(--muted); font-size: 18px; }
+    .story-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: clamp(36px, 8vw, 96px); padding-block: 46px; border-top: 1px solid var(--line); }
+    .story-row:last-child { border-bottom: 1px solid var(--line); }
+    .story-row--reverse .story-copy { order: 2; }
+    .story-row--reverse .story-visual { order: 1; }
+    .story-copy h3 { max-width: 470px; margin-bottom: 14px; font: 400 clamp(31px, 4.3vw, 52px)/1.02 var(--display); letter-spacing: -.025em; }
+    .story-copy p { max-width: 420px; margin: 0; color: var(--muted); font-size: 17px; }
+    .story-visual { min-width: 0; min-height: 300px; display: grid; place-items: center; padding: 25px; border: 2px solid var(--ink); border-radius: 10px; background: var(--blue); box-shadow: 7px 7px 0 var(--ink); }
+    .shortcut-visual { display: grid; justify-items: center; gap: 21px; }
+    .keycap { display: inline-flex; min-width: 224px; min-height: 74px; align-items: center; justify-content: center; gap: 8px; padding-inline: 20px; border: 2px solid var(--ink); border-bottom-width: 7px; border-radius: 9px; background: var(--white); font: 500 17px/1 var(--mono); }
+    .keycap span { color: var(--hot); font-size: 20px; }
+    .shortcut-caption { max-width: 270px; margin: 0; text-align: center; font: 500 11px/1.5 var(--mono); }
+    .local-visual { align-content: center; gap: 13px; background: var(--ink); color: var(--paper); }
+    .local-step { width: min(100%, 310px); min-height: 60px; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 13px; padding: 10px 13px; border: 1px solid rgba(255, 248, 234, .28); border-radius: 5px; font-size: 13px; }
+    .local-step strong { font-weight: 600; }
+    .local-step small { color: #f7d74a; font: 500 10px/1.4 var(--mono); }
+    .local-step svg { width: 30px; height: 30px; color: var(--sun); }
+    .history-visual { display: block; min-height: 300px; padding: 22px; background: var(--hot); }
+    .history-window { max-width: 430px; margin: auto; border: 2px solid var(--ink); border-radius: 8px; background: var(--white); box-shadow: 5px 5px 0 var(--ink); overflow: hidden; }
+    .history-head { display: flex; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); font: 500 11px/1 var(--mono); }
+    .history-row { display: grid; grid-template-columns: 54px 1fr; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+    .history-row:last-child { border-bottom: 0; }
+    .history-time { color: var(--muted); font: 500 10px/1.4 var(--mono); }
+    .history-text { font-size: 12px; line-height: 1.45; }
+
+    .voice-proof { display: grid; grid-template-columns: .86fr 1.14fr; align-items: end; gap: 48px; padding: clamp(38px, 7vw, 76px); border: 2px solid var(--ink); border-radius: 10px; background: var(--sun); box-shadow: 8px 8px 0 var(--ink); }
+    .voice-proof h2 { max-width: 520px; margin: 0; font: 400 clamp(38px, 5.8vw, 68px)/.98 var(--display); letter-spacing: -.035em; }
+    .voice-proof p { max-width: 460px; margin: 0; font-size: 17px; }
+    .voice-proof strong { font-weight: 700; }
+
+    .faq { background: var(--blue); }
+    .faq-inner { display: grid; grid-template-columns: .75fr 1.25fr; gap: clamp(40px, 8vw, 100px); }
+    .faq h2 { margin: 0; font: 400 clamp(40px, 6vw, 72px)/.95 var(--display); }
+    .faq-list { border-top: 1.5px solid var(--ink); }
+    details { border-bottom: 1.5px solid var(--ink); }
+    summary { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-block: 16px; font-size: 16px; font-weight: 600; cursor: pointer; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { content: "+"; color: var(--hot); font: 500 23px/1 var(--mono); }
+    details[open] summary::after { content: "−"; }
+    details p { max-width: 600px; padding: 0 30px 22px 0; margin: 0; color: #52484a; font-size: 15px; }
+
+    .download { padding-block: clamp(80px, 11vw, 140px); background: var(--ink); color: var(--paper); }
+    .download-inner { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 34px; }
+    .download h2 { margin: 0 0 14px; font: 400 clamp(44px, 7vw, 82px)/.95 var(--display); letter-spacing: -.04em; }
+    .download p { max-width: 550px; margin: 0; color: #d1c3b8; }
+    .download .button { color: var(--ink); border-color: var(--paper); background: var(--sun); box-shadow: 4px 4px 0 var(--hot); }
+    .download .button:hover { background: #ffe77a; box-shadow: 2px 2px 0 var(--hot); }
+    .download-meta { display: block; margin-top: 15px; color: #d1c3b8; font: 500 10px/1.5 var(--mono); }
+    footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-block: 24px; font: 500 10px/1.5 var(--mono); }
+    .footer-links { display: flex; gap: 20px; }
+
+    @media (max-width: 760px) {
+      .wrap { width: min(calc(100% - 32px), var(--page)); }
+      .topbar { min-height: 66px; gap: 12px; }
+      .brand { font-size: 18px; }
+      .dog-mark { width: 29px; }
+      .nav { gap: 13px; font-size: 10px; }
+      .nav .nav-cta { display: none; }
+      .hero { padding-top: 68px; }
+      h1 { max-width: 580px; font-size: clamp(53px, 14vw, 88px); }
+      .hero-lede { max-width: 530px; }
+      .hero-art { margin-top: 42px; }
+      .document { min-height: 300px; padding: 30px 22px 106px; }
+      .document h2 { margin-bottom: 22px; }
+      .caption { flex-direction: column; gap: 5px; }
+      .demo-note { text-align: start; }
+      .proof { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .proof-item { min-height: 76px; padding: 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
+      .proof-item:nth-child(2) { border-inline-end: 0; }
+      .proof-item:nth-child(n + 3) { border-bottom: 0; }
+      .story-row { grid-template-columns: 1fr; gap: 25px; padding-block: 32px; }
+      .story-row--reverse .story-copy, .story-row--reverse .story-visual { order: initial; }
+      .story-visual { min-height: 260px; }
+      .voice-proof { grid-template-columns: 1fr; gap: 22px; padding: 30px 24px; }
+      .faq-inner { grid-template-columns: 1fr; gap: 30px; }
+      .download-inner { grid-template-columns: 1fr; }
+      .download .button { justify-self: start; }
+    }
+    @media (max-width: 420px) {
+      .nav { gap: 10px; font-size: 9px; }
+      .topbar { gap: 8px; }
+      .button--large { width: 100%; }
+      .proof-icon { width: 25px; height: 25px; flex-basis: 25px; }
+      .proof-item { gap: 8px; font-size: 11px; }
+      .document { min-height: 330px; }
+      footer { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="wrap topbar">
+    <a class="brand" href="#top" aria-label="Ponte home">
+      <svg class="dog-mark" viewBox="0 0 68 48" role="img" aria-label="A little dachshund">
+        <path d="M9 27c5-6 11-8 22-8h13c5 0 9-3 11-9 1-4 4-6 7-5 3 1 3 5 1 8l-4 7c2 2 3 5 2 8l-4 7c-2 3-5 4-8 2l-4-5H26l-4 9h-6l1-10c-5 0-9-2-11-5l-3 3-2-3 6-9c1-2 2-2 4-1l-2 11Z" fill="var(--hot)" stroke="var(--ink)" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M25 21v5h9v-5" fill="none" stroke="var(--sun)" stroke-width="4"/>
+        <circle cx="42" cy="25" r="4" fill="var(--orb)" stroke="var(--ink)" stroke-width="1.5"/>
+        <circle cx="57" cy="17" r="1.7" fill="var(--ink)"/>
+      </svg>
+      <span>Ponte</span>
+    </a>
+    <nav class="nav" aria-label="Main navigation">
+      <a href="#story">How it works</a>
+      <a href="#questions">Questions</a>
+      <a class="button button--small nav-cta" href="https://github.com/charlesponti/ponte/releases/download/v1.1.0/Ponte-1.1.0.dmg">Download</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-copy">
+        <div class="hero-orb"><canvas id="hero-orb" aria-hidden="true"></canvas><span class="sr-only">A slowly turning gold Waveform orb.</span></div>
+        <h1 id="hero-title">Words off leash.</h1>
+        <p class="hero-lede">Push-to-talk dictation for Mac. Speak in any app, and Ponte puts the words at your cursor.</p>
+        <div class="hero-actions">
+          <a class="button button--large" href="https://github.com/charlesponti/ponte/releases/download/v1.1.0/Ponte-1.1.0.dmg">Download Ponte <span aria-hidden="true">↗</span></a>
+        </div>
+        <p class="hero-meta">Free · macOS 15+ · Apple silicon</p>
+      </div>
+
+      <figure class="wrap hero-art" aria-labelledby="demo-caption">
+        <div class="app-window" id="demo">
+          <div class="window-top" aria-hidden="true">
+            <span class="traffic"></span><span class="traffic"></span><span class="traffic"></span>
+            <span class="window-title">A note to send</span>
+          </div>
+          <div class="document">
+            <h2>Follow-up</h2>
+            <p>Hi Jamie,</p>
+            <p>Thanks for taking the time to talk this through with me.<span class="cursor" id="demo-cursor" aria-hidden="true"></span></p>
+            <p id="transcript" class="inserted"></p>
+            <p>Talk soon,<br>Alex</p>
+          </div>
+          <button class="demo-hud" id="replay" type="button" aria-label="Play sample dictation" aria-describedby="demo-caption" data-state="ready">
+            <canvas id="hud-orb" aria-hidden="true"></canvas><span class="demo-hud__status" aria-hidden="true">Pasted ✓</span>
+          </button>
+        </div>
+        <figcaption class="caption" id="demo-caption">
+          <span>Click the gold orb to play a sample. This preview never uses your microphone.</span>
+        </figcaption>
+        <p class="sr-only" id="demo-announcement" aria-live="polite" aria-atomic="true"></p>
+      </figure>
+
+      <div class="wrap proof" aria-label="Ponte at a glance">
+        <div class="proof-item"><span class="proof-icon" aria-hidden="true">⌘</span><span>Works in the app you’re already using</span></div>
+        <div class="proof-item"><span class="proof-icon" aria-hidden="true">⌂</span><span>Speech processed on your Mac</span></div>
+        <div class="proof-item"><span class="proof-icon" aria-hidden="true">—</span><span>No account to make</span></div>
+        <div class="proof-item"><span class="proof-icon" aria-hidden="true">✓</span><span>No subscription</span></div>
+      </div>
+    </section>
+
+    <section class="wrap section" id="story" aria-labelledby="story-title">
+      <div class="section-heading">
+        <h2 id="story-title">Your hands have other things to do.</h2>
+        <p>Say what you mean. Keep your place. Ponte takes the shortest route from voice to cursor.</p>
+      </div>
+
+      <article class="story-row">
+        <div class="story-copy">
+          <h3>Keep the thought. Skip the window hop.</h3>
+          <p>Press ⌥⌘Space wherever you’re writing. The little gold orb listens while the rest of your screen stays put.</p>
+        </div>
+        <div class="story-visual shortcut-visual" aria-label="The Ponte shortcut is Option, Command, Space">
+          <div class="keycap"><span>⌥</span><span>⌘</span><span>Space</span></div>
+          <p class="shortcut-caption">One shortcut. Your cursor stays right where you left it.</p>
+        </div>
+      </article>
+
+      <article class="story-row story-row--reverse">
+        <div class="story-copy">
+          <h3>Your voice stays on your Mac.</h3>
+          <p>Parakeet transcribes on the Neural Engine. After the first model download, your audio and text stay on your machine.</p>
+        </div>
+        <div class="story-visual local-visual" aria-label="Audio is transcribed on the Mac and pasted into the active app">
+          <div class="local-step">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="11" y="4" width="10" height="17" rx="5" stroke="currentColor" stroke-width="2"/><path d="M7 15a9 9 0 0 0 18 0M16 24v4m-5 0h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <strong>Your voice</strong><small>MIC</small>
+          </div>
+          <div class="local-step">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="4" y="6" width="24" height="20" rx="3" stroke="currentColor" stroke-width="2"/><path d="M9 12h14M9 17h9M9 22h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <strong>Neural Engine</strong><small>ON THIS MAC</small>
+          </div>
+          <div class="local-step">
+            <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M8 5h16a3 3 0 0 1 3 3v17H5V8a3 3 0 0 1 3-3Z" stroke="currentColor" stroke-width="2"/><path d="M10 12h12m-12 5h12m-12 5h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <strong>At your cursor</strong><small>YOUR APP</small>
+          </div>
+        </div>
+      </article>
+
+      <article class="story-row">
+        <div class="story-copy">
+          <h3>Good takes have a place to land.</h3>
+          <p>Your dictations are saved as notes on your Mac. Search the history, copy a take, or transcribe it again.</p>
+        </div>
+        <div class="story-visual history-visual" aria-label="Example Ponte dictation history">
+          <div class="history-window">
+            <div class="history-head"><span>Dictations</span><span>⌕ &nbsp; Search</span></div>
+            <div class="history-row"><span class="history-time">10:42<br>12 sec</span><span class="history-text">Thursday afternoon works. I’ll bring the samples…</span></div>
+            <div class="history-row"><span class="history-time">09:18<br>8 sec</span><span class="history-text">Can you send me the latest draft before lunch?</span></div>
+            <div class="history-row"><span class="history-time">Yesterday<br>16 sec</span><span class="history-text">The blue one feels calmer, but the orange one…</span></div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="wrap section" aria-labelledby="privacy-title">
+      <div class="voice-proof">
+        <h2 id="privacy-title">No cloud. No eavesdropping.</h2>
+        <p>Speech recognition runs locally on Apple Silicon. Ponte downloads its speech model the first time you use it and checks for its own app updates. <strong>Your audio and transcript aren’t sent with those checks.</strong></p>
+      </div>
+    </section>
+
+    <section class="faq section" id="questions" aria-labelledby="faq-title">
+      <div class="wrap faq-inner">
+        <h2 id="faq-title">A few good questions.</h2>
+        <div class="faq-list">
+          <details>
+            <summary>Does Ponte transcribe while I speak?</summary>
+            <p>No. Ponte records while you talk, then transcribes and pastes the text when you stop.</p>
+          </details>
+          <details>
+            <summary>What does the first launch download?</summary>
+            <p>The Parakeet speech model, about 600 MB. It stays on your Mac for future dictation.</p>
+          </details>
+          <details>
+            <summary>Which Macs can run Ponte?</summary>
+            <p>Ponte requires macOS 15 or later and Apple silicon.</p>
+          </details>
+          <details>
+            <summary>Does it need an account or subscription?</summary>
+            <p>No account or subscription. Ponte 1.1.0 is free to download.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="download" id="download" aria-labelledby="download-title">
+      <div class="wrap download-inner">
+        <div>
+          <h2 id="download-title">Let your voice out.</h2>
+          <p>Download Ponte for your Mac. Speak in any app and get straight back to the thought.</p>
+          <span class="download-meta">Ponte 1.1.0 · macOS 15+ · Apple silicon · Signed and notarized</span>
+        </div>
+        <a class="button button--large" href="https://github.com/charlesponti/ponte/releases/download/v1.1.0/Ponte-1.1.0.dmg">Download for Mac <span aria-hidden="true">↗</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>Ponte · by Ponti Studios · © 2026</span>
+    <div class="footer-links"><a href="https://github.com/charlesponti/ponte">Source on GitHub</a><a href="https://github.com/charlesponti/ponte/releases">All releases</a></div>
+  </footer>
+
+  <script>
+    (() => {
+      const TAU = Math.PI * 2;
+      const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+      const DOTS = 650;
+      const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const lattice = Array.from({ length: DOTS }, (_, index) => {
+        const y = 1 - 2 * (index + 0.5) / DOTS;
+        const ring = Math.sqrt(Math.max(0, 1 - y * y));
+        const angle = GOLDEN * index;
+        return [Math.cos(angle) * ring, y, Math.sin(angle) * ring];
+      });
+      let demoState = 'ready';
+      const paintOrb = (canvas, rate, breathe) => {
+        const context = canvas.getContext('2d');
+        let spin = 0;
+        let previous = performance.now();
+        function draw(now) {
+          const size = canvas.clientWidth;
+          const breath = breathe ? 1 + 0.035 * Math.sin(now / 1000 * 1.35) : 1;
+          const dpr = window.devicePixelRatio || 1;
+          if (size > 0) {
+            const pixels = Math.round(size * dpr);
+            if (canvas.width !== pixels || canvas.height !== pixels) { canvas.width = pixels; canvas.height = pixels; }
+            context.setTransform(dpr, 0, 0, dpr, 0, 0);
+            context.clearRect(0, 0, size, size);
+            const half = size / 2;
+            const radius = half / 1.45 * 0.94;
+            const dotRadius = Math.max(0.42, 0.62 * size / 64);
+            const sy = Math.sin(spin), cy = Math.cos(spin);
+            const sx = Math.sin(0.35), cx = Math.cos(0.35);
+            const layers = [[], [], [], []];
+            for (const [x, y, z] of lattice) {
+              const rotatedX = x * cy + z * sy;
+              const rotatedZ = -x * sy + z * cy;
+              const projectedY = y * cx - rotatedZ * sx;
+              const projectedZ = y * sx + rotatedZ * cx;
+              const depth = (projectedZ + 1) / 2;
+              const r = dotRadius * (0.75 + 0.25 * depth);
+              layers[Math.min(3, Math.floor(depth * 4))].push(half + rotatedX * radius * breath, half - projectedY * radius * breath, Math.max(0.35, r * breath));
+            }
+            const opacities = [0.18, 0.4, 0.7, 1];
+            for (let layer = 0; layer < layers.length; layer++) {
+              const points = layers[layer];
+              context.beginPath();
+              for (let index = 0; index < points.length; index += 3) {
+                context.moveTo(points[index] + points[index + 2], points[index + 1]);
+                context.arc(points[index], points[index + 1], points[index + 2], 0, TAU);
+              }
+              context.fillStyle = `rgba(221,168,44,${opacities[layer]})`;
+              context.fill();
+            }
+          }
+          spin += Math.min(64, now - previous) / 1000 * rate();
+          previous = now;
+          if (!motionPreference.matches) requestAnimationFrame(draw);
+        }
+        requestAnimationFrame(draw);
+        new ResizeObserver(() => { if (motionPreference.matches) draw(performance.now()); }).observe(canvas);
+        return draw;
+      };
+      const heroDraw = paintOrb(document.getElementById('hero-orb'), () => 0.35, true);
+      const hudDraw = paintOrb(document.getElementById('hud-orb'), () => demoState === 'listening' ? 1.5 : demoState === 'transcribing' ? 0.55 : 0.22, false);
+      motionPreference.addEventListener?.('change', () => { heroDraw(performance.now()); hudDraw(performance.now()); });
+
+      const button = document.getElementById('replay');
+      const transcript = document.getElementById('transcript');
+      const announcement = document.getElementById('demo-announcement');
+      const sample = 'Thursday afternoon works. I’ll bring the samples and we can choose a finish together.';
+      let timers = [];
+      const clearTimers = () => { timers.forEach(clearTimeout); timers = []; };
+      const setState = (state, label) => {
+        demoState = state;
+        button.dataset.state = state;
+        if (label) button.setAttribute('aria-label', label);
+        hudDraw(performance.now());
+      };
+      const pasteSample = () => {
+        transcript.textContent = sample;
+        const caret = document.createElement('span');
+        caret.className = 'cursor';
+        caret.setAttribute('aria-hidden', 'true');
+        transcript.append(caret);
+        document.getElementById('demo-cursor').hidden = true;
+        setState('done', 'Sample text inserted. Play sample dictation again.');
+        announcement.textContent = 'Sample text pasted into the example draft.';
+        button.disabled = false;
+        timers.push(setTimeout(() => setState('ready', 'Play sample dictation'), 1800));
+      };
+      button.addEventListener('click', () => {
+        clearTimers();
+        button.disabled = true;
+        setState('listening', 'Playing sample dictation');
+        transcript.textContent = '';
+        document.getElementById('demo-cursor').hidden = true;
+        announcement.textContent = 'Playing the sample recording.';
+        if (motionPreference.matches) { pasteSample(); return; }
+        timers.push(setTimeout(() => {
+          setState('transcribing', 'Transcribing sample dictation');
+          announcement.textContent = 'Transcribing the sample.';
+        }, 2100));
+        timers.push(setTimeout(pasteSample, 3900));
+      });
+    })();
+  </script>
+</body>
+</html>

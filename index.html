@@ -368,7 +368,10 @@
         const context = canvas.getContext('2d');
         let spin = 0;
         let previous = performance.now();
-        function draw(now) {
+        let frame = 0;
+        let visible = false;
+        const draw = (now) => {
+          frame = 0;
           const size = canvas.clientWidth;
           const breath = breathe ? 1 + 0.035 * Math.sin(now / 1000 * 1.35) : 1;
           const dpr = window.devicePixelRatio || 1;
@@ -406,15 +409,29 @@
           }
           spin += Math.min(64, now - previous) / 1000 * rate();
           previous = now;
-          if (!motionPreference.matches) requestAnimationFrame(draw);
-        }
-        requestAnimationFrame(draw);
-        new ResizeObserver(() => { if (motionPreference.matches) draw(performance.now()); }).observe(canvas);
-        return draw;
+        };
+        const schedule = () => {
+          if (visible && !document.hidden && !motionPreference.matches && !frame) frame = requestAnimationFrame(tick);
+        };
+        const tick = (now) => { draw(now); schedule(); };
+        const update = () => {
+          if (visible && !document.hidden && !motionPreference.matches) schedule();
+          else if (frame) { cancelAnimationFrame(frame); frame = 0; }
+          draw(performance.now());
+        };
+        const observer = 'IntersectionObserver' in window ? new IntersectionObserver(([entry]) => {
+          visible = entry.isIntersecting;
+          update();
+        }, { rootMargin: '120px' }) : null;
+        if (observer) observer.observe(canvas); else visible = true;
+        new ResizeObserver(update).observe(canvas);
+        draw(performance.now());
+        return update;
       };
       const heroDraw = paintOrb(document.getElementById('hero-orb'), () => 0.35, true);
       const hudDraw = paintOrb(document.getElementById('hud-orb'), () => demoState === 'listening' ? 1.5 : demoState === 'transcribing' ? 0.55 : 0.22, false);
-      motionPreference.addEventListener?.('change', () => { heroDraw(performance.now()); hudDraw(performance.now()); });
+      motionPreference.addEventListener?.('change', () => { heroDraw(); hudDraw(); });
+      document.addEventListener('visibilitychange', () => { heroDraw(); hudDraw(); });
 
       const button = document.getElementById('replay');
       const transcript = document.getElementById('transcript');

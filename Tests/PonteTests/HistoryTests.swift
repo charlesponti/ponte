@@ -19,13 +19,13 @@ final class HistoryTests: XCTestCase {
 
     @discardableResult
     private func write(_ text: String, seconds: Double = 3.2, engine: String = "parakeet-ultra",
-                       at when: TimeInterval = 1_700_000_000) -> URL? {
-        Transcriber.save(transcript: text, audio: nil, elapsed: seconds, took: 0.2, engine: engine,
-                         directory: directory, now: Date(timeIntervalSince1970: when))
+                       at when: TimeInterval = 1_700_000_000) throws -> URL? {
+        try Transcriber.save(transcript: text, audio: nil, elapsed: seconds, took: 0.2, engine: engine,
+                             directory: directory, now: Date(timeIntervalSince1970: when))
     }
 
-    func testANoteTheAppWroteReadsBack() {
-        write("the quick brown fox")
+    func testANoteTheAppWroteReadsBack() throws {
+        try write("the quick brown fox")
         let notes = History.notes(in: directory)
         XCTAssertEqual(notes.count, 1)
         XCTAssertEqual(notes[0].text, "the quick brown fox")
@@ -35,24 +35,24 @@ final class HistoryTests: XCTestCase {
         XCTAssertNil(notes[0].audioName, "audio deleted after transcription is not an audio file")
     }
 
-    func testNewestFirst() {
-        write("older", at: 1_700_000_000)
-        write("newer", at: 1_700_000_600)
+    func testNewestFirst() throws {
+        try write("older", at: 1_700_000_000)
+        try write("newer", at: 1_700_000_600)
         XCTAssertEqual(History.notes(in: directory).map(\.text), ["newer", "older"])
     }
 
-    func testTheRollingLogIsNotANote() {
-        write("one")
-        write("two", at: 1_700_000_600)
+    func testTheRollingLogIsNotANote() throws {
+        try write("one")
+        try write("two", at: 1_700_000_600)
         XCTAssertTrue(FileManager.default.fileExists(
             atPath: directory.appendingPathComponent("all-notes.md").path),
             "the writer also keeps a rolling log")
         XCTAssertEqual(History.notes(in: directory).count, 2, "only note-*.md files are notes")
     }
 
-    func testSearchCoversTheTextTheEngineAndTheDate() {
-        write("deploy the parser", engine: "parakeet-ultra")
-        write("something else entirely", engine: "parakeet-tdt-v3", at: 1_700_000_000 + 86_400)
+    func testSearchCoversTheTextTheEngineAndTheDate() throws {
+        try write("deploy the parser", engine: "parakeet-ultra")
+        try write("something else entirely", engine: "parakeet-tdt-v3", at: 1_700_000_000 + 86_400)
         let notes = History.notes(in: directory)
 
         XCTAssertEqual(notes.filter { $0.matches("parser") }.count, 1)

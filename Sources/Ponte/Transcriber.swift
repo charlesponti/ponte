@@ -18,9 +18,11 @@ enum Transcriber {
     static func save(transcript: String, audio: URL?, elapsed: TimeInterval, took: Double,
                      engine: String = "parakeet",
                      directory: URL = AppPaths.transcripts,
-                     now: Date = Date()) -> URL? {
+                     now: Date = Date()) throws -> URL? {
         guard !transcript.isEmpty else { return nil }
-        let file = directory.appendingPathComponent("note-\(AppPaths.stamp(now)).md")
+        // The timestamp keeps names sortable; the UUID prevents two fast or concurrent takes from replacing one
+        // another when they finish in the same second.
+        let file = directory.appendingPathComponent("note-\(AppPaths.stamp(now))-\(UUID().uuidString).md")
         let duration = String(format: "%.1fs", elapsed)
         let audioField = (Settings.keepAudio ? audio?.lastPathComponent : nil) ?? "(deleted after transcription)"
         let body = """
@@ -35,14 +37,14 @@ enum Transcriber {
 
         \(transcript)
         """
-        try? body.write(to: file, atomically: true, encoding: .utf8)
+        try body.write(to: file, atomically: true, encoding: .utf8)
 
         // Rolling plain-text log, easiest thing to grep.
         let logLine = "## \(AppPaths.stamp(now))  (\(duration))\n\n\(transcript)\n\n"
         let log = directory.appendingPathComponent("all-notes.md")
         if let handle = try? FileHandle(forWritingTo: log) {
             handle.seekToEndOfFile()
-            handle.write(logLine.data(using: .utf8)!)
+            if let data = logLine.data(using: .utf8) { handle.write(data) }
             try? handle.close()
         } else {
             try? logLine.write(to: log, atomically: true, encoding: .utf8)
