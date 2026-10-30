@@ -40,8 +40,10 @@ DMG="$ROOT/dist/$APP_NAME-$VERSION.dmg"
 
 # MARK: - The identity
 
+# Resolve to the certificate *hash*, not its name: passing the name to codesign on this machine produces an
+# ad-hoc signature (TeamIdentifier=not set) for the nested binaries, which notarytool rejects. The hash works.
 DEVID="$(security find-identity -v -p codesigning 2>/dev/null \
-  | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+    | grep "Developer ID Application" | head -1 | awk '{print $2}')"
 if [ -z "$DEVID" ]; then
   echo "!! no Developer ID Application certificate found."
   echo "!! A DMG signed with a development certificate opens on other Macs only with a"
@@ -49,7 +51,7 @@ if [ -z "$DEVID" ]; then
   echo "!! Certificates (Developer ID Application), or accept that for a personal copy."
   exit 1
 fi
-TEAM_ID="${PONTE_TEAM_ID:-$(sed -n 's/.*(\([A-Z0-9]\{10\}\))".*/\1/p' <<<"$DEVID")}"
+TEAM_ID="${PONTE_TEAM_ID:-3QHJ2KN8AL}"
 TEAM_ID="${TEAM_ID:-3QHJ2KN8AL}"
 echo "==> signing identity: $DEVID"
 echo "==> team: $TEAM_ID"

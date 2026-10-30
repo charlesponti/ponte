@@ -75,11 +75,11 @@ fi
 SIGN_ID="${PONTE_SIGN_ID:-}"
 if [ -z "$SIGN_ID" ]; then
   SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+      | grep "Developer ID Application" | head -1 | awk '{print $2}')"
 fi
 if [ -z "$SIGN_ID" ]; then
   SIGN_ID="$(security find-identity -v -p codesigning 2>/dev/null \
-    | sed -n 's/.*"\(Apple Development:[^"]*\)".*/\1/p' | head -1)"
+    | grep "Apple Development" | head -1 | awk '{print $2}')"
 fi
 
 if [ -n "$SIGN_ID" ]; then
