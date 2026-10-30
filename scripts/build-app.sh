@@ -48,7 +48,7 @@ done
 # Sparkle travels inside the bundle. Everything nested has to be signed from the inside out — its helper apps and
 # XPC services first, then the framework, then the app — because signing a bundle that contains unsigned code fails.
 # `--deep` would do that in one pass and is deprecated for signing for exactly the reason it looks convenient.
-FW_SRC=".build/out/Products/Release/Sparkle.framework"
+FW_SRC=".build/release/Sparkle.framework"
 if [ -d "$FW_SRC" ]; then
   mkdir -p "$APP/Contents/Frameworks"
   cp -R "$FW_SRC" "$APP/Contents/Frameworks/"

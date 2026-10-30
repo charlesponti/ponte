@@ -76,6 +76,18 @@ if [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Contents/Info.
 fi
 echo "    stamped $STAMP_SHORT ($STAMP_BUILD)"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+
+# Sparkle is the one dynamically linked framework. Everything else in this bundle is static, so without this
+# line the app is signed, notarized and stapled — and dies in dyld before it can open. (This is why 1.1.0 shipped
+# dead: the build that produced the DMG copied the bundles but not the framework.)
+FW_SRC=".build/release/Sparkle.framework"
+if [ -d "$FW_SRC" ]; then
+  mkdir -p "$APP/Contents/Frameworks"
+  cp -R "$FW_SRC" "$APP/Contents/Frameworks/"
+  echo "    + Sparkle.framework"
+else
+  echo "!! Sparkle.framework missing from .build/release — the app cannot launch"; exit 1
+fi
 for bundle in .build/release/*.bundle; do
   [ -e "$bundle" ] || continue
   cp -R "$bundle" "$APP/Contents/Resources/"
