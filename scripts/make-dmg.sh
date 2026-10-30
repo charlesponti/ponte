@@ -115,6 +115,13 @@ if [ -d "$FW" ]; then
   done
   codesign --force --options runtime --timestamp --sign "$DEVID" "$FW" >/dev/null 2>&1 \
     || { echo "!! signing Sparkle.framework failed"; exit 1; }
+
+  # The binary links @rpath/Sparkle.framework, and SwiftPM's default rpath is @loader_path (Contents/MacOS),
+  # which does not contain it. Without this the app is signed and notarized and dies in dyld before it opens.
+  # (This is what made the 1.1.0 download fail to launch after every earlier fix landed.)
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Ponte" 2>/dev/null || true
+  if ! otool -L "$APP/Contents/MacOS/Ponte" | grep -q "Sparkle.framework"; then
+    echo "!! Sparkle is not linked — nothing to fix"; fi
   echo "    signed Sparkle.framework (helpers and framework)"
 fi
 

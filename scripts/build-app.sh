@@ -97,6 +97,8 @@ if [ -n "$SIGN_ID" ]; then
     codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$FW" >/dev/null 2>&1 \
       || { echo "!! signing Sparkle.framework failed"; exit 1; }
     echo "    signed Sparkle.framework"
+    # SwiftPM's default rpath does not reach Contents/Frameworks, so the Sparkle link would dangle. See make-dmg.sh.
+    install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Ponte" 2>/dev/null || true
   fi
   codesign --force --sign "$SIGN_ID" --identifier com.ponti.ponte "$APP" >/dev/null 2>&1 \
     || { echo "codesign failed with '$SIGN_ID'"; exit 1; }
