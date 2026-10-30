@@ -95,6 +95,22 @@ done
 
 # The hardened runtime is not optional: notarytool rejects anything without it. --timestamp is what
 # makes the signature provable after the certificate expires.
+# Sparkle is a framework that contains its own helper apps and XPC services. They must be signed first,
+# from the inside out, with the hardened runtime and a secure timestamp — otherwise notarytool rejects the
+# whole archive with "the binary is not signed with a valid Developer ID certificate", which is what 1.1.0's
+# first notarization attempt did. Signing only the outer app is not enough, and --deep is deprecated.
+FW="$APP/Contents/Frameworks/Sparkle.framework"
+if [ -d "$FW" ]; then
+  for item in "$FW"/Versions/B/Autoupdate "$FW"/Versions/B/Updater.app \
+              "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Installer.xpc \
+              "$FW"/Versions/B/Downloader.xpc; do
+    [ -e "$item" ] && codesign --force --options runtime --timestamp --sign "$DEVID" "$item" >/dev/null 2>&1 || true
+  done
+  codesign --force --options runtime --timestamp --sign "$DEVID" "$FW" >/dev/null 2>&1 \
+    || { echo "!! signing Sparkle.framework failed"; exit 1; }
+  echo "    signed Sparkle.framework (helpers and framework)"
+fi
+
 echo "==> signing with the hardened runtime"
 codesign --force --options runtime --timestamp \
   --sign "$DEVID" --identifier com.ponti.ponte \

@@ -90,9 +90,9 @@ if [ -n "$SIGN_ID" ]; then
     for item in "$FW"/Versions/B/Autoupdate "$FW"/Versions/B/Updater.app \
                 "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Installer.xpc \
                 "$FW"/Versions/B/Downloader.xpc; do
-      [ -e "$item" ] && codesign --force --sign "$SIGN_ID" --timestamp "$item" >/dev/null 2>&1 || true
+      [ -e "$item" ] && codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$item" >/dev/null 2>&1 || true
     done
-    codesign --force --sign "$SIGN_ID" --timestamp "$FW" >/dev/null 2>&1 \
+    codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$FW" >/dev/null 2>&1 \
       || { echo "!! signing Sparkle.framework failed"; exit 1; }
     echo "    signed Sparkle.framework"
   fi
