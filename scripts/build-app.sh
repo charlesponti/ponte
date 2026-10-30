@@ -87,10 +87,12 @@ if [ -n "$SIGN_ID" ]; then
   # Inside out: Sparkle's own helpers, then the framework, then the app that contains them.
   FW="$APP/Contents/Frameworks/Sparkle.framework"
   if [ -d "$FW" ]; then
-    for item in "$FW"/Versions/B/Autoupdate "$FW"/Versions/B/Updater.app \
-                "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Installer.xpc \
-                "$FW"/Versions/B/Downloader.xpc; do
-      [ -e "$item" ] && codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$item" >/dev/null 2>&1 || true
+    while IFS= read -r -d '' bin; do
+      codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$bin" >/dev/null 2>&1 || true
+    done < <(find "$FW" -type f -perm -111 -print0)
+    for bundle in "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Updater.app \
+                  "$FW"/Versions/B/Installer.xpc "$FW"/Versions/B/Downloader.xpc; do
+      [ -e "$bundle" ] && codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$bundle" >/dev/null 2>&1 || true
     done
     codesign --force --options runtime --timestamp --sign "$SIGN_ID" "$FW" >/dev/null 2>&1 \
       || { echo "!! signing Sparkle.framework failed"; exit 1; }

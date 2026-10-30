@@ -103,10 +103,15 @@ done
 # first notarization attempt did. Signing only the outer app is not enough, and --deep is deprecated.
 FW="$APP/Contents/Frameworks/Sparkle.framework"
 if [ -d "$FW" ]; then
-  for item in "$FW"/Versions/B/Autoupdate "$FW"/Versions/B/Updater.app \
-              "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Installer.xpc \
-              "$FW"/Versions/B/Downloader.xpc; do
-    [ -e "$item" ] && codesign --force --options runtime --timestamp --sign "$DEVID" "$item" >/dev/null 2>&1 || true
+  # Inside-out, and every Mach-O first: signing the .xpc or .app bundle does not reliably cover the binary
+  # sitting inside it on this toolchain (the notary kept rejecting Downloader.xpc/.../Downloader and Installer.xpc/.../Installer).
+  # Sign each executable, then each bundle, then the framework.
+  while IFS= read -r -d '' bin; do
+    codesign --force --options runtime --timestamp --sign "$DEVID" "$bin" >/dev/null 2>&1 || true
+  done < <(find "$FW" -type f -perm -111 -print0)
+  for bundle in "$FW"/Versions/B/Autoupdate.app "$FW"/Versions/B/Updater.app \
+                "$FW"/Versions/B/Installer.xpc "$FW"/Versions/B/Downloader.xpc; do
+    [ -e "$bundle" ] && codesign --force --options runtime --timestamp --sign "$DEVID" "$bundle" >/dev/null 2>&1 || true
   done
   codesign --force --options runtime --timestamp --sign "$DEVID" "$FW" >/dev/null 2>&1 \
     || { echo "!! signing Sparkle.framework failed"; exit 1; }
