@@ -10,7 +10,7 @@ let package = Package(
         // Parakeet TDT / Unified ASR on the Apple Neural Engine via CoreML.
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.17.0"),
         // The orb maths, the orb view and the recording engine, shared with Thames.
-        .package(url: "https://github.com/charlesponti/waveform.git", from: "0.5.3"),
+        .package(url: "https://github.com/ponti-studios/hominem-swift", from: "0.2.1"),
         // Updates. The one network request the app makes, and only to fetch its own appcast — see #6. Sparkle's
         // product is a prebuilt binary target, so this pulls a signed framework rather than compiling one.
         .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
@@ -20,9 +20,9 @@ let package = Package(
             name: "Ponte",
             dependencies: [
                 .product(name: "FluidAudio", package: "FluidAudio"),
-                .product(name: "WaveformCore", package: "waveform"),
-                .product(name: "WaveformUI", package: "waveform"),
-                .product(name: "WaveformCapture", package: "waveform"),
+                .product(name: "WaveformCore", package: "hominem-swift"),
+                .product(name: "WaveformUI", package: "hominem-swift"),
+                .product(name: "WaveformCapture", package: "hominem-swift"),
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             path: "Sources/Ponte",

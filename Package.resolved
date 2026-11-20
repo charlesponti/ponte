@@ -1,5 +1,5 @@
 {
-  "originHash" : "ad214ea8e4e29ecad91df086ec46abdd42ded85abe9e2f6cf41b345325709f0c",
+  "originHash" : "cba4f9bdb2402837c5287115b61e7e19c6f95eb7ba0ffe22c2938801cd5b5d71",
   "pins" : [
     {
       "identity" : "fluidaudio",
@@ -11,21 +11,21 @@
       }
     },
     {
+      "identity" : "hominem-swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ponti-studios/hominem-swift",
+      "state" : {
+        "revision" : "7c040521136914091ff71a29989ed979259513d5",
+        "version" : "0.2.1"
+      }
+    },
+    {
       "identity" : "sparkle",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
         "revision" : "eef1a539a373c1f1a320624b1130fc5de7b2e100",
         "version" : "2.10.0"
-      }
-    },
-    {
-      "identity" : "waveform",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/charlesponti/waveform.git",
-      "state" : {
-        "revision" : "8e4974bb8f9464777320d9501457350fa3523638",
-        "version" : "0.5.3"
       }
     }
   ],
