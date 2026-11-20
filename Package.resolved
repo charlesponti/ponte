@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ponti-studios/hominem-swift",
       "state" : {
-        "revision" : "7c040521136914091ff71a29989ed979259513d5",
-        "version" : "0.2.1"
+        "revision" : "ab74072a394db1ea2a182b3e29d8ff72a50ce07f",
+        "version" : "0.2.3"
       }
     },
     {
